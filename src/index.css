@@ -1,0 +1,38 @@
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-m3-primary: #0061A4;
+  --color-m3-surface: #F8F9FF;
+  --color-m3-surface-variant: #E0E2EC;
+  --color-m3-secondary: #535F70;
+
+  --color-m3-surface-dark: #1A1C1E;
+  --color-m3-on-surface-dark: #E2E2E6;
+  --color-m3-surface-dict: #1A1C1E; /* Typo in previous? No, surface-dark is there */
+  --color-m3-surface-dark: #1A1C1E;
+  --color-m3-on-surface-dark: #E2E2E6;
+  --color-m3-primary-dark: #D1E4FF;
+  --color-m3-error: #BA1A1A;
+  --color-m3-error-dark: #FFB4AB;
+
+  --radius-m3-xl: 28px;
+
+  --font-roboto: "Roboto", sans-serif;
+}
+
+
+
+body {
+  background-color: var(--color-m3-surface);
+  font-family: "Roboto", sans-serif;
+  margin: 0;
+  padding: 0;
+}
+
+@variant dark {
+  body {
+    background-color: var(--color-m3-surface-dark);
+    color: var(--color-m3-on-surface-dark);
+  }
+}
