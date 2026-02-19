@@ -4,13 +4,14 @@ import HomePage from './pages/HomePage';
 import ProcessPage from './pages/ProcessPage';
 import QuizPage from './pages/QuizPage';
 import AdminPage from './pages/AdminPage';
-import ProtectedRoute from './components/ProtectedRoute'; // Import
+import AdminRoute from './components/AdminRoute'; // Import
 import Navbar from './components/Navbar';
 import './App.css';
 
 import { useEffect } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
-import { auth } from './firebaseConfig';
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore'; // Added imports
+import { auth, db } from './firebaseConfig';
 import { ADMIN_UID } from './constants';
 
 function Layout() {
@@ -21,17 +22,46 @@ function Layout() {
   const showNavbar = location.pathname !== '/' && location.pathname !== '/admin';
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      // 1. Save/Update User in Firestore
+      if (user) {
+        try {
+          const userRef = doc(db, 'users', user.uid);
+          const userSnap = await getDoc(userRef);
+          
+          if (!userSnap.exists()) {
+            // New User: Set default fields + isAdmin: false
+            await setDoc(userRef, {
+              email: user.email,
+              photoURL: user.photoURL,
+              createdAt: serverTimestamp(),
+              lastLogin: serverTimestamp(),
+              isAdmin: false // Default role
+            });
+          } else {
+            // Existing User: Update lastLogin, preserve isAdmin
+            await setDoc(userRef, {
+              email: user.email,
+              photoURL: user.photoURL,
+              lastLogin: serverTimestamp()
+            }, { merge: true });
+          }
+        } catch (err) {
+          console.error("Error updating user record:", err);
+        }
+      }
+
+      // 2. Navigation Logic
       // If user is logged in and currently on the Login page ('/'), redirect them
       if (user && location.pathname === '/') {
         if (user.uid === ADMIN_UID) {
-          navigate('/admin');
+           navigate('/admin');
         } else {
-          navigate('/home');
+           navigate('/home');
         }
       } else if (!user && location.pathname !== '/') {
         // Global Protection: If not logged in and trying to access any other page, redirect to Login
-        navigate('/', { replace: true }); // Prevent going back to protected route
+        navigate('/'); 
       }
     });
     return () => unsubscribe();
@@ -48,9 +78,9 @@ function Layout() {
           <Route 
             path="/admin" 
             element={
-              <ProtectedRoute>
+              <AdminRoute>
                 <AdminPage />
-              </ProtectedRoute>
+              </AdminRoute>
             } 
           /> 
         </Routes>

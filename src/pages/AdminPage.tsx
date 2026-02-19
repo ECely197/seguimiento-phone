@@ -7,8 +7,9 @@ import AdminAgents from './AdminAgents';
 import AdminQuizAssigner from './AdminQuizAssigner';
 import AdminProcessUpload from './AdminProcessUpload';
 import AdminQuizEditor from './AdminQuizEditor';
+import AdminUsers from './AdminUsers';
 
-type AdminSection = 'agents' | 'processes' | 'quizzes' | 'assignments';
+type AdminSection = 'agents' | 'processes' | 'quizzes' | 'assignments' | 'users';
 
 export default function AdminPage() {
   const [activeSection, setActiveSection] = useState<AdminSection>('agents');
@@ -26,6 +27,7 @@ export default function AdminPage() {
 
   const navItems = [
     { id: 'agents', label: 'Gestión de Agentes', icon: Users },
+    { id: 'users', label: 'Gestión de Usuarios', icon: Users },
     { id: 'processes', label: 'Carga de Contenido', icon: Library },
     { id: 'quizzes', label: 'Crear Quiz', icon: FileEdit },
     { id: 'assignments', label: 'Asignar Quizzes (Retos)', icon: CheckCircle },
@@ -131,6 +133,7 @@ export default function AdminPage() {
                 
                 {/* Content Rendering Switch */}
                 {activeSection === 'agents' && <AdminAgents />}
+                {activeSection === 'users' && <AdminUsers />}
                 {activeSection === 'processes' && <AdminProcessUpload />}
                 {activeSection === 'quizzes' && <AdminQuizEditor />}
                 {activeSection === 'assignments' && <AdminQuizAssigner />}

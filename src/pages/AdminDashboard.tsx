@@ -10,8 +10,9 @@ import { ADMIN_UID } from '../constants';
 import AdminAgents from './AdminAgents';
 import AdminQuizAssigner from './AdminQuizAssigner';
 import AdminResults from './AdminResults';
+import AdminUsers from './AdminUsers';
 
-type AdminSection = 'agents' | 'processes' | 'quizzes' | 'assignments' | 'results';
+type AdminSection = 'agents' | 'processes' | 'quizzes' | 'assignments' | 'results' | 'users';
 
 export default function AdminDashboard() {
   const [activeSection, setActiveSection] = useState<AdminSection>('agents');
@@ -96,9 +97,10 @@ export default function AdminDashboard() {
 
   const navItems = [
     { id: 'agents', label: 'Gestión de Agentes', icon: Users },
+    { id: 'users', label: 'Gestión de Usuarios', icon: Users },
     { id: 'processes', label: 'Biblioteca de Procesos', icon: Library },
     { id: 'quizzes', label: 'Editor de Quizzes', icon: FileEdit },
-    { id: 'results', label: 'Resultados', icon: FileEdit }, // Reuse generic icon or CheckCircle
+    { id: 'results', label: 'Resultados', icon: CheckCircle }, 
     { id: 'assignments', label: 'Asignador de Quizzes', icon: CheckCircle },
   ];
 
@@ -297,6 +299,7 @@ export default function AdminDashboard() {
 
                 {/* Content Rendering Switch */}
                 {activeSection === 'agents' && <AdminAgents />}
+                {activeSection === 'users' && <AdminUsers />}
                 {activeSection === 'assignments' && <AdminQuizAssigner />}
                 {activeSection === 'results' && <AdminResults />}
 
