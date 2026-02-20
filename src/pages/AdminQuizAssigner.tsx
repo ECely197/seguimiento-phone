@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { collection, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
 import { getAllAgents } from '../api/sheetService';
-import { Loader2, CheckCircle, AlertCircle, Send, Users, User, FileText } from 'lucide-react';
+import { Loader2, CheckCircle, AlertCircle, Send, Users, FileText } from 'lucide-react';
 
 export default function AdminQuizAssigner() {
     const [quizzes, setQuizzes] = useState<any[]>([]);
@@ -67,7 +67,7 @@ export default function AdminQuizAssigner() {
             const assignmentsUpdates = targets.map(agent => {
                 return addDoc(collection(db, 'asignaciones_quizzes'), {
                     quizId: selectedQuizId,
-                    quizId: selectedQuizId,
+
                     agentEmail: agent.correo,
                     agentName: agent.agente || 'Agente',
                     assignedAt: serverTimestamp(),

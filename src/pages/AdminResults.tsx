@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { collection, getDocs, deleteDoc, doc, query, orderBy } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
-import { Play, Trash2, Search, CheckCircle, XCircle, FileAudio, RefreshCw } from 'lucide-react';
+import { Trash2, Search, CheckCircle, XCircle, RefreshCw } from 'lucide-react';
 
 interface Result {
   id: string;
@@ -19,7 +19,7 @@ export default function AdminResults() {
   const [results, setResults] = useState<Result[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [playingAudio, setPlayingAudio] = useState<string | null>(null);
+
 
   useEffect(() => {
     fetchData();

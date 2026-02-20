@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
-import { Loader2, Shield, ShieldAlert, CheckCircle, XCircle, Search, User, Ban, Lock } from 'lucide-react';
+import { Loader2, Shield, ShieldAlert, CheckCircle, AlertCircle, Search, User, Ban, Lock } from 'lucide-react';
 import { ADMIN_UID } from '../constants';
 
 interface UserData {

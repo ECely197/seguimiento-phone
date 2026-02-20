@@ -16,7 +16,10 @@ type AdminSection = 'agents' | 'processes' | 'quizzes' | 'assignments' | 'result
 
 export default function AdminDashboard() {
   const [activeSection, setActiveSection] = useState<AdminSection>('agents');
-  // ... rest of state
+  // Restored state variables
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadSuccess, setUploadSuccess] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { theme } = useTheme();
   const navigate = useNavigate();

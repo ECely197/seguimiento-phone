@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Play, CheckCircle, AlertCircle, TrendingUp, HelpCircle, Mic, Square, Trash2, RefreshCw } from 'lucide-react';
+import { Play, CheckCircle, AlertCircle, TrendingUp, HelpCircle, Mic, Square, Trash2 } from 'lucide-react';
 import { auth, storage } from '../firebaseConfig';
 import { collection, getDocs, addDoc, query, where, serverTimestamp } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -24,7 +24,7 @@ export default function QuizPage() {
   const [quizzes, setQuizzes] = useState<QuizModule[]>([]);
   const [activeQuiz, setActiveQuiz] = useState<QuizModule | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+
 
   // Quiz State
   const [completedQuizzes, setCompletedQuizzes] = useState<Set<string>>(new Set());
@@ -67,7 +67,7 @@ export default function QuizPage() {
       setQuizzes(quizList);
     } catch (err) {
       console.error("Error fetching quizzes:", err);
-      setError("Error al cargar las prácticas.");
+      // setError("Error al cargar las prácticas.");
     }
   };
 
@@ -169,7 +169,7 @@ export default function QuizPage() {
 
     } catch (err) {
         console.error("Error submitting answer:", err);
-        setError("Error al guardar la respuesta.");
+        // setError("Error al guardar la respuesta.");
     } finally {
         setIsSubmitting(false);
     }
@@ -181,7 +181,7 @@ export default function QuizPage() {
       setShowExplanation(false);
       setAudioBlob(null);
       setAudioPreviewUrl(null);
-      setError(null);
+      // setError(null);
   };
 
   return (
