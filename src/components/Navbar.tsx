@@ -29,7 +29,7 @@ export default function Navbar() {
 
   const navItems = [
     { name: "Inicio", path: "/home", icon: Home },
-    { name: "Capacitación", path: "/procesos", icon: BookOpen },
+    { name: "Explicaciones", path: "/procesos", icon: BookOpen },
     { name: "Práctica", path: "/quizzes", icon: CheckCircle },
   ];
 

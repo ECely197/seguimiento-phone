@@ -20,19 +20,38 @@ interface AgentData {
 }
 
 // Helper functions
-const formatPercentage = (value: string | undefined) => {
-    if (!value) return "-";
-    const num = parseFloat(value.replace(/[^0-9.]/g, '')); 
-    if (isNaN(num)) return value;
-    return `${num}%`;
+
+/**
+ * Formats a metric value based on the metric key.
+ * - RES / PSAT: treated as 0–1 decimals → multiplied by 100, shown as XX.XX%
+ * - AHT / ATT / ACW: time values shown with 1 decimal place
+ * - Default: returns value as-is
+ */
+const formatMetricValue = (key: string, value: any): string => {
+  if (value === null || value === undefined || value === '') return '0';
+  const num = typeof value === 'number' ? value : parseFloat(String(value).replace(/[^0-9.-]/g, ''));
+  if (isNaN(num)) return String(value);
+
+  const k = key.toUpperCase();
+  if (k.includes('RES') || k.includes('PSAT')) {
+    // Values come as decimals (e.g. 0.9459) → convert to percentage
+    const pct = num <= 1 ? num * 100 : num;
+    return `${pct.toFixed(2)}%`;
+  }
+  if (k.includes('AHT') || k.includes('ATT') || k.includes('ACW')) {
+    return num.toFixed(1);
+  }
+  return String(value);
 };
 
-const getPsatColor = (value: string | undefined) => {
-     if (!value) return "text-blue-600 dark:text-blue-400";
-     const num = parseFloat(value.replace(/[^0-9.]/g, ''));
-     if (isNaN(num)) return "text-blue-600 dark:text-blue-400";
-     if (num < 80) return "text-[var(--color-m3-error)] dark:text-[var(--color-m3-error-dark)]";
-     return "text-emerald-600 dark:text-emerald-400";
+const getPsatColor = (value: any) => {
+    if (value === null || value === undefined || value === '') return 'text-blue-600 dark:text-blue-400';
+    const num = typeof value === 'number' ? value : parseFloat(value.toString().replace(/[^0-9.]/g, ''));
+    if (isNaN(num)) return 'text-blue-600 dark:text-blue-400';
+    // Values may be decimal (0–1) or percent (0–100)
+    const pct = num <= 1 ? num * 100 : num;
+    if (pct < 80) return 'text-[var(--color-m3-error)] dark:text-[var(--color-m3-error-dark)]';
+    return 'text-emerald-600 dark:text-emerald-400';
 };
 
 export default function HomePage() {
@@ -152,35 +171,35 @@ export default function HomePage() {
                     />
                     <MetricCard 
                         title="AHT Real" 
-                        value={agentData?.['AHT Real'] || "-"} 
+                        value={formatMetricValue('AHT', agentData?.['AHT Real'])} 
                         icon={ClipboardList} 
                         color="text-purple-600 dark:text-purple-400"
                         bgColor="bg-purple-50"
                     />
-                     <MetricCard 
+                    <MetricCard 
                         title="ATT" 
-                        value={agentData?.['ATT'] || "-"} 
+                        value={formatMetricValue('ATT', agentData?.['ATT'])} 
                         icon={ClipboardList} 
                         color="text-orange-600 dark:text-orange-400"
                         bgColor="bg-orange-50"
                     />
-                     <MetricCard 
+                    <MetricCard 
                         title="ACW" 
-                        value={agentData?.['ACW'] || "-"} 
+                        value={formatMetricValue('ACW', agentData?.['ACW'])} 
                         icon={ClipboardList} 
                         color="text-teal-600 dark:text-teal-400"
                         bgColor="bg-teal-50"
                     />
-                     <MetricCard 
+                    <MetricCard 
                         title="RES" 
-                        value={formatPercentage(agentData?.['RES'])} 
+                        value={formatMetricValue('RES', agentData?.['RES'])} 
                         icon={CheckCircle} 
                         color="text-green-600 dark:text-green-400"
                         bgColor="bg-green-50"
                     />
                     <MetricCard 
                         title="PSAT" 
-                        value={formatPercentage(agentData?.['PSAT'])} 
+                        value={formatMetricValue('PSAT', agentData?.['PSAT'])} 
                         icon={TrendingUp} 
                         color={getPsatColor(agentData?.['PSAT'])}
                         bgColor="bg-blue-50"

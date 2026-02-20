@@ -54,7 +54,7 @@ export default function ProcessPage() {
   return (
     <div className="min-h-screen bg-m3-surface p-4 pb-24">
       <header className="mb-6 mt-2">
-        <h1 className="text-3xl font-bold text-m3-primary">Capacitación</h1>
+        <h1 className="text-3xl font-bold text-m3-primary">Explicaciones</h1>
         <p className="text-m3-secondary text-sm">Módulos de aprendizaje continuo.</p>
       </header>
 

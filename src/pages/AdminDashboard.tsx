@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { Users, Library, FileEdit, Menu, LogOut, LayoutDashboard, Upload, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
+import { Users, Library, FileEdit, Menu, LogOut, LayoutDashboard, Upload, CheckCircle, AlertCircle, Loader2, Pencil } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { auth, storage, db } from '../firebaseConfig';
 import { signOut } from 'firebase/auth';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 
 import AdminAgents from './AdminAgents';
 import AdminQuizAssigner from './AdminQuizAssigner';
@@ -24,7 +24,8 @@ export default function AdminDashboard() {
   
   const navigate = useNavigate();
 
-  // --- Estados para "Biblioteca de Procesos" (Upload) ---
+  // --- Estados para "Biblioteca de Procesos" (Upload / Edit) ---
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [file, setFile] = useState<File | null>(null);
@@ -88,7 +89,6 @@ export default function AdminDashboard() {
         });
 
         setUploadSuccess(true);
-        // Resetear formulario
         setTitle('');
         setDescription('');
         setFile(null);
@@ -97,6 +97,48 @@ export default function AdminDashboard() {
     } catch (err) {
         console.error("Upload error:", err);
         setError("Error al subir el contenido.");
+    } finally {
+        setIsUploading(false);
+    }
+  };
+
+  // ----------------------------------------------------
+  // LOGICA: Editar Material (solo título y descripción)
+  // ----------------------------------------------------
+  const startEditing = (item: { id: string; title: string; description?: string }) => {
+    setEditingId(item.id);
+    setTitle(item.title);
+    setDescription(item.description || '');
+    setFile(null);
+    setError(null);
+    setUploadSuccess(false);
+  };
+
+  const cancelEditing = () => {
+    setEditingId(null);
+    setTitle('');
+    setDescription('');
+    setFile(null);
+    setError(null);
+  };
+
+  const handleUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingId || !title) {
+        setError("El título no puede estar vacío.");
+        return;
+    }
+    setIsUploading(true);
+    setError(null);
+    setUploadSuccess(false);
+    try {
+        await updateDoc(doc(db, 'content', editingId), { title, description });
+        setUploadSuccess(true);
+        cancelEditing();
+        setTimeout(() => setUploadSuccess(false), 3000);
+    } catch (err) {
+        console.error("Update error:", err);
+        setError("Error al actualizar el material.");
     } finally {
         setIsUploading(false);
     }
@@ -283,7 +325,13 @@ export default function AdminDashboard() {
                             </div>
                         </div>
 
-                        <form onSubmit={handleUpload} className="space-y-6">
+                        <form onSubmit={editingId ? handleUpdate : handleUpload} className="space-y-6">
+                            {editingId && (
+                                <div className="flex items-center gap-2 p-3 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 rounded-xl text-sm font-medium">
+                                    <Pencil size={16} />
+                                    Modo edición — solo se actualizará el título y la descripción.
+                                </div>
+                            )}
                             <div>
                                 <label className="block text-sm font-medium text-m3-secondary dark:text-m3-on-surface-dark/80 mb-2">
                                     Título del Material
@@ -311,25 +359,28 @@ export default function AdminDashboard() {
                                 />
                             </div>
 
-                            <div>
-                                <label className="block text-sm font-medium text-m3-secondary dark:text-m3-on-surface-dark/80 mb-2">
-                                    Archivo (Video o Audio)
-                                </label>
-                                <div className="border-2 border-dashed border-m3-surface-variant dark:border-white/10 rounded-xl p-8 text-center hover:bg-m3-surface-variant/10 transition-colors cursor-pointer relative group">
-                                    <input
-                                        type="file"
-                                        accept="video/*,audio/*"
-                                        onChange={handleFileChange}
-                                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                                    />
-                                    <div className="flex flex-col items-center gap-2 text-gray-500 dark:text-gray-400 group-hover:text-m3-primary transition-colors">
-                                        <Upload size={32} />
-                                        <span className="text-sm font-medium">
-                                            {file ? file.name : "Haz clic o arrastra un archivo aquí"}
-                                        </span>
+                            {/* File input — hidden when editing */}
+                            {!editingId && (
+                                <div>
+                                    <label className="block text-sm font-medium text-m3-secondary dark:text-m3-on-surface-dark/80 mb-2">
+                                        Archivo (Video o Audio)
+                                    </label>
+                                    <div className="border-2 border-dashed border-m3-surface-variant dark:border-white/10 rounded-xl p-8 text-center hover:bg-m3-surface-variant/10 transition-colors cursor-pointer relative group">
+                                        <input
+                                            type="file"
+                                            accept="video/*,audio/*"
+                                            onChange={handleFileChange}
+                                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                                        />
+                                        <div className="flex flex-col items-center gap-2 text-gray-500 dark:text-gray-400 group-hover:text-m3-primary transition-colors">
+                                            <Upload size={32} />
+                                            <span className="text-sm font-medium">
+                                                {file ? file.name : "Haz clic o arrastra un archivo aquí"}
+                                            </span>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
+                            )}
 
                             {error && (
                                 <div className="flex items-center gap-2 p-4 bg-red-50 dark:bg-red-900/10 text-red-600 dark:text-red-400 rounded-xl text-sm">
@@ -345,6 +396,15 @@ export default function AdminDashboard() {
                                 </div>
                             )}
 
+                            {editingId && (
+                                <button
+                                    type="button"
+                                    onClick={cancelEditing}
+                                    className="w-full py-3 rounded-[28px] font-bold border border-m3-surface-variant dark:border-white/10 text-m3-secondary dark:text-m3-on-surface-dark hover:bg-m3-surface-variant/20 transition-all text-sm"
+                                >
+                                    Cancelar Edición
+                                </button>
+                            )}
                             <button
                                 type="submit"
                                 disabled={isUploading}
@@ -358,7 +418,12 @@ export default function AdminDashboard() {
                                 {isUploading ? (
                                     <>
                                         <Loader2 size={20} className="animate-spin" />
-                                        Subiendo...
+                                        {editingId ? 'Actualizando...' : 'Subiendo...'}
+                                    </>
+                                ) : editingId ? (
+                                    <>
+                                        <Pencil size={20} />
+                                        Actualizar Información
                                     </>
                                 ) : (
                                     <>
