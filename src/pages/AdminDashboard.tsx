@@ -1,11 +1,10 @@
 import { useState } from 'react';
 import { Users, Library, FileEdit, Menu, LogOut, LayoutDashboard, Upload, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
-import { useTheme } from '../context/ThemeContext';
 import { useNavigate } from 'react-router-dom';
 import { auth, storage, db } from '../firebaseConfig';
+import { signOut } from 'firebase/auth';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { ADMIN_UID } from '../constants';
 
 import AdminAgents from './AdminAgents';
 import AdminQuizAssigner from './AdminQuizAssigner';
@@ -16,15 +15,21 @@ type AdminSection = 'agents' | 'processes' | 'quizzes' | 'assignments' | 'result
 
 export default function AdminDashboard() {
   const [activeSection, setActiveSection] = useState<AdminSection>('agents');
-  // Restored state variables
+  
+  // --- Estados Generales ---
   const [isUploading, setIsUploading] = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const { theme } = useTheme();
+  
   const navigate = useNavigate();
 
-  // Quiz State
+  // --- Estados para "Biblioteca de Procesos" (Upload) ---
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [file, setFile] = useState<File | null>(null);
+
+  // --- Estados para "Crear Quiz" ---
   const [quizSituation, setQuizSituation] = useState('');
   const [quizQuestion, setQuizQuestion] = useState('');
   const [optionA, setOptionA] = useState('');
@@ -34,6 +39,72 @@ export default function AdminDashboard() {
   const [explanation, setExplanation] = useState('');
   const [quizAudio, setQuizAudio] = useState<File | null>(null);
 
+  // ----------------------------------------------------
+  // LOGICA: Cerrar Sesión
+  // ----------------------------------------------------
+  const handleLogout = async () => {
+    try {
+        await signOut(auth);
+        navigate('/login');
+    } catch (err) {
+        console.error("Error al cerrar sesión:", err);
+    }
+  };
+
+  // ----------------------------------------------------
+  // LOGICA: Subir Material (Procesos)
+  // ----------------------------------------------------
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setFile(e.target.files[0]);
+    }
+  };
+
+  const handleUpload = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!file || !title) {
+        setError("Por favor selecciona un archivo y ponle título.");
+        return;
+    }
+
+    setIsUploading(true);
+    setError(null);
+    setUploadSuccess(false);
+
+    try {
+        // 1. Subir archivo a Storage
+        const storageRef = ref(storage, `content/${Date.now()}_${file.name}`);
+        const snapshot = await uploadBytes(storageRef, file);
+        const url = await getDownloadURL(snapshot.ref);
+
+        // 2. Guardar referencia en Firestore
+        await addDoc(collection(db, 'content'), {
+            title,
+            description,
+            url,
+            type: file.type.startsWith('video') ? 'video' : 'audio',
+            createdAt: serverTimestamp(),
+            createdBy: auth.currentUser?.email || 'admin',
+        });
+
+        setUploadSuccess(true);
+        // Resetear formulario
+        setTitle('');
+        setDescription('');
+        setFile(null);
+        setTimeout(() => setUploadSuccess(false), 3000);
+
+    } catch (err) {
+        console.error("Upload error:", err);
+        setError("Error al subir el contenido.");
+    } finally {
+        setIsUploading(false);
+    }
+  };
+
+  // ----------------------------------------------------
+  // LOGICA: Crear Quiz
+  // ----------------------------------------------------
   const handleQuizFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       setQuizAudio(e.target.files[0]);
@@ -69,7 +140,7 @@ export default function AdminDashboard() {
         options: [
             { id: 'A', text: optionA },
             { id: 'B', text: optionB },
-            { id: 'C', text: optionC || '' } // Option C optional? Let's keep it consistent
+            { id: 'C', text: optionC || '' } 
         ].filter(opt => opt.text.trim() !== ''),
         correctOption,
         explanation,
@@ -103,8 +174,8 @@ export default function AdminDashboard() {
     { id: 'users', label: 'Gestión de Usuarios', icon: Users },
     { id: 'processes', label: 'Biblioteca de Procesos', icon: Library },
     { id: 'quizzes', label: 'Editor de Quizzes', icon: FileEdit },
-    { id: 'results', label: 'Resultados', icon: CheckCircle }, 
     { id: 'assignments', label: 'Asignador de Quizzes', icon: CheckCircle },
+    { id: 'results', label: 'Resultados', icon: CheckCircle }, 
   ];
 
   return (
@@ -202,7 +273,7 @@ export default function AdminDashboard() {
                 {/* Processes Upload Upload Section */}
                 {activeSection === 'processes' && (
                     <div className="max-w-2xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
-                         <div className="flex items-center gap-3 mb-6">
+                          <div className="flex items-center gap-3 mb-6">
                             <div className="p-3 bg-purple-50 dark:bg-purple-900/20 rounded-full">
                                 <Library className="text-purple-600 dark:text-purple-400" size={32} />
                             </div>
@@ -309,7 +380,7 @@ export default function AdminDashboard() {
                 {/* Quizzes Upload Section */}
                 {activeSection === 'quizzes' && (
                     <div className="max-w-2xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
-                         <div className="flex items-center gap-3 mb-6">
+                          <div className="flex items-center gap-3 mb-6">
                             <div className="p-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-full">
                                 <FileEdit className="text-emerald-600 dark:text-emerald-400" size={32} />
                             </div>
@@ -388,7 +459,7 @@ export default function AdminDashboard() {
                                             }}
                                             placeholder={`Opción ${opt}`}
                                             className="flex-1 px-4 py-3 rounded-xl bg-m3-surface dark:bg-[#2C2C2C] border border-m3-surface-variant dark:border-white/10 focus:border-m3-primary focus:ring-1 focus:ring-m3-primary outline-none transition-all text-m3-secondary dark:text-m3-on-surface-dark"
-                                            required={opt !== 'C'} // C might be optional
+                                            required={opt !== 'C'} 
                                         />
                                         <input 
                                             type="radio"
