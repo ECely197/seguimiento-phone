@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { collection, getDocs, query, where, deleteDoc, doc } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
-import { ChevronRight, MessageSquare, Search, X, Loader2, TrendingUp, CheckCircle, XCircle, RefreshCw, User, Edit3, Save } from 'lucide-react';
+import { ChevronRight, Search, X, Loader2, TrendingUp, CheckCircle, XCircle, RefreshCw, User, Edit3, Save } from 'lucide-react';
 import { updateAgentSuggestion, getAllAgents } from '../api/sheetService';
 
 interface Agent {
@@ -107,7 +107,7 @@ export default function AdminAgents() {
         if (!selectedAgent) return;
         setSaving(true);
         try {
-            await updateAgentSuggestion(selectedAgent.correo, suggestion);
+            await updateAgentSuggestion(selectedAgent.correo || "", suggestion);
             // Update local state
             setAgents(prev => prev.map(a => 
                 a.correo === selectedAgent.correo ? { ...a, sugerencia: suggestion } : a
