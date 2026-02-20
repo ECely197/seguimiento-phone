@@ -1,10 +1,10 @@
-import { useState } from 'react';
-import { Users, Library, FileEdit, Menu, LogOut, LayoutDashboard, Upload, CheckCircle, AlertCircle, Loader2, Pencil } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Users, Library, FileEdit, Menu, LogOut, LayoutDashboard, Upload, CheckCircle, AlertCircle, Loader2, Pencil, Trash2, Video, Headphones } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { auth, storage, db } from '../firebaseConfig';
 import { signOut } from 'firebase/auth';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { collection, addDoc, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import { collection, addDoc, doc, updateDoc, deleteDoc, getDocs, query, orderBy, serverTimestamp } from 'firebase/firestore';
 
 import AdminAgents from './AdminAgents';
 import AdminQuizAssigner from './AdminQuizAssigner';
@@ -24,7 +24,8 @@ export default function AdminDashboard() {
   
   const navigate = useNavigate();
 
-  // --- Estados para "Biblioteca de Procesos" (Upload / Edit) ---
+  // --- Estados para "Explicaciones" (Upload / Edit / List) ---
+  const [contentList, setContentList] = useState<any[]>([]); // Lista de contenidos
   const [editingId, setEditingId] = useState<string | null>(null);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -39,6 +40,26 @@ export default function AdminDashboard() {
   const [correctOption, setCorrectOption] = useState('A');
   const [explanation, setExplanation] = useState('');
   const [quizAudio, setQuizAudio] = useState<File | null>(null);
+
+  // ----------------------------------------------------
+  // LOGICA: Cargar Contenido (Explicaciones)
+  // ----------------------------------------------------
+  const fetchContent = async () => {
+    try {
+      const q = query(collection(db, 'content'), orderBy('createdAt', 'desc'));
+      const querySnapshot = await getDocs(q);
+      const items = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setContentList(items);
+    } catch (error) {
+      console.error("Error fetching content:", error);
+    }
+  };
+
+  useEffect(() => {
+    if (activeSection === 'processes') {
+      fetchContent();
+    }
+  }, [activeSection]);
 
   // ----------------------------------------------------
   // LOGICA: Cerrar Sesión
@@ -92,6 +113,7 @@ export default function AdminDashboard() {
         setTitle('');
         setDescription('');
         setFile(null);
+        fetchContent(); // Recargar lista
         setTimeout(() => setUploadSuccess(false), 3000);
 
     } catch (err) {
@@ -103,7 +125,7 @@ export default function AdminDashboard() {
   };
 
   // ----------------------------------------------------
-  // LOGICA: Editar Material (solo título y descripción)
+  // LOGICA: Editar y Borrar Material
   // ----------------------------------------------------
   const startEditing = (item: { id: string; title: string; description?: string }) => {
     setEditingId(item.id);
@@ -112,6 +134,8 @@ export default function AdminDashboard() {
     setFile(null);
     setError(null);
     setUploadSuccess(false);
+    // Scroll hacia arriba para ver el formulario
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const cancelEditing = () => {
@@ -135,12 +159,35 @@ export default function AdminDashboard() {
         await updateDoc(doc(db, 'content', editingId), { title, description });
         setUploadSuccess(true);
         cancelEditing();
+        fetchContent(); // Recargar lista
         setTimeout(() => setUploadSuccess(false), 3000);
     } catch (err) {
         console.error("Update error:", err);
         setError("Error al actualizar el material.");
     } finally {
         setIsUploading(false);
+    }
+  };
+
+  const handleDelete = async (id: string, url: string) => {
+    if(!window.confirm("¿Estás seguro de eliminar este material?")) return;
+
+    try {
+      // 1. Eliminar de Firestore
+      await deleteDoc(doc(db, 'content', id));
+      
+      // 2. Intentar eliminar de Storage (Opcional, si falla no rompe la app)
+      try {
+        const fileRef = ref(storage, url);
+        await deleteObject(fileRef);
+      } catch (e) {
+        console.warn("No se pudo eliminar el archivo de storage (quizás ya no existe)", e);
+      }
+
+      fetchContent(); // Recargar lista
+    } catch (error) {
+      console.error("Error deleting document:", error);
+      setError("Error al eliminar el material");
     }
   };
 
@@ -167,14 +214,12 @@ export default function AdminDashboard() {
     try {
       let audioUrl = '';
       
-      // 1. Upload Audio if present
       if (quizAudio) {
         const storageRef = ref(storage, `quizzes/audio/${Date.now()}_${quizAudio.name}`);
         const snapshot = await uploadBytes(storageRef, quizAudio);
         audioUrl = await getDownloadURL(snapshot.ref);
       }
 
-      // 2. Save Quiz to Firestore
       await addDoc(collection(db, 'quizzes'), {
         situation: quizSituation,
         question: quizQuestion,
@@ -191,7 +236,6 @@ export default function AdminDashboard() {
       });
 
       setUploadSuccess(true);
-      // Reset Form
       setQuizSituation('');
       setQuizQuestion('');
       setOptionA('');
@@ -214,7 +258,7 @@ export default function AdminDashboard() {
   const navItems = [
     { id: 'agents', label: 'Gestión de Agentes', icon: Users },
     { id: 'users', label: 'Gestión de Usuarios', icon: Users },
-    { id: 'processes', label: 'Biblioteca de Procesos', icon: Library },
+    { id: 'processes', label: 'Explicaciones', icon: Library }, // CAMBIO DE NOMBRE AQUI
     { id: 'quizzes', label: 'Editor de Quizzes', icon: FileEdit },
     { id: 'assignments', label: 'Asignador de Quizzes', icon: CheckCircle },
     { id: 'results', label: 'Resultados', icon: CheckCircle }, 
@@ -258,8 +302,9 @@ export default function AdminDashboard() {
                   onClick={() => {
                     setActiveSection(item.id as AdminSection);
                     setIsMobileMenuOpen(false);
-                    setUploadSuccess(false); // Reset states
+                    setUploadSuccess(false);
                     setError(null);
+                    cancelEditing(); // Limpiar edición al cambiar de tab
                   }}
                   className={`
                     w-full flex items-center gap-3 px-4 py-3.5 rounded-[28px] transition-all duration-200 font-medium text-sm tracking-wide
@@ -288,7 +333,6 @@ export default function AdminDashboard() {
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col h-full relative overflow-hidden">
-        {/* Mobile Header */}
         <div className="md:hidden flex items-center justify-between p-4 border-b border-m3-surface-variant/50 dark:border-white/10 bg-m3-surface dark:bg-m3-surface-dark">
             <div className="flex items-center gap-2">
                 <LayoutDashboard className="text-m3-primary dark:text-m3-primary-dark" size={24} />
@@ -309,130 +353,198 @@ export default function AdminDashboard() {
                 </p>
             </header>
 
-            {/* Content Area */}
             <div className={`bg-white dark:bg-[#1E1E1E] rounded-[28px] min-h-[500px] shadow-sm border border-m3-surface-variant/50 dark:border-white/5 p-8 relative overflow-hidden transition-all duration-300 ${activeSection === 'processes' || activeSection === 'quizzes' ? 'ring-1 ring-m3-primary/10' : ''}`}>
                 
-                {/* Processes Upload Upload Section */}
+                {/* --- SECCIÓN EXPLICACIONES (PROCESOS) --- */}
                 {activeSection === 'processes' && (
-                    <div className="max-w-2xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <div className="max-w-4xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
+                        {/* Formulario de Subida / Edición */}
+                        <div className="mb-12 p-6 bg-m3-surface-variant/30 dark:bg-white/5 rounded-[20px] border border-m3-surface-variant/50 dark:border-white/10">
                           <div className="flex items-center gap-3 mb-6">
                             <div className="p-3 bg-purple-50 dark:bg-purple-900/20 rounded-full">
                                 <Library className="text-purple-600 dark:text-purple-400" size={32} />
                             </div>
                             <div>
-                                <h3 className="text-xl font-bold text-m3-secondary dark:text-m3-on-surface-dark">Subir Nuevo Material</h3>
-                                <p className="text-sm text-gray-500">Sube videos o audios para que los agentes los consulten.</p>
+                                <h3 className="text-xl font-bold text-m3-secondary dark:text-m3-on-surface-dark">
+                                    {editingId ? 'Editar Material' : 'Subir Nuevo Material'}
+                                </h3>
+                                <p className="text-sm text-gray-500">Gestiona los videos y audios de explicación.</p>
                             </div>
+                          </div>
+
+                          <form onSubmit={editingId ? handleUpdate : handleUpload} className="space-y-6">
+                              {editingId && (
+                                  <div className="flex items-center gap-2 p-3 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 rounded-xl text-sm font-medium">
+                                      <Pencil size={16} />
+                                      Modo edición — solo se actualizará el título y la descripción.
+                                  </div>
+                              )}
+                              
+                              <div className="grid md:grid-cols-2 gap-6">
+                                  <div className="space-y-6">
+                                    <div>
+                                        <label className="block text-sm font-medium text-m3-secondary dark:text-m3-on-surface-dark/80 mb-2">
+                                            Título del Material
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={title}
+                                            onChange={(e) => setTitle(e.target.value)}
+                                            placeholder="Ej. Protocolo de Empatía 2024"
+                                            className="w-full px-4 py-3 rounded-xl bg-m3-surface dark:bg-[#2C2C2C] border border-m3-surface-variant dark:border-white/10 focus:border-m3-primary focus:ring-1 focus:ring-m3-primary outline-none transition-all text-m3-secondary dark:text-m3-on-surface-dark"
+                                            required
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-m3-secondary dark:text-m3-on-surface-dark/80 mb-2">
+                                            Descripción (Opcional)
+                                        </label>
+                                        <textarea
+                                            value={description}
+                                            onChange={(e) => setDescription(e.target.value)}
+                                            placeholder="Breve descripción..."
+                                            rows={3}
+                                            className="w-full px-4 py-3 rounded-xl bg-m3-surface dark:bg-[#2C2C2C] border border-m3-surface-variant dark:border-white/10 focus:border-m3-primary focus:ring-1 focus:ring-m3-primary outline-none transition-all text-m3-secondary dark:text-m3-on-surface-dark resize-none"
+                                        />
+                                    </div>
+                                  </div>
+
+                                  <div>
+                                      {/* File input — oculto si estamos editando */}
+                                      {!editingId ? (
+                                          <div>
+                                              <label className="block text-sm font-medium text-m3-secondary dark:text-m3-on-surface-dark/80 mb-2">
+                                                  Archivo (Video o Audio)
+                                              </label>
+                                              <div className="h-[180px] border-2 border-dashed border-m3-surface-variant dark:border-white/10 rounded-xl flex flex-col items-center justify-center text-center hover:bg-m3-surface-variant/10 transition-colors cursor-pointer relative group">
+                                                  <input
+                                                      type="file"
+                                                      accept="video/*,audio/*"
+                                                      onChange={handleFileChange}
+                                                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                                                  />
+                                                  <div className="flex flex-col items-center gap-2 text-gray-500 dark:text-gray-400 group-hover:text-m3-primary transition-colors">
+                                                      <Upload size={32} />
+                                                      <span className="text-sm font-medium px-4">
+                                                          {file ? file.name : "Haz clic o arrastra un archivo aquí"}
+                                                      </span>
+                                                  </div>
+                                              </div>
+                                          </div>
+                                      ) : (
+                                        <div className="h-full flex items-center justify-center bg-gray-50 dark:bg-white/5 rounded-xl border border-dashed border-gray-300 dark:border-white/10 p-4 text-center">
+                                            <p className="text-sm text-gray-500">
+                                                Para cambiar el video, por favor elimina este material y crea uno nuevo.
+                                            </p>
+                                        </div>
+                                      )}
+                                  </div>
+                              </div>
+
+                              {error && (
+                                  <div className="flex items-center gap-2 p-4 bg-red-50 dark:bg-red-900/10 text-red-600 dark:text-red-400 rounded-xl text-sm">
+                                      <AlertCircle size={20} />
+                                      {error}
+                                  </div>
+                              )}
+
+                              {uploadSuccess && (
+                                  <div className="flex items-center gap-2 p-4 bg-green-50 dark:bg-green-900/10 text-green-600 dark:text-green-400 rounded-xl text-sm animate-in fade-in slide-in-from-top-2">
+                                      <CheckCircle size={20} />
+                                      ¡Operación exitosa!
+                                  </div>
+                              )}
+
+                              <div className="flex gap-3">
+                                  {editingId && (
+                                      <button
+                                          type="button"
+                                          onClick={cancelEditing}
+                                          className="flex-1 py-3 rounded-[28px] font-bold border border-m3-surface-variant dark:border-white/10 text-m3-secondary dark:text-m3-on-surface-dark hover:bg-m3-surface-variant/20 transition-all text-sm"
+                                      >
+                                          Cancelar
+                                      </button>
+                                  )}
+                                  <button
+                                      type="submit"
+                                      disabled={isUploading}
+                                      className={`flex-1 py-3.5 rounded-[28px] font-bold text-white flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg
+                                          ${isUploading 
+                                              ? 'bg-gray-400 cursor-not-allowed' 
+                                              : 'bg-m3-primary hover:bg-blue-700 hover:-translate-y-0.5'
+                                          }
+                                      `}
+                                  >
+                                      {isUploading ? (
+                                          <>
+                                              <Loader2 size={20} className="animate-spin" />
+                                              {editingId ? 'Actualizando...' : 'Subiendo...'}
+                                          </>
+                                      ) : editingId ? (
+                                          <>
+                                              <Pencil size={20} />
+                                              Actualizar Información
+                                          </>
+                                      ) : (
+                                          <>
+                                              <Upload size={20} />
+                                              Subir Material
+                                          </>
+                                      )}
+                                  </button>
+                              </div>
+                          </form>
                         </div>
 
-                        <form onSubmit={editingId ? handleUpdate : handleUpload} className="space-y-6">
-                            {editingId && (
-                                <div className="flex items-center gap-2 p-3 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 rounded-xl text-sm font-medium">
-                                    <Pencil size={16} />
-                                    Modo edición — solo se actualizará el título y la descripción.
-                                </div>
-                            )}
-                            <div>
-                                <label className="block text-sm font-medium text-m3-secondary dark:text-m3-on-surface-dark/80 mb-2">
-                                    Título del Material
-                                </label>
-                                <input
-                                    type="text"
-                                    value={title}
-                                    onChange={(e) => setTitle(e.target.value)}
-                                    placeholder="Ej. Protocolo de Empatía 2024"
-                                    className="w-full px-4 py-3 rounded-xl bg-m3-surface dark:bg-[#2C2C2C] border border-m3-surface-variant dark:border-white/10 focus:border-m3-primary focus:ring-1 focus:ring-m3-primary outline-none transition-all text-m3-secondary dark:text-m3-on-surface-dark"
-                                    required
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-m3-secondary dark:text-m3-on-surface-dark/80 mb-2">
-                                    Descripción (Opcional)
-                                </label>
-                                <textarea
-                                    value={description}
-                                    onChange={(e) => setDescription(e.target.value)}
-                                    placeholder="Breve descripción del contenido..."
-                                    rows={3}
-                                    className="w-full px-4 py-3 rounded-xl bg-m3-surface dark:bg-[#2C2C2C] border border-m3-surface-variant dark:border-white/10 focus:border-m3-primary focus:ring-1 focus:ring-m3-primary outline-none transition-all text-m3-secondary dark:text-m3-on-surface-dark resize-none"
-                                />
-                            </div>
-
-                            {/* File input — hidden when editing */}
-                            {!editingId && (
-                                <div>
-                                    <label className="block text-sm font-medium text-m3-secondary dark:text-m3-on-surface-dark/80 mb-2">
-                                        Archivo (Video o Audio)
-                                    </label>
-                                    <div className="border-2 border-dashed border-m3-surface-variant dark:border-white/10 rounded-xl p-8 text-center hover:bg-m3-surface-variant/10 transition-colors cursor-pointer relative group">
-                                        <input
-                                            type="file"
-                                            accept="video/*,audio/*"
-                                            onChange={handleFileChange}
-                                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                                        />
-                                        <div className="flex flex-col items-center gap-2 text-gray-500 dark:text-gray-400 group-hover:text-m3-primary transition-colors">
-                                            <Upload size={32} />
-                                            <span className="text-sm font-medium">
-                                                {file ? file.name : "Haz clic o arrastra un archivo aquí"}
-                                            </span>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-
-                            {error && (
-                                <div className="flex items-center gap-2 p-4 bg-red-50 dark:bg-red-900/10 text-red-600 dark:text-red-400 rounded-xl text-sm">
-                                    <AlertCircle size={20} />
-                                    {error}
-                                </div>
-                            )}
-
-                            {uploadSuccess && (
-                                <div className="flex items-center gap-2 p-4 bg-green-50 dark:bg-green-900/10 text-green-600 dark:text-green-400 rounded-xl text-sm animate-in fade-in slide-in-from-top-2">
-                                    <CheckCircle size={20} />
-                                    ¡Material subido exitosamente!
-                                </div>
-                            )}
-
-                            {editingId && (
-                                <button
-                                    type="button"
-                                    onClick={cancelEditing}
-                                    className="w-full py-3 rounded-[28px] font-bold border border-m3-surface-variant dark:border-white/10 text-m3-secondary dark:text-m3-on-surface-dark hover:bg-m3-surface-variant/20 transition-all text-sm"
-                                >
-                                    Cancelar Edición
-                                </button>
-                            )}
-                            <button
-                                type="submit"
-                                disabled={isUploading}
-                                className={`w-full py-3.5 rounded-[28px] font-bold text-white flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg
-                                    ${isUploading 
-                                        ? 'bg-gray-400 cursor-not-allowed' 
-                                        : 'bg-m3-primary hover:bg-blue-700 hover:-translate-y-0.5'
-                                    }
-                                `}
-                            >
-                                {isUploading ? (
-                                    <>
-                                        <Loader2 size={20} className="animate-spin" />
-                                        {editingId ? 'Actualizando...' : 'Subiendo...'}
-                                    </>
-                                ) : editingId ? (
-                                    <>
-                                        <Pencil size={20} />
-                                        Actualizar Información
-                                    </>
+                        {/* LISTA DE CONTENIDO EXISTENTE */}
+                        <div>
+                            <h4 className="text-lg font-bold text-m3-secondary dark:text-m3-on-surface-dark mb-4 px-1">
+                                Biblioteca de Explicaciones ({contentList.length})
+                            </h4>
+                            
+                            <div className="space-y-3">
+                                {contentList.length === 0 ? (
+                                    <p className="text-gray-500 text-sm italic p-4 text-center bg-gray-50 dark:bg-white/5 rounded-xl">
+                                        No hay material subido todavía.
+                                    </p>
                                 ) : (
-                                    <>
-                                        <Upload size={20} />
-                                        Subir Material
-                                    </>
+                                    contentList.map((item) => (
+                                        <div key={item.id} className="group flex items-center justify-between p-4 bg-white dark:bg-[#2C2C2C] rounded-xl border border-gray-100 dark:border-white/5 shadow-sm hover:shadow-md transition-all">
+                                            <div className="flex items-center gap-4 overflow-hidden">
+                                                <div className={`p-3 rounded-full shrink-0 ${item.type === 'video' ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400' : 'bg-pink-50 text-pink-600 dark:bg-pink-900/20 dark:text-pink-400'}`}>
+                                                    {item.type === 'video' ? <Video size={20} /> : <Headphones size={20} />}
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <h5 className="font-semibold text-m3-secondary dark:text-m3-on-surface-dark truncate">
+                                                        {item.title}
+                                                    </h5>
+                                                    <p className="text-xs text-gray-500 truncate">
+                                                        {item.description || "Sin descripción"}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            
+                                            <div className="flex items-center gap-2 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <button 
+                                                    onClick={() => startEditing(item)}
+                                                    className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-full transition-colors"
+                                                    title="Editar título/descripción"
+                                                >
+                                                    <Pencil size={18} />
+                                                </button>
+                                                <button 
+                                                    onClick={() => handleDelete(item.id, item.url)}
+                                                    className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-full transition-colors"
+                                                    title="Eliminar material"
+                                                >
+                                                    <Trash2 size={18} />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))
                                 )}
-                            </button>
-                        </form>
+                            </div>
+                        </div>
                     </div>
                 )}
 
@@ -442,7 +554,7 @@ export default function AdminDashboard() {
                 {activeSection === 'assignments' && <AdminQuizAssigner />}
                 {activeSection === 'results' && <AdminResults />}
 
-                {/* Quizzes Upload Section */}
+                {/* --- SECCIÓN QUIZZES --- */}
                 {activeSection === 'quizzes' && (
                     <div className="max-w-2xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
                           <div className="flex items-center gap-3 mb-6">
