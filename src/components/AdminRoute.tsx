@@ -21,18 +21,22 @@ export default function AdminRoute({ children }: AdminRouteProps) {
       
       if (currentUser) {
         try {
-            // Check hardcoded admin ID first for safety
-            if (currentUser.uid === ADMIN_UID) {
-                setIsAdmin(true);
-            } else {
-                // Check Firestore for dynamic role
-                const userRef = doc(db, 'users', currentUser.uid);
-                const userSnap = await getDoc(userRef);
-                if (userSnap.exists() && userSnap.data().isAdmin === true) {
+            // Check Firestore for role
+            const userRef = doc(db, 'users', currentUser.uid);
+            const userSnap = await getDoc(userRef);
+            
+            if (userSnap.exists()) {
+                const data = userSnap.data();
+                if (data.role === 'admin' || data.isAdmin === true || currentUser.uid === ADMIN_UID) {
                     setIsAdmin(true);
                 } else {
                     setIsAdmin(false);
                 }
+            } else if (currentUser.uid === ADMIN_UID) {
+                // Fallback for new admin users not yet in DB
+                setIsAdmin(true);
+            } else {
+                setIsAdmin(false);
             }
         } catch (error) {
             console.error("Error verifying admin role:", error);

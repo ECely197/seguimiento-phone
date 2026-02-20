@@ -23,27 +23,37 @@ function Layout() {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      // 1. Save/Update User in Firestore
+      let currentRole = null;
+
       if (user) {
         try {
           const userRef = doc(db, 'users', user.uid);
           const userSnap = await getDoc(userRef);
           
           if (!userSnap.exists()) {
-            // New User: Set default fields + isAdmin: false
+            // New User: Set default fields + role: 'user'
+            currentRole = 'user';
+            // Hardcoded fallback: if UID matches ADMIN_UID, make them admin
+            if (user.uid === ADMIN_UID) currentRole = 'admin';
+
             await setDoc(userRef, {
               email: user.email,
               photoURL: user.photoURL,
               createdAt: serverTimestamp(),
               lastLogin: serverTimestamp(),
-              isAdmin: false // Default role
+              role: currentRole
             });
           } else {
-            // Existing User: Update lastLogin, preserve isAdmin
+            // Existing User: Update lastLogin, preserve role
+            const data = userSnap.data();
+            currentRole = data.role || (data.isAdmin ? 'admin' : 'user');
+            
             await setDoc(userRef, {
               email: user.email,
               photoURL: user.photoURL,
-              lastLogin: serverTimestamp()
+              lastLogin: serverTimestamp(),
+              // Migration: if they have isAdmin but no role
+              role: currentRole
             }, { merge: true });
           }
         } catch (err) {
@@ -52,15 +62,13 @@ function Layout() {
       }
 
       // 2. Navigation Logic
-      // If user is logged in and currently on the Login page ('/'), redirect them
       if (user && location.pathname === '/') {
-        if (user.uid === ADMIN_UID) {
+        if (currentRole === 'admin' || user.uid === ADMIN_UID) {
            navigate('/admin');
         } else {
            navigate('/home');
         }
       } else if (!user && location.pathname !== '/') {
-        // Global Protection: If not logged in and trying to access any other page, redirect to Login
         navigate('/'); 
       }
     });

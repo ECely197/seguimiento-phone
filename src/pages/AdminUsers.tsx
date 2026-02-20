@@ -8,7 +8,8 @@ interface UserData {
   id: string;
   email?: string;
   photoURL?: string;
-  isAdmin?: boolean;
+  role?: 'admin' | 'user';
+  isAdmin?: boolean; // Legacy
   isBlocked?: boolean;
   createdAt?: any;
   lastLogin?: any;
@@ -44,14 +45,25 @@ export default function AdminUsers() {
     }
   };
 
-  const toggleAdminRole = async (userId: string, currentStatus: boolean | undefined) => {
+  const toggleAdminRole = async (userId: string, currentRole: 'admin' | 'user' | undefined, currentIsAdmin: boolean | undefined) => {
+    // Prevent self-demotion if desired or prevent demoting a specific super-admin
+    if (userId === ADMIN_UID) {
+        showNotification("No puedes cambiar el rol del Administrador Principal", "error");
+        return;
+    }
+
     setProcessingId(userId);
-    const newStatus = !currentStatus;
+    const isAdmin = currentRole === 'admin' || currentIsAdmin === true;
+    const newRole = isAdmin ? 'user' : 'admin';
+    
     try {
         const userRef = doc(db, 'users', userId);
-        await updateDoc(userRef, { isAdmin: newStatus });
-        setUsers(users.map(u => u.id === userId ? {...u, isAdmin: newStatus} : u));
-        showNotification(newStatus ? 'Permisos de admin otorgados' : 'Permisos revocados', 'success');
+        await updateDoc(userRef, { 
+            role: newRole,
+            isAdmin: newRole === 'admin' // Keep both for safety during migration
+        });
+        setUsers(users.map(u => u.id === userId ? {...u, role: newRole, isAdmin: newRole === 'admin'} : u));
+        showNotification(newRole === 'admin' ? 'Permisos de admin otorgados' : 'Permisos revocados', 'success');
     } catch (error) {
         console.error("Error:", error);
         showNotification("Error al actualizar permisos", 'error');
@@ -61,10 +73,10 @@ export default function AdminUsers() {
   };
 
   const toggleBlockStatus = async (userId: string, currentStatus: boolean | undefined) => {
-      // Prevent blocking admin
-      const user = users.find(u => u.id === userId);
-      if (user?.isAdmin && !currentStatus) {
-         if(!confirm("Estás a punto de bloquear a un administrador. ¿Continuar?")) return;
+      // Prevent blocking super admin
+      if (userId === ADMIN_UID) {
+        showNotification("No puedes bloquear al Administrador Principal", "error");
+        return;
       }
 
       setProcessingId(userId);
@@ -97,8 +109,8 @@ export default function AdminUsers() {
       return new Date(timestamp).toLocaleDateString();
   };
 
-  const isAuthorized = auth.currentUser?.uid === ADMIN_UID;
-  if (!isAuthorized) {
+  const isAuthorized = auth.currentUser?.uid === ADMIN_UID || users.find(u => u.id === auth.currentUser?.uid)?.role === 'admin';
+  if (!isAuthorized && !loading) {
       return (
           <div className="flex flex-col items-center justify-center h-full text-gray-500">
               <ShieldAlert size={48} className="text-red-500 mb-4" />
@@ -150,87 +162,90 @@ export default function AdminUsers() {
                     {loading ? (
                          <tr><td colSpan={4} className="p-10 text-center"><Loader2 className="animate-spin mx-auto text-m3-primary" /></td></tr>
                     ) : filteredUsers.length === 0 ? (
-                        <tr><td colSpan={4} className="p-10 text-center text-gray-500">No se encontraron usuarios.</td></tr>
+                         <tr><td colSpan={4} className="p-10 text-center text-gray-500">No se encontraron usuarios.</td></tr>
                     ) : (
-                        filteredUsers.map((user) => (
-                            <tr key={user.id} className="hover:bg-m3-surface-variant/10 dark:hover:bg-white/5 transition-colors">
-                                <td className="p-5">
-                                    <div className="flex items-center gap-3">
-                                        <div className="relative">
-                                            {user.photoURL ? (
-                                                <img src={user.photoURL} alt="User" className="w-10 h-10 rounded-full object-cover" />
-                                            ) : (
-                                                <div className="w-10 h-10 rounded-full bg-m3-primary/10 dark:bg-m3-primary/20 flex items-center justify-center text-m3-primary">
-                                                    <User size={20} />
-                                                </div>
-                                            )}
-                                            {user.isBlocked && (
-                                                <div className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5">
-                                                    <Ban size={12} />
-                                                </div>
-                                            )}
+                        filteredUsers.map((user) => {
+                            const isAdmin = user.role === 'admin' || user.isAdmin === true;
+                            return (
+                                <tr key={user.id} className="hover:bg-m3-surface-variant/10 dark:hover:bg-white/5 transition-colors">
+                                    <td className="p-5">
+                                        <div className="flex items-center gap-3">
+                                            <div className="relative">
+                                                {user.photoURL ? (
+                                                    <img src={user.photoURL} alt="User" className="w-10 h-10 rounded-full object-cover" />
+                                                ) : (
+                                                    <div className="w-10 h-10 rounded-full bg-m3-primary/10 dark:bg-m3-primary/20 flex items-center justify-center text-m3-primary">
+                                                        <User size={20} />
+                                                    </div>
+                                                )}
+                                                {user.isBlocked && (
+                                                    <div className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5">
+                                                        <Ban size={12} />
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div>
+                                                <p className={`font-medium text-sm ${user.isBlocked ? 'text-gray-400 line-through' : 'text-m3-secondary dark:text-white'}`}>{user.email}</p>
+                                                <p className="text-xs text-gray-400">{formatDate(user.createdAt || user.lastLogin)}</p>
+                                            </div>
                                         </div>
-                                        <div>
-                                            <p className={`font-medium text-sm ${user.isBlocked ? 'text-gray-400 line-through' : 'text-m3-secondary dark:text-white'}`}>{user.email}</p>
-                                            <p className="text-xs text-gray-400">{formatDate(user.createdAt || user.lastLogin)}</p>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td className="p-5 text-center">
-                                     <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold ${
-                                        user.isBlocked 
-                                            ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' 
-                                            : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
-                                    }`}>
-                                        {user.isBlocked ? 'Bloqueado' : 'Activo'}
-                                    </span>
-                                </td>
-                                <td className="p-5 text-center">
-                                    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${
-                                        user.isAdmin 
-                                            ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' 
-                                            : 'bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-400'
-                                    }`}>
-                                        {user.isAdmin ? <Shield size={12} fill="currentColor" /> : null}
-                                        {user.isAdmin ? 'Admin' : 'Usuario'}
-                                    </span>
-                                </td>
-                                <td className="p-5 text-right">
-                                    <div className="flex justify-end items-center gap-3">
-                                        {/* Block/Unblock Button */}
-                                        <button 
-                                            onClick={() => toggleBlockStatus(user.id, user.isBlocked)}
-                                            disabled={processingId === user.id}
-                                            title={user.isBlocked ? "Desbloquear" : "Bloquear"}
-                                            className={`p-2 rounded-full transition-colors ${
-                                                user.isBlocked 
-                                                    ? 'bg-green-50 text-green-600 hover:bg-green-100 dark:bg-green-900/20' 
-                                                    : 'bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-900/20'
-                                            }`}
-                                        >
-                                            {user.isBlocked ? <Lock size={16} className="text-green-600" /> : <Ban size={16} />}
-                                        </button>
-
-                                        {/* Admin Toggle */}
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-xs text-gray-400">Admin</span>
+                                    </td>
+                                    <td className="p-5 text-center">
+                                         <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                                            user.isBlocked 
+                                                ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' 
+                                                : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+                                        }`}>
+                                            {user.isBlocked ? 'Bloqueado' : 'Activo'}
+                                        </span>
+                                    </td>
+                                    <td className="p-5 text-center">
+                                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${
+                                            isAdmin 
+                                                ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' 
+                                                : 'bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-400'
+                                        }`}>
+                                            {isAdmin ? <Shield size={12} fill="currentColor" /> : null}
+                                            {isAdmin ? 'Admin' : 'Usuario'}
+                                        </span>
+                                    </td>
+                                    <td className="p-5 text-right">
+                                        <div className="flex justify-end items-center gap-3">
+                                            {/* Block/Unblock Button */}
                                             <button 
-                                                onClick={() => toggleAdminRole(user.id, user.isAdmin)}
+                                                onClick={() => toggleBlockStatus(user.id, user.isBlocked)}
                                                 disabled={processingId === user.id}
-                                                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-m3-primary focus:ring-offset-1 ${
-                                                    user.isAdmin ? 'bg-m3-primary' : 'bg-gray-300 dark:bg-gray-600'
+                                                title={user.isBlocked ? "Desbloquear" : "Bloquear"}
+                                                className={`p-2 rounded-full transition-colors ${
+                                                    user.isBlocked 
+                                                        ? 'bg-green-50 text-green-600 hover:bg-green-100 dark:bg-green-900/20' 
+                                                        : 'bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-900/20'
                                                 }`}
                                             >
-                                                <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
-                                                        user.isAdmin ? 'translate-x-5' : 'translate-x-0.5'
-                                                    }`}
-                                                />
+                                                {user.isBlocked ? <Lock size={16} className="text-green-600" /> : <Ban size={16} />}
                                             </button>
+    
+                                            {/* Admin Toggle */}
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-xs text-gray-400">Admin</span>
+                                                <button 
+                                                    onClick={() => toggleAdminRole(user.id, user.role, user.isAdmin)}
+                                                    disabled={processingId === user.id}
+                                                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-m3-primary focus:ring-offset-1 ${
+                                                        isAdmin ? 'bg-m3-primary' : 'bg-gray-300 dark:bg-gray-600'
+                                                    }`}
+                                                >
+                                                    <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
+                                                            isAdmin ? 'translate-x-5' : 'translate-x-0.5'
+                                                        }`}
+                                                    />
+                                                </button>
+                                            </div>
                                         </div>
-                                    </div>
-                                </td>
-                            </tr>
-                        ))
+                                    </td>
+                                </tr>
+                            );
+                        })
                     )}
                 </tbody>
             </table>

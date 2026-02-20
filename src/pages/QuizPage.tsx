@@ -53,21 +53,46 @@ export default function QuizPage() {
   }, []);
 
   const fetchQuizzes = async () => {
+    const user = auth.currentUser;
+    if (!user?.email) return;
+
     try {
-      const querySnapshot = await getDocs(collection(db, "quizzes"));
-      const quizList = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        title: doc.data().situation || "Contexto del Quiz",
-        description: doc.data().question || "Pregunta no disponible",
-        audioUrl: doc.data().audioUrl,
-        options: doc.data().options || [],
-        correctOption: doc.data().correctOption,
-        explanation: doc.data().explanation
-      })) as QuizModule[];
-      setQuizzes(quizList);
+      // 1. Fetch assignments for this user
+      const assignmentsQuery = query(
+        collection(db, "asignaciones_quizzes"), 
+        where("agentEmail", "==", user.email)
+      );
+      const assignmentsSnapshot = await getDocs(assignmentsQuery);
+      const assignedQuizIds = assignmentsSnapshot.docs.map(doc => doc.data().quizId);
+
+      if (assignedQuizIds.length === 0) {
+        setQuizzes([]);
+        return;
+      }
+
+      // 2. Fetch the actual quiz details for these IDs
+      // Note: Firestore 'in' operator is limited to 10-30 items depending on version/config
+      // For simplicity here, we fetch them and map. If many, we might need a different approach.
+      const quizDetails: QuizModule[] = [];
+      for (const quizId of assignedQuizIds) {
+        const quizSnap = await getDocs(query(collection(db, "quizzes"), where("__name__", "==", quizId)));
+        if (!quizSnap.empty) {
+            const data = quizSnap.docs[0].data();
+            quizDetails.push({
+                id: quizSnap.docs[0].id,
+                title: data.situation || "Contexto del Quiz",
+                description: data.question || "Pregunta no disponible",
+                audioUrl: data.audioUrl,
+                options: data.options || [],
+                correctOption: data.correctOption,
+                explanation: data.explanation
+            });
+        }
+      }
+      
+      setQuizzes(quizDetails);
     } catch (err) {
-      console.error("Error fetching quizzes:", err);
-      // setError("Error al cargar las prácticas.");
+      console.error("Error fetching assigned quizzes:", err);
     }
   };
 

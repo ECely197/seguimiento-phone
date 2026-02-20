@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Users, Library, FileEdit, Menu, LogOut, LayoutDashboard, Upload, CheckCircle, AlertCircle, Loader2, Pencil, Trash2, Video, Headphones } from 'lucide-react';
+import { Users, Library, FileEdit, Menu, LogOut, LayoutDashboard, Upload, CheckCircle, AlertCircle, Loader2, Pencil, Trash2, Video, Headphones, ListChecks } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { auth, storage, db } from '../firebaseConfig';
 import { signOut } from 'firebase/auth';
@@ -9,9 +9,10 @@ import { collection, addDoc, doc, updateDoc, deleteDoc, getDocs, query, orderBy,
 import AdminAgents from './AdminAgents';
 import AdminQuizAssigner from './AdminQuizAssigner';
 import AdminResults from './AdminResults';
+import AdminQuizManager from './AdminQuizManager';
 import AdminUsers from './AdminUsers';
 
-type AdminSection = 'agents' | 'processes' | 'quizzes' | 'assignments' | 'results' | 'users';
+type AdminSection = 'agents' | 'processes' | 'quizzes' | 'manage-quizzes' | 'assignments' | 'results' | 'users';
 
 export default function AdminDashboard() {
   const [activeSection, setActiveSection] = useState<AdminSection>('agents');
@@ -259,8 +260,9 @@ export default function AdminDashboard() {
     { id: 'agents', label: 'Gestión de Agentes', icon: Users },
     { id: 'users', label: 'Gestión de Usuarios', icon: Users },
     { id: 'processes', label: 'Explicaciones', icon: Library }, // CAMBIO DE NOMBRE AQUI
-    { id: 'quizzes', label: 'Editor de Quizzes', icon: FileEdit },
-    { id: 'assignments', label: 'Asignador de Quizzes', icon: CheckCircle },
+    { id: 'quizzes', label: 'Crear Quiz', icon: FileEdit },
+    { id: 'manage-quizzes', label: 'Gestionar Quizzes', icon: ListChecks },
+    { id: 'assignments', label: 'Asignar Quizzes', icon: CheckCircle },
     { id: 'results', label: 'Resultados', icon: CheckCircle }, 
   ];
 
@@ -551,12 +553,13 @@ export default function AdminDashboard() {
                 {/* Content Rendering Switch */}
                 {activeSection === 'agents' && <AdminAgents />}
                 {activeSection === 'users' && <AdminUsers />}
+                {activeSection === 'manage-quizzes' && <AdminQuizManager />}
                 {activeSection === 'assignments' && <AdminQuizAssigner />}
                 {activeSection === 'results' && <AdminResults />}
 
-                {/* --- SECCIÓN QUIZZES --- */}
+                {/* --- SECCIÓN QUIZZES (Solo Creación) --- */}
                 {activeSection === 'quizzes' && (
-                    <div className="max-w-2xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <div className="max-w-2xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500 pb-10">
                           <div className="flex items-center gap-3 mb-6">
                             <div className="p-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-full">
                                 <FileEdit className="text-emerald-600 dark:text-emerald-400" size={32} />
@@ -682,7 +685,7 @@ export default function AdminDashboard() {
                              <button
                                 type="submit"
                                 disabled={isUploading}
-                                className={`w-full py-3.5 rounded-[28px] font-bold text-white flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg
+                                className={`w-full py-4 rounded-[28px] font-bold text-white flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg
                                     ${isUploading 
                                         ? 'bg-gray-400 cursor-not-allowed' 
                                         : 'bg-m3-primary hover:bg-blue-700 hover:-translate-y-0.5'

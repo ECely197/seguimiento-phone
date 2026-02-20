@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { collection, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
-import { getAllAgents } from '../api/sheetService';
 import { Loader2, CheckCircle, AlertCircle, Send, Users, FileText } from 'lucide-react';
 
 export default function AdminQuizAssigner() {
@@ -26,9 +25,14 @@ export default function AdminQuizAssigner() {
                  const quizzesList = quizzesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                  setQuizzes(quizzesList);
 
-                 // 2. Fetch Agents
-                 const agentsList = await getAllAgents();
-                 setAgents(Array.isArray(agentsList) ? agentsList : []);
+                 // 2. Fetch Registered Users from Firestore
+                 const usersSnapshot = await getDocs(collection(db, 'users'));
+                 const usersList = usersSnapshot.docs.map(doc => ({ 
+                    id: doc.id, 
+                    email: doc.data().email,
+                    displayName: doc.data().displayName || doc.data().agente || 'Usuario sin nombre'
+                 }));
+                 setAgents(usersList);
              } catch (err) {
                  console.error("Error fetching data:", err);
                  setError("Error al cargar datos necesarios.");
@@ -62,14 +66,13 @@ export default function AdminQuizAssigner() {
         try {
             const targets = assignationType === 'all' 
                 ? agents 
-                : agents.filter(a => selectedAgentEmails.includes(a.correo));
+                : agents.filter(a => selectedAgentEmails.includes(a.email));
 
             const assignmentsUpdates = targets.map(agent => {
                 return addDoc(collection(db, 'asignaciones_quizzes'), {
                     quizId: selectedQuizId,
-
-                    agentEmail: agent.correo,
-                    agentName: agent.agente || 'Agente',
+                    agentEmail: agent.email,
+                    agentName: agent.displayName,
                     assignedAt: serverTimestamp(),
                     status: 'pending',
                     assignedBy: auth.currentUser?.email
@@ -163,20 +166,20 @@ export default function AdminQuizAssigner() {
                             <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
                                 {agents.map((agent, index) => (
                                     <label 
-                                        key={agent.correo || `agent-${index}`}
-                                        className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all border ${agent.correo && selectedAgentEmails.includes(agent.correo) 
+                                        key={agent.email || `agent-${index}`}
+                                        className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all border ${agent.email && selectedAgentEmails.includes(agent.email) 
                                             ? 'bg-m3-primary/5 border-m3-primary/30 dark:bg-m3-primary/10 dark:border-m3-primary/30' 
                                             : 'border-transparent hover:bg-gray-50 dark:hover:bg-white/5'}`}
                                     >
                                         <input 
                                             type="checkbox"
-                                            checked={!!agent.correo && selectedAgentEmails.includes(agent.correo)}
-                                            onChange={() => agent.correo && toggleAgentSelection(agent.correo)}
+                                            checked={!!agent.email && selectedAgentEmails.includes(agent.email)}
+                                            onChange={() => agent.email && toggleAgentSelection(agent.email)}
                                             className="w-5 h-5 rounded text-m3-primary focus:ring-m3-primary"
                                         />
                                         <div className="overflow-hidden flex-1">
-                                            <p className="text-sm font-bold text-m3-secondary dark:text-m3-on-surface-dark truncate">{agent.agente || agent.nombre || "Sin Nombre"}</p>
-                                            <p className="text-xs text-gray-500 truncate">{agent.correo || "Sin Correo"}</p>
+                                            <p className="text-sm font-bold text-m3-secondary dark:text-m3-on-surface-dark truncate">{agent.displayName || "Sin Nombre"}</p>
+                                            <p className="text-xs text-gray-500 truncate">{agent.email || "Sin Correo"}</p>
                                         </div>
                                     </label>
                                 ))}

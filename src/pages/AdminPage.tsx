@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Users, Library, FileEdit, Menu, LogOut, LayoutDashboard, CheckCircle } from 'lucide-react';
+import { Users, Library, FileEdit, Menu, LogOut, LayoutDashboard, CheckCircle, ListChecks } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { auth } from '../firebaseConfig';
 
@@ -8,8 +8,9 @@ import AdminQuizAssigner from './AdminQuizAssigner';
 import AdminProcessUpload from './AdminProcessUpload';
 import AdminQuizEditor from './AdminQuizEditor';
 import AdminUsers from './AdminUsers';
+import AdminQuizManager from './AdminQuizManager';
 
-type AdminSection = 'agents' | 'processes' | 'quizzes' | 'assignments' | 'users';
+type AdminSection = 'agents' | 'processes' | 'quizzes' | 'manage-quizzes' | 'assignments' | 'users';
 
 export default function AdminPage() {
   const [activeSection, setActiveSection] = useState<AdminSection>('agents');
@@ -30,6 +31,7 @@ export default function AdminPage() {
     { id: 'users', label: 'Gestión de Usuarios', icon: Users },
     { id: 'processes', label: 'Carga de Contenido', icon: Library },
     { id: 'quizzes', label: 'Crear Quiz', icon: FileEdit },
+    { id: 'manage-quizzes', label: 'Gestionar Quizzes', icon: ListChecks },
     { id: 'assignments', label: 'Asignar Quizzes (Retos)', icon: CheckCircle },
   ];
 
@@ -136,6 +138,7 @@ export default function AdminPage() {
                 {activeSection === 'users' && <AdminUsers />}
                 {activeSection === 'processes' && <AdminProcessUpload />}
                 {activeSection === 'quizzes' && <AdminQuizEditor />}
+                {activeSection === 'manage-quizzes' && <AdminQuizManager />}
                 {activeSection === 'assignments' && <AdminQuizAssigner />}
 
             </div>

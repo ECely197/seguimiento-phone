@@ -123,6 +123,21 @@ export default function AdminAgents() {
         }
     };
 
+    const formatNumber = (val: any) => {
+        if(!val || val === 'N/A') return 'N/A';
+        const num = parseFloat(val.toString().replace(/[^0-9.]/g, ''));
+        return isNaN(num) ? 'N/A' : num.toFixed(1);
+    };
+
+    const formatPercent = (val: any) => {
+        if(!val || val === 'N/A') return 'N/A';
+        const num = parseFloat(val.toString().replace(/[^0-9.]/g, ''));
+        if (isNaN(num)) return 'N/A';
+        // If it's already > 1, assume it's NOT a decimal (e.g. 93.4) 
+        // but user specifically said "vienen en decimal (0.93...), multiplícalos por 100"
+        return (num * 100).toFixed(2) + '%';
+    };
+
     const filteredAgents = agents.filter(agent => 
         agent.agente?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         agent.correo?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -159,9 +174,8 @@ export default function AdminAgents() {
                     <table className="w-full text-left border-collapse">
                         <thead className="bg-m3-surface-variant/40 dark:bg-white/10 sticky top-0 z-10 backdrop-blur-md">
                             <tr>
-                                <th className="p-4 text-xs font-bold text-m3-secondary dark:text-m3-on-surface-dark uppercase tracking-wider">Agente</th>
                                 <th className="p-4 text-xs font-bold text-m3-secondary dark:text-m3-on-surface-dark uppercase tracking-wider">Correo</th>
-                                <th className="p-4 text-xs font-bold text-m3-secondary dark:text-m3-on-surface-dark uppercase tracking-wider text-center">AHT Real</th>
+                                <th className="p-4 text-xs font-bold text-m3-secondary dark:text-m3-on-surface-dark uppercase tracking-wider text-center">AHT</th>
                                 <th className="p-4 text-xs font-bold text-m3-secondary dark:text-m3-on-surface-dark uppercase tracking-wider text-center">ATT</th>
                                 <th className="p-4 text-xs font-bold text-m3-secondary dark:text-m3-on-surface-dark uppercase tracking-wider text-center">ACW</th>
                                 <th className="p-4 text-xs font-bold text-m3-secondary dark:text-m3-on-surface-dark uppercase tracking-wider text-center">RES (%)</th>
@@ -171,9 +185,9 @@ export default function AdminAgents() {
                         </thead>
                         <tbody className="divide-y divide-m3-surface-variant/20 dark:divide-white/5">
                             {loading ? (
-                                <tr><td colSpan={8} className="p-10 text-center text-gray-400">Cargando agentes...</td></tr>
+                                <tr><td colSpan={7} className="p-10 text-center text-gray-400">Cargando agentes...</td></tr>
                             ) : filteredAgents.length === 0 ? (
-                                <tr><td colSpan={8} className="p-10 text-center text-gray-400">No se encontraron resultados.</td></tr>
+                                <tr><td colSpan={7} className="p-10 text-center text-gray-400">No se encontraron resultados.</td></tr>
                             ) : (
                                 filteredAgents.map((agent) => (
                                     <tr
@@ -186,27 +200,24 @@ export default function AdminAgents() {
                                                 <div className="w-8 h-8 rounded-full bg-m3-primary/10 flex items-center justify-center text-m3-primary font-bold text-xs">
                                                     {(agent.agente || agent.name || "").substring(0, 2).toUpperCase() || <User size={14} />}
                                                 </div>
-                                                <span className="font-medium text-m3-secondary dark:text-m3-on-surface-dark">{agent.agente || agent.name || "N/A"}</span>
+                                                <span className="text-sm font-medium text-m3-secondary dark:text-m3-on-surface-dark">{agent.correo || agent.email}</span>
                                             </div>
                                         </td>
-                                        <td className="p-4 text-sm text-gray-500 dark:text-gray-400">
-                                            {agent.correo || agent.email}
+                                        <td className="p-4 text-center text-sm">
+                                            {formatNumber(agent['AHT Real'])}
                                         </td>
                                         <td className="p-4 text-center text-sm">
-                                            {agent['AHT Real'] || 'N/A'}
+                                            {formatNumber(agent.ATT)}
                                         </td>
                                         <td className="p-4 text-center text-sm">
-                                            {agent.ATT || 'N/A'}
-                                        </td>
-                                        <td className="p-4 text-center text-sm">
-                                            {agent.ACW || 'N/A'}
+                                            {formatNumber(agent.ACW)}
                                         </td>
                                         <td className="p-4 text-center font-medium text-m3-secondary dark:text-m3-on-surface-dark">
-                                            {agent.RES || 'N/A'}
+                                            {formatPercent(agent.RES)}
                                         </td>
                                         <td className="p-4 text-center">
-                                            <span className={`inline-block px-2 py-0.5 rounded-md text-xs font-bold ${parseFloat(agent.PSAT || '0') < 80 ? 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400' : 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400'}`}>
-                                                {agent.PSAT || 'N/A'}
+                                            <span className={`inline-block px-2 py-0.5 rounded-md text-xs font-bold ${parseFloat(agent.PSAT || '0') < 0.8 ? 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400' : 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400'}`}>
+                                                {formatPercent(agent.PSAT)}
                                             </span>
                                         </td>
                                         <td className="p-4 text-right">
