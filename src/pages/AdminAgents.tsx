@@ -184,7 +184,7 @@ export default function AdminAgents() {
                                         <td className="p-4">
                                             <div className="flex items-center gap-3">
                                                 <div className="w-8 h-8 rounded-full bg-m3-primary/10 flex items-center justify-center text-m3-primary font-bold text-xs">
-                                                    {(agent.agente || agent.name) ? (agent.agente || agent.name).substring(0, 2).toUpperCase() : <User size={14} />}
+                                                    {(agent.agente || agent.name || "").substring(0, 2).toUpperCase() || <User size={14} />}
                                                 </div>
                                                 <span className="font-medium text-m3-secondary dark:text-m3-on-surface-dark">{agent.agente || agent.name || "N/A"}</span>
                                             </div>
@@ -234,7 +234,7 @@ export default function AdminAgents() {
                     <div className="flex-1 overflow-y-auto p-6 space-y-6">
                         <div className="text-center">
                             <div className="w-20 h-20 mx-auto bg-m3-primary/10 dark:bg-m3-primary/20 rounded-full flex items-center justify-center text-3xl font-bold text-m3-primary mb-3">
-                                {(selectedAgent.agente || selectedAgent.name) ? (selectedAgent.agente || selectedAgent.name).substring(0,2).toUpperCase() : <User />}
+                                {(selectedAgent.agente || selectedAgent.name || "").substring(0,2).toUpperCase() || <User />}
                             </div>
                             <h3 className="text-xl font-bold text-m3-secondary dark:text-white">{selectedAgent.agente || selectedAgent.name}</h3>
                             <p className="text-sm text-gray-500">{selectedAgent.correo || selectedAgent.email}</p>
