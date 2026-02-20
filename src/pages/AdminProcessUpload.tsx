@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Library, Upload, CheckCircle, AlertCircle, Loader2, Trash2, Pencil } from 'lucide-react';
 import { auth, storage, db } from '../firebaseConfig';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { collection, addDoc, serverTimestamp, getDocs, deleteDoc, doc, updateDoc } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, getDocs, deleteDoc, doc, updateDoc, query, orderBy } from 'firebase/firestore';
 
 export default function AdminProcessUpload() {
     const [editingId, setEditingId] = useState<string | null>(null);
@@ -12,6 +12,11 @@ export default function AdminProcessUpload() {
     const [isUploading, setIsUploading] = useState(false);
     const [uploadSuccess, setUploadSuccess] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [category, setCategory] = useState('');
+    const [categories, setCategories] = useState<any[]>([]);
+    const [isManagingCategories, setIsManagingCategories] = useState(false);
+    const [newCategoryName, setNewCategoryName] = useState('');
+    const [isAddingCategory, setIsAddingCategory] = useState(false);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
@@ -19,10 +24,52 @@ export default function AdminProcessUpload() {
         }
     };
 
+    const fetchCategories = async () => {
+        try {
+            const q = query(collection(db, 'categories'), orderBy('createdAt', 'desc'));
+            const querySnapshot = await getDocs(q);
+            setCategories(querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        } catch (error) {
+            console.error("Error fetching categories:", error);
+        }
+    };
+
+    useEffect(() => {
+        fetchCategories();
+    }, []);
+
+    const handleAddCategory = async () => {
+        if (!newCategoryName.trim()) return;
+        setIsAddingCategory(true);
+        try {
+            await addDoc(collection(db, 'categories'), {
+                name: newCategoryName.trim(),
+                createdAt: serverTimestamp()
+            });
+            setNewCategoryName('');
+            fetchCategories();
+        } catch (error) {
+            console.error("Error adding category:", error);
+            setError("Error al crear la categoría.");
+        } finally {
+            setIsAddingCategory(false);
+        }
+    };
+
+    const handleDeleteCategory = async (id: string, name: string) => {
+        if (!window.confirm(`¿Seguro que quieres eliminar la categoría "${name}"? Los videos existentes no se borrarán, pero quedarán sin categoría.`)) return;
+        try {
+            await deleteDoc(doc(db, 'categories', id));
+            fetchCategories();
+        } catch (error) {
+            console.error("Error deleting category:", error);
+        }
+    };
+
     const handleUpload = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!file) {
-            setError("Por favor selecciona un archivo.");
+        if (!file || !category) {
+            setError("Por favor selecciona un archivo y una categoría.");
             return;
         }
 
@@ -40,6 +87,7 @@ export default function AdminProcessUpload() {
             await addDoc(collection(db, 'processes'), {
                 title,
                 description,
+                category,
                 url: downloadURL,
                 type: file.type.startsWith('video') ? 'video' : 'audio',
                 filename: file.name,
@@ -50,6 +98,7 @@ export default function AdminProcessUpload() {
             setUploadSuccess(true);
             setTitle('');
             setDescription('');
+            setCategory('');
             setFile(null);
             
             setTimeout(() => setUploadSuccess(false), 3000);
@@ -98,6 +147,7 @@ export default function AdminProcessUpload() {
         setEditingId(item.id);
         setTitle(item.title || item.titulo || '');
         setDescription(item.description || item.descripcion || '');
+        setCategory(item.category || '');
         setFile(null);
         setError(null);
         setUploadSuccess(false);
@@ -108,6 +158,7 @@ export default function AdminProcessUpload() {
         setEditingId(null);
         setTitle('');
         setDescription('');
+        setCategory('');
         setFile(null);
         setError(null);
     };
@@ -122,10 +173,10 @@ export default function AdminProcessUpload() {
         setError(null);
         setUploadSuccess(false);
         try {
-            await updateDoc(doc(db, 'processes', editingId), { title, description });
+            await updateDoc(doc(db, 'processes', editingId), { title, description, category });
             setMateriales(prev =>
                 prev.map(item =>
-                    item.id === editingId ? { ...item, title, description } : item
+                    item.id === editingId ? { ...item, title, description, category } : item
                 )
             );
             setUploadSuccess(true);
@@ -149,7 +200,55 @@ export default function AdminProcessUpload() {
                     <h3 className="text-xl font-bold text-m3-secondary dark:text-m3-on-surface-dark">Subir Nuevo Material</h3>
                     <p className="text-sm text-gray-500">Sube videos o audios para que los agentes los consulten.</p>
                 </div>
+                <button 
+                    onClick={() => setIsManagingCategories(!isManagingCategories)}
+                    className="ml-auto flex items-center gap-2 px-4 py-2 bg-m3-primary/10 text-m3-primary rounded-full text-xs font-bold hover:bg-m3-primary hover:text-white transition-all shadow-sm"
+                >
+                    <Library size={16} />
+                    {isManagingCategories ? 'Cerrar Gestor' : 'Gestionar Categorías'}
+                </button>
             </div>
+
+            {isManagingCategories && (
+                <div className="mb-8 p-6 bg-purple-50 dark:bg-purple-900/10 rounded-[24px] border border-purple-100 dark:border-purple-900/20 animate-in slide-in-from-top-2 duration-300">
+                    <h4 className="font-bold text-purple-800 dark:text-purple-300 mb-4 flex items-center gap-2">
+                        <Library size={18} /> Administrar Categorías
+                    </h4>
+                    
+                    <div className="flex gap-2 mb-6">
+                        <input 
+                            type="text" 
+                            placeholder="Nueva categoría (ej. KPIs)"
+                            value={newCategoryName}
+                            onChange={(e) => setNewCategoryName(e.target.value)}
+                            className="flex-1 px-4 py-2.5 rounded-xl bg-white dark:bg-[#1A1C1E] border border-purple-200 dark:border-purple-900/30 text-sm outline-none focus:ring-2 focus:ring-purple-400 transition-all dark:text-white"
+                        />
+                        <button 
+                            disabled={isAddingCategory || !newCategoryName.trim()}
+                            onClick={handleAddCategory}
+                            className="px-6 py-2.5 bg-purple-600 text-white rounded-xl text-sm font-bold shadow-md hover:bg-purple-700 transition-all disabled:opacity-50 flex items-center gap-2"
+                        >
+                            {isAddingCategory ? <Loader2 className="animate-spin" size={16} /> : <CheckCircle size={16} />}
+                            Crear
+                        </button>
+                    </div>
+
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                        {categories.map(cat => (
+                            <div key={cat.id} className="flex items-center justify-between px-3 py-2 bg-white dark:bg-black/20 rounded-lg border border-purple-100 dark:border-white/5 group">
+                                <span className="text-xs font-medium text-purple-900 dark:text-purple-200 truncate pr-2">{cat.name}</span>
+                                <button 
+                                    onClick={() => handleDeleteCategory(cat.id, cat.name)}
+                                    className="p-1 text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full opacity-0 group-hover:opacity-100 transition-all"
+                                >
+                                    <Trash2 size={12} />
+                                </button>
+                            </div>
+                        ))}
+                        {categories.length === 0 && <p className="col-span-full text-center text-xs text-gray-400 py-4 italic">No hay categorías. Crea la primera.</p>}
+                    </div>
+                </div>
+            )}
 
             <form onSubmit={editingId ? handleUpdate : handleUpload} className="space-y-6">
                 {editingId && (
@@ -170,6 +269,24 @@ export default function AdminProcessUpload() {
                         className="w-full px-4 py-3 rounded-xl bg-m3-surface dark:bg-[#2C2C2C] border border-m3-surface-variant dark:border-white/10 focus:border-m3-primary focus:ring-1 focus:ring-m3-primary outline-none transition-all text-m3-secondary dark:text-m3-on-surface-dark"
                         required
                     />
+                </div>
+
+                <div>
+                    <label className="block text-sm font-medium text-m3-secondary dark:text-m3-on-surface-dark/80 mb-2">
+                        Categoría
+                    </label>
+                    <select
+                        value={category}
+                        onChange={(e) => setCategory(e.target.value)}
+                        className="w-full px-4 py-3 rounded-xl bg-m3-surface dark:bg-[#2C2C2C] border border-m3-surface-variant dark:border-white/10 focus:border-m3-primary focus:ring-1 focus:ring-m3-primary outline-none transition-all text-m3-secondary dark:text-m3-on-surface-dark cursor-pointer"
+                        required
+                    >
+                        <option value="" disabled>Selecciona una categoría</option>
+                        {categories.map(cat => (
+                            <option key={cat.id} value={cat.name}>{cat.name}</option>
+                        ))}
+                        {categories.length === 0 && <option disabled>Crea una categoría primero</option>}
+                    </select>
                 </div>
 
                 <div>
@@ -277,7 +394,12 @@ export default function AdminProcessUpload() {
                                     />
                                 </div>
                                     <div className="p-5 flex flex-col flex-grow">
-                                        <h4 className="font-bold text-m3-secondary dark:text-m3-on-surface-dark line-clamp-1 text-lg mb-1">{item.title || item.titulo}</h4>
+                                        <div className="flex justify-between items-start mb-1">
+                                            <h4 className="font-bold text-m3-secondary dark:text-m3-on-surface-dark line-clamp-1 text-lg">{item.title || item.titulo}</h4>
+                                            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 bg-m3-primary/10 text-m3-primary rounded-full">
+                                                {item.category || 'General'}
+                                            </span>
+                                        </div>
                                         <p className="text-sm text-gray-500 dark:text-gray-400 mb-4 line-clamp-2">{item.description || item.descripcion || "Sin descripción"}</p>
                                         
                                         <div className="flex gap-2 mt-auto">

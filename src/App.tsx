@@ -1,16 +1,18 @@
-import { BrowserRouter, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useLocation, useNavigate, Navigate } from 'react-router-dom';
 import LoginPage from './pages/LoginPage';
 import HomePage from './pages/HomePage';
 import ProcessPage from './pages/ProcessPage';
 import QuizPage from './pages/QuizPage';
 import AdminPage from './pages/AdminPage';
-import AdminRoute from './components/AdminRoute'; // Import
+import AdminRoute from './components/AdminRoute'; 
+import ProtectedRoute from './components/ProtectedRoute';
 import Navbar from './components/Navbar';
+import Header from './components/Header';
 import './App.css';
 
 import { useEffect } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore'; // Added imports
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore'; 
 import { auth, db } from './firebaseConfig';
 import { ADMIN_UID } from './constants';
 
@@ -19,7 +21,7 @@ function Layout() {
   const navigate = useNavigate();
   
   // Hide navbar on login page AND admin dashboard
-  const showNavbar = location.pathname !== '/' && location.pathname !== '/admin';
+  const showNavbar = location.pathname !== '/login' && location.pathname !== '/admin' && location.pathname !== '/';
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -31,9 +33,7 @@ function Layout() {
           const userSnap = await getDoc(userRef);
           
           if (!userSnap.exists()) {
-            // New User: Set default fields + role: 'user'
             currentRole = 'user';
-            // Hardcoded fallback: if UID matches ADMIN_UID, make them admin
             if (user.uid === ADMIN_UID) currentRole = 'admin';
 
             await setDoc(userRef, {
@@ -44,7 +44,6 @@ function Layout() {
               role: currentRole
             });
           } else {
-            // Existing User: Update lastLogin, preserve role
             const data = userSnap.data();
             currentRole = data.role || (data.isAdmin ? 'admin' : 'user');
             
@@ -52,7 +51,6 @@ function Layout() {
               email: user.email,
               photoURL: user.photoURL,
               lastLogin: serverTimestamp(),
-              // Migration: if they have isAdmin but no role
               role: currentRole
             }, { merge: true });
           }
@@ -61,15 +59,9 @@ function Layout() {
         }
       }
 
-      // 2. Navigation Logic
-      if (user && location.pathname === '/') {
-        if (currentRole === 'admin' || user.uid === ADMIN_UID) {
-           navigate('/admin');
-        } else {
-           navigate('/home');
-        }
-      } else if (!user && location.pathname !== '/') {
-        navigate('/'); 
+      // Basic Redirection for Login Page
+      if (user && location.pathname === '/login') {
+        navigate('/home', { replace: true });
       }
     });
     return () => unsubscribe();
@@ -77,20 +69,30 @@ function Layout() {
 
   return (
     <>
-      <div className={showNavbar ? "pb-20" : ""}>
+      {showNavbar && <Header />}
+      <div className={`${showNavbar ? "pb-20 pt-16" : ""} transition-all duration-300`}>
         <Routes>
-          <Route path="/" element={<LoginPage />} />
-          <Route path="/home" element={<HomePage />} />
-          <Route path="/procesos" element={<ProcessPage />} />
-          <Route path="/quizzes" element={<QuizPage />} />
-          <Route 
-            path="/admin" 
-            element={
-              <AdminRoute>
-                <AdminPage />
-              </AdminRoute>
-            } 
-          /> 
+          {/* Public Routes */}
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/" element={<Navigate to="/home" replace />} />
+
+          {/* Protected Routes */}
+          <Route element={<ProtectedRoute />}>
+            <Route path="/home" element={<HomePage />} />
+            <Route path="/procesos" element={<ProcessPage />} />
+            <Route path="/quizzes" element={<QuizPage />} />
+            <Route 
+              path="/admin" 
+              element={
+                <AdminRoute>
+                  <AdminPage />
+                </AdminRoute>
+              } 
+            /> 
+          </Route>
+
+          {/* Fallback */}
+          <Route path="*" element={<Navigate to="/home" replace />} />
         </Routes>
       </div>
       {showNavbar && <Navbar />}

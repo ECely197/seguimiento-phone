@@ -30,9 +30,17 @@ body {
   padding: 0;
 }
 
-@variant dark {
-  body {
-    background-color: var(--color-m3-surface-dark);
-    color: var(--color-m3-on-surface-dark);
-  }
+@variant dark (&:where(.dark, .dark *));
+
+body {
+  background-color: var(--color-m3-surface);
+  font-family: "Roboto", sans-serif;
+  transition: background-color 0.3s ease, color 0.3s ease;
+  margin: 0;
+  padding: 0;
+}
+
+.dark body {
+  background-color: var(--color-m3-surface-dark);
+  color: var(--color-m3-on-surface-dark);
 }

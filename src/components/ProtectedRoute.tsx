@@ -1,13 +1,11 @@
-import { ADMIN_UID } from '../constants';
-
 import { useState, useEffect } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, Outlet } from 'react-router-dom';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../firebaseConfig';
 import { Loader2 } from 'lucide-react';
 
 interface ProtectedRouteProps {
-  children: React.ReactNode;
+  children?: React.ReactNode;
 }
 
 export default function ProtectedRoute({ children }: ProtectedRouteProps) {
@@ -24,17 +22,18 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
 
   if (loading) {
     return (
-      <div className="h-screen flex items-center justify-center bg-gray-50 dark:bg-[#1A1C1E]">
-        <Loader2 className="animate-spin text-blue-600" size={48} />
+      <div className="h-screen flex items-center justify-center bg-m3-surface dark:bg-m3-surface-dark">
+        <div className="flex flex-col items-center gap-4">
+            <Loader2 className="animate-spin text-m3-primary" size={48} />
+            <p className="text-m3-secondary dark:text-m3-on-surface-dark animate-pulse font-medium">Cargando...</p>
+        </div>
       </div>
     );
   }
 
-  // Check if user is logged in AND is the admin
-  if (!user || user.uid !== ADMIN_UID) {
-     // If not logged in -> /, if logged in but not admin -> /home
-     return <Navigate to={user ? "/home" : "/"} replace />;
+  if (!user) {
+    return <Navigate to="/login" replace />;
   }
 
-  return <>{children}</>;
+  return children ? <>{children}</> : <Outlet />;
 }
