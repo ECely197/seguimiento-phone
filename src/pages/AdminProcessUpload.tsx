@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Library, Upload, CheckCircle, AlertCircle, Loader2, Trash2, Pencil } from 'lucide-react';
+import { Library, Upload, CheckCircle, AlertCircle, Loader2, Trash2, Pencil, Eye, Users } from 'lucide-react';
 import { auth, storage, db } from '../firebaseConfig';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { collection, addDoc, serverTimestamp, getDocs, deleteDoc, doc, updateDoc, query, orderBy } from 'firebase/firestore';
@@ -17,6 +17,8 @@ export default function AdminProcessUpload() {
     const [isManagingCategories, setIsManagingCategories] = useState(false);
     const [newCategoryName, setNewCategoryName] = useState('');
     const [isAddingCategory, setIsAddingCategory] = useState(false);
+    const [allUsers, setAllUsers] = useState<Record<string, {name: string, email: string}>>({});
+    const [activeViewerList, setActiveViewerList] = useState<string | null>(null);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
@@ -34,8 +36,26 @@ export default function AdminProcessUpload() {
         }
     };
 
+    const fetchUsers = async () => {
+        try {
+            const querySnapshot = await getDocs(collection(db, 'users'));
+            const userMap: Record<string, {name: string, email: string}> = {};
+            querySnapshot.docs.forEach(doc => {
+                const data = doc.data();
+                userMap[doc.id] = {
+                    name: data.displayName || data.name || 'Usuario',
+                    email: data.email || ''
+                };
+            });
+            setAllUsers(userMap);
+        } catch (error) {
+            console.error("Error fetching users:", error);
+        }
+    };
+
     useEffect(() => {
         fetchCategories();
+        fetchUsers();
     }, []);
 
     const handleAddCategory = async () => {
@@ -400,6 +420,39 @@ export default function AdminProcessUpload() {
                                                 {item.category || 'General'}
                                             </span>
                                         </div>
+                                        
+                                        <div className="flex items-center gap-4 mb-3">
+                                            <div className="flex items-center gap-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">
+                                                <Eye size={14} className="text-gray-400" />
+                                                <span>{item.viewedBy?.length || 0} visualizaciones</span>
+                                            </div>
+                                            {(item.viewedBy?.length > 0) && (
+                                                <button 
+                                                    onClick={() => setActiveViewerList(activeViewerList === item.id ? null : item.id)}
+                                                    className="flex items-center gap-1 text-[10px] font-bold text-m3-primary dark:text-m3-primary-dark hover:underline uppercase tracking-tight"
+                                                >
+                                                    <Users size={12} />
+                                                    Ver quiénes
+                                                </button>
+                                            )}
+                                        </div>
+
+                                        {activeViewerList === item.id && (
+                                            <div className="mb-4 p-3 bg-m3-surface dark:bg-black/30 rounded-xl border border-m3-surface-variant/50 dark:border-white/5 animate-in fade-in zoom-in duration-200">
+                                                <p className="text-[10px] font-bold text-gray-400 uppercase mb-2">Visto por:</p>
+                                                <div className="max-h-32 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
+                                                    {(item.viewedBy || []).map((uid: string) => (
+                                                        <div key={uid} className="flex flex-col">
+                                                            <span className="text-xs font-semibold text-m3-secondary dark:text-m3-on-surface-dark">
+                                                                {allUsers[uid]?.name || 'Usuario desconocido'}
+                                                            </span>
+                                                            <span className="text-[10px] text-gray-400">{allUsers[uid]?.email || uid}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+
                                         <p className="text-sm text-gray-500 dark:text-gray-400 mb-4 line-clamp-2">{item.description || item.descripcion || "Sin descripción"}</p>
                                         
                                         <div className="flex gap-2 mt-auto">

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { collection, getDocs } from 'firebase/firestore';
-import { db } from '../firebaseConfig';
+import { db, auth } from '../firebaseConfig';
 import { Loader2, Library } from 'lucide-react';
 import ProcessCard from '../components/ProcessCard';
 
@@ -10,6 +10,7 @@ interface VideoModule {
   description: string;
   videoUrl: string;
   category: string;
+  viewedBy: string[];
   thumbnailUrl?: string;
 }
 
@@ -29,6 +30,7 @@ export default function ProcessPage() {
                 description: data.description || "Sin descripción disponible.",
                 videoUrl: data.url || "", 
                 category: data.category || "General",
+                viewedBy: data.viewedBy || [],
                 thumbnailUrl: data.thumbnailUrl 
             } as VideoModule;
          });
@@ -98,9 +100,12 @@ export default function ProcessPage() {
                   {groupedMateriales[cat].map((module) => (
                     <ProcessCard
                       key={module.id}
+                      id={module.id}
                       title={module.title}
                       description={module.description}
                       videoUrl={module.videoUrl}
+                      viewedBy={module.viewedBy}
+                      userId={auth.currentUser?.uid}
                     />
                   ))}
                 </div>
