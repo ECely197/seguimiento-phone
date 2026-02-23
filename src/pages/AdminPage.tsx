@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Users, Library, FileEdit, Menu, LogOut, LayoutDashboard, CheckCircle, ListChecks, Zap } from 'lucide-react';
+import { Users, Library, FileEdit, Menu, LogOut, LayoutDashboard, CheckCircle, ListChecks, Zap, Eye } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { auth } from '../firebaseConfig';
 
@@ -94,20 +94,30 @@ export default function AdminPage() {
           </nav>
         </div>
 
-        <div className="space-y-4">
-             <div className="px-4">
-                <p className="text-xs text-gray-400 mb-1">Usuario Activo</p>
-                <p className="text-sm font-medium text-m3-secondary dark:text-m3-on-surface-dark truncate">
-                    {auth.currentUser?.email}
-                </p>
-             </div>
-            <button 
-                onClick={handleLogout}
-                className="w-full flex items-center gap-3 px-4 py-3.5 rounded-[28px] text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors font-medium text-sm"
-            >
-                <LogOut size={20} />
-                Cerrar Sesión
-            </button>
+        <div className="space-y-3">
+          <div className="px-4">
+            <p className="text-xs text-gray-400 mb-1">Usuario Activo</p>
+            <p className="text-sm font-medium text-m3-secondary dark:text-m3-on-surface-dark truncate">
+              {auth.currentUser?.email}
+            </p>
+          </div>
+
+          {/* Go to Agent View */}
+          <button
+            onClick={() => navigate('/home')}
+            className="w-full flex items-center gap-3 px-4 py-3.5 rounded-[28px] bg-m3-surface-variant/50 dark:bg-white/5 border border-m3-surface-variant dark:border-white/10 text-m3-secondary dark:text-m3-on-surface-dark/80 hover:bg-m3-primary/10 dark:hover:bg-m3-primary-dark/10 hover:text-m3-primary dark:hover:text-m3-primary-dark transition-all font-medium text-sm"
+          >
+            <Eye size={20} />
+            Ir a Vista de Agente
+          </button>
+
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center gap-3 px-4 py-3.5 rounded-[28px] text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors font-medium text-sm"
+          >
+            <LogOut size={20} />
+            Cerrar Sesión
+          </button>
         </div>
       </aside>
 

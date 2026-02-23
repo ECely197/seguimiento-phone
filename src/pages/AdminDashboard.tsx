@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Users, Library, FileEdit, Menu, LogOut, LayoutDashboard, Upload, CheckCircle, AlertCircle, Loader2, Pencil, Trash2, Video, Headphones, ListChecks } from 'lucide-react';
+import { Users, Library, FileEdit, Menu, LogOut, LayoutDashboard, Upload, CheckCircle, AlertCircle, Loader2, Pencil, Trash2, Video, Headphones, ListChecks, Eye } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { auth, storage, db } from '../firebaseConfig';
 import { signOut } from 'firebase/auth';
@@ -324,13 +324,26 @@ export default function AdminDashboard() {
           </nav>
         </div>
 
-        <button 
+        {/* ── Bottom actions ── */}
+        <div className="space-y-2">
+          {/* Go to Agent View */}
+          <button
+            onClick={() => navigate('/home')}
+            className="w-full flex items-center gap-3 px-4 py-3.5 rounded-[28px] bg-m3-surface-variant/50 dark:bg-white/5 border border-m3-surface-variant dark:border-white/10 text-m3-secondary dark:text-m3-on-surface-dark/80 hover:bg-m3-primary/10 dark:hover:bg-m3-primary-dark/10 hover:text-m3-primary dark:hover:text-m3-primary-dark transition-all font-medium text-sm"
+          >
+            <Eye size={20} />
+            Ir a Vista de Agente
+          </button>
+
+          {/* Logout */}
+          <button
             onClick={handleLogout}
-            className="flex items-center gap-3 px-4 py-3.5 rounded-[28px] text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors font-medium text-sm"
-        >
+            className="w-full flex items-center gap-3 px-4 py-3.5 rounded-[28px] text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors font-medium text-sm"
+          >
             <LogOut size={20} />
             Cerrar Sesión
-        </button>
+          </button>
+        </div>
       </aside>
 
       {/* Main Content */}
