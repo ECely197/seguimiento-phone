@@ -4,6 +4,7 @@ import HomePage from './pages/HomePage';
 import ProcessPage from './pages/ProcessPage';
 import QuizPage from './pages/QuizPage';
 import AdminPage from './pages/AdminPage';
+import AcwPractice from './pages/AcwPractice';
 import AdminRoute from './components/AdminRoute'; 
 import ProtectedRoute from './components/ProtectedRoute';
 import Navbar from './components/Navbar';
@@ -81,6 +82,7 @@ function Layout() {
             <Route path="/home" element={<HomePage />} />
             <Route path="/procesos" element={<ProcessPage />} />
             <Route path="/quizzes" element={<QuizPage />} />
+            <Route path="/acw" element={<AcwPractice />} />
             <Route 
               path="/admin" 
               element={

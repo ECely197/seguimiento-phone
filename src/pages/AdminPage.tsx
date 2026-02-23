@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Users, Library, FileEdit, Menu, LogOut, LayoutDashboard, CheckCircle, ListChecks } from 'lucide-react';
+import { Users, Library, FileEdit, Menu, LogOut, LayoutDashboard, CheckCircle, ListChecks, Zap } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { auth } from '../firebaseConfig';
 
@@ -9,8 +9,10 @@ import AdminProcessUpload from './AdminProcessUpload';
 import AdminQuizEditor from './AdminQuizEditor';
 import AdminUsers from './AdminUsers';
 import AdminQuizManager from './AdminQuizManager';
+import AdminAcwManager from './AdminAcwManager';
+import AdminAcwStats from './AdminAcwStats';
 
-type AdminSection = 'agents' | 'processes' | 'quizzes' | 'manage-quizzes' | 'assignments' | 'users';
+type AdminSection = 'agents' | 'processes' | 'quizzes' | 'manage-quizzes' | 'assignments' | 'users' | 'acw' | 'acw-stats';
 
 export default function AdminPage() {
   const [activeSection, setActiveSection] = useState<AdminSection>('agents');
@@ -33,6 +35,8 @@ export default function AdminPage() {
     { id: 'quizzes', label: 'Crear Quiz', icon: FileEdit },
     { id: 'manage-quizzes', label: 'Gestionar Quizzes', icon: ListChecks },
     { id: 'assignments', label: 'Asignar Quizzes (Retos)', icon: CheckCircle },
+    { id: 'acw', label: 'Simulador ACW', icon: Zap },
+    { id: 'acw-stats', label: 'Estadísticas ACW', icon: Zap },
   ];
 
   return (
@@ -140,6 +144,8 @@ export default function AdminPage() {
                 {activeSection === 'quizzes' && <AdminQuizEditor />}
                 {activeSection === 'manage-quizzes' && <AdminQuizManager />}
                 {activeSection === 'assignments' && <AdminQuizAssigner />}
+                {activeSection === 'acw' && <AdminAcwManager />}
+                {activeSection === 'acw-stats' && <AdminAcwStats />}
 
             </div>
         </div>

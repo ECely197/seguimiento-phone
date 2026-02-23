@@ -1,16 +1,17 @@
 import { NavLink } from "react-router-dom";
-import { Home, BookOpen, CheckCircle } from "lucide-react";
+import { Home, BookOpen, CheckCircle, Timer } from "lucide-react";
 
 export default function Navbar() {
   const navItems = [
     { name: "Inicio", path: "/home", icon: Home },
     { name: "Explicaciones", path: "/procesos", icon: BookOpen },
     { name: "Práctica", path: "/quizzes", icon: CheckCircle },
+    { name: "ACW", path: "/acw", icon: Timer },
   ];
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 bg-white dark:bg-[#1E1E1E] border-t border-gray-200 dark:border-white/10 h-20 z-50 shadow-lg transition-colors duration-300">
-      <div className="grid grid-cols-3 h-full max-w-lg mx-auto">
+      <div className="grid grid-cols-4 h-full max-w-lg mx-auto">
         {navItems.map((item) => (
           <NavLink
             key={item.path}
