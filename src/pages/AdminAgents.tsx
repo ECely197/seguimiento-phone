@@ -22,7 +22,9 @@ const initials = (a: Agent) => getName(a).substring(0, 2).toUpperCase() || '??';
 /** Columns that should be rounded to 1 decimal */
 const NUM_COLS = new Set(['AHT Real', 'ATT', 'ACW', 'HS Gestionadas', 'Prod. Tot. Llamadas', 'Prod. Tot. Efectivas']);
 /** Columns that are rates (may arrive as 0-1 decimal or already %-formatted) */
-const PCT_COLS = new Set(['RES', 'PSAT', 'No contestada', 'Efectiva']);
+const PCT_COLS = new Set(['RES', 'PSAT', 'No contestada']);
+/** Columns that are plain integers (no % symbol, no decimals) */
+const INT_COLS = new Set(['Efectiva', 'Tot. Llamadas']);
 
 const fmtNum = (v: any): string => {
   const n = parseFloat(String(v ?? '').replace(/[^0-9.\-]/g, ''));
@@ -38,8 +40,14 @@ const fmtPct = (v: any): string => {
   return (n > 0 && n <= 1 ? (n * 100).toFixed(1) : n.toFixed(1)) + '%';
 };
 
+const fmtInt = (v: any): string => {
+  const n = parseFloat(String(v ?? '').replace(/[^0-9.\-]/g, ''));
+  return isNaN(n) ? String(v ?? '—') : String(Math.round(n));
+};
+
 const fmtCell = (col: string, v: any): string => {
   if (v === null || v === undefined || v === '') return '—';
+  if (INT_COLS.has(col)) return fmtInt(v);
   if (NUM_COLS.has(col)) return fmtNum(v);
   if (PCT_COLS.has(col)) return fmtPct(v);
   return String(v);

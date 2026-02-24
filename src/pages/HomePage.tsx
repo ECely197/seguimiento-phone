@@ -17,7 +17,8 @@ const LOB_BADGE: Record<string, string> = {
 
 // ── Metric formatting ─────────────────────────────────────────────────────────
 const NUM_HEADERS = new Set(['AHT Real', 'ATT', 'ACW', 'HS Gestionadas', 'Prod. Tot. Llamadas', 'Prod. Tot. Efectivas']);
-const PCT_HEADERS = new Set(['RES', 'PSAT', 'No contestada', 'Efectiva']);
+const PCT_HEADERS = new Set(['RES', 'PSAT', 'No contestada']);
+const INT_HEADERS = new Set(['Efectiva', 'Tot. Llamadas']);
 
 const fmtNum = (v: any): string => {
   const n = parseFloat(String(v ?? '').replace(/[^0-9.\-]/g, ''));
@@ -32,8 +33,14 @@ const fmtPct = (v: any): string => {
   return (n > 0 && n <= 1 ? (n * 100).toFixed(1) : n.toFixed(1)) + '%';
 };
 
+const fmtInt = (v: any): string => {
+  const n = parseFloat(String(v ?? '').replace(/[^0-9.\-]/g, ''));
+  return isNaN(n) ? String(v ?? '—') : String(Math.round(n));
+};
+
 const formatMetric = (header: string, value: any): string => {
   if (value === null || value === undefined || value === '') return '—';
+  if (INT_HEADERS.has(header)) return fmtInt(value);
   if (NUM_HEADERS.has(header)) return fmtNum(value);
   if (PCT_HEADERS.has(header)) return fmtPct(value);
   return String(value);
