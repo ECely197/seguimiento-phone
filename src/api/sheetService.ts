@@ -1,6 +1,8 @@
 // ── API URLs ───────────────────────────────────────────────────────────────────
-const PRIMARY_URL  = import.meta.env.VITE_SHEETDB_URL as string;
-const RECUPERO_URL = import.meta.env.VITE_RECUPERO_SCRIPT_URL as string;
+// Both variables must be set in .env.local (dev) AND in Vercel dashboard (prod).
+// Vite only exposes vars prefixed with VITE_ to the browser bundle.
+const PRIMARY_URL  = import.meta.env.VITE_SHEETDB_URL          as string | undefined;
+const RECUPERO_URL = import.meta.env.VITE_RECUPERO_SCRIPT_URL  as string | undefined;
 
 // ── Exported type ──────────────────────────────────────────────────────────────
 export interface AgentResponse {
@@ -88,7 +90,12 @@ const mapRecuperoAgent = (raw: any) => {
 
 
 // ── Internal: fetch all rows from one URL, returning raw objects ──────────────
-const fetchAllFromUrl = async (baseUrl: string, label: string): Promise<any[]> => {
+const fetchAllFromUrl = async (baseUrl: string | undefined, label: string): Promise<any[]> => {
+  // Guard: skip silently if the env var wasn't set (avoids HTML-as-JSON error)
+  if (!baseUrl) {
+    console.warn(`[sheetService] ${label}: URL is undefined — check Vercel environment variables (VITE_RECUPERO_SCRIPT_URL / VITE_SHEETDB_URL).`);
+    return [];
+  }
   try {
     const res = await fetch(baseUrl, { redirect: 'follow' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -98,7 +105,6 @@ const fetchAllFromUrl = async (baseUrl: string, label: string): Promise<any[]> =
     if (Array.isArray(json))         return json;
     if (Array.isArray(json?.data))   return json.data;
     if (Array.isArray(json?.agents)) return json.agents;
-    // Some Apps Scripts return { rows: [...] }
     if (Array.isArray(json?.rows))   return json.rows;
     return [];
   } catch (err) {
@@ -186,9 +192,11 @@ export const updateAgentSuggestion = async (email: string, suggestion: string): 
   const target = email.trim().toLowerCase();
 
   // Lightweight probe: check if the agent is in Recupero
-  const recAll    = await fetchAllFromUrl(RECUPERO_URL, 'updateProbe');
+  const recAll     = await fetchAllFromUrl(RECUPERO_URL, 'updateProbe');
   const inRecupero = recAll.some(row => emailOf(row) === target);
-  const targetUrl  = inRecupero ? RECUPERO_URL : PRIMARY_URL;
+  const targetUrl  = (inRecupero ? RECUPERO_URL : PRIMARY_URL) as string;
+
+  if (!targetUrl) throw new Error('[sheetService] updateAgentSuggestion: no API URL configured.');
 
   const res = await fetch(targetUrl, {
     method:   'POST',
@@ -199,6 +207,7 @@ export const updateAgentSuggestion = async (email: string, suggestion: string): 
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
 };
+
 
 /** @deprecated Use getAgentData() directly. */
 export const findAgentLob = async (email: string) => {
