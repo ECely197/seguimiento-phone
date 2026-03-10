@@ -146,25 +146,48 @@ export default function AdminPage() {
                 </div>
                 
                 {/* Executive Report Access Button */}
-                <div className="flex items-center gap-2">
-                  <a
-                    href="/executive-report/team-vitals"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-2 px-4 py-2.5 bg-m3-primary text-white font-bold rounded-[20px] shadow-sm hover:bg-m3-primary/90 transition-colors text-sm"
-                  >
-                    <LayoutDashboard size={18} /> Ver Reporte Ejecutivo
-                  </a>
-                  <button
-                    onClick={() => {
-                      navigator.clipboard.writeText(window.location.origin + '/executive-report/team-vitals');
-                      alert('Enlace copiado al portapapeles');
-                    }}
-                    title="Copiar Link"
-                    className="p-2.5 bg-white dark:bg-[#2C2C2C] text-m3-secondary dark:text-white border border-m3-surface-variant dark:border-white/10 rounded-full shadow-sm hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-                  </button>
+                <div className="flex flex-col items-end gap-2">
+                  <div className="flex items-center gap-2">
+                    <a
+                      href="/executive-report/team-vitals"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 px-4 py-2 bg-m3-primary text-white font-bold rounded-[20px] shadow-sm hover:bg-m3-primary/90 transition-colors text-sm"
+                    >
+                      <LayoutDashboard size={18} /> Repo. Ejecutivo
+                    </a>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(window.location.origin + '/executive-report/team-vitals');
+                        alert('Enlace copiado al portapapeles');
+                      }}
+                      title="Copiar Link"
+                      className="p-2 bg-white dark:bg-[#2C2C2C] text-m3-secondary dark:text-white border border-m3-surface-variant dark:border-white/10 rounded-full shadow-sm hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <a
+                      href="/executive-report/hourly-trends"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white font-bold rounded-[20px] shadow-sm hover:bg-purple-700 transition-colors text-sm"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+                      Dashboard Evolutivo
+                    </a>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(window.location.origin + '/executive-report/hourly-trends');
+                        alert('Enlace del Dashboard Evolutivo copiado al portapapeles');
+                      }}
+                      title="Copiar Link"
+                      className="p-2 bg-white dark:bg-[#2C2C2C] text-m3-secondary dark:text-white border border-m3-surface-variant dark:border-white/10 rounded-full shadow-sm hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                    </button>
+                  </div>
                 </div>
             </header>
 

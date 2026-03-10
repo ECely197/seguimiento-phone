@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { getMainAgents, getRecuperoAgents } from '../api/sheetService';
-import { Printer, RefreshCw, Mic, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { Printer, RefreshCw, Mic, CheckCircle, XCircle, Clock, TrendingUp } from 'lucide-react';
 
 // ── Formatting helpers ─────────────────────────────────────────────────────────
 const fmtPct = (v: any): string => {
@@ -142,6 +142,14 @@ export default function ExecutiveReportPage() {
             <p className="text-sm text-blue-200 mt-0.5">Equipo Edwin · Actualizado: {timestamp}</p>
           </div>
           <div className="flex gap-2 flex-shrink-0 mt-1">
+            <a
+              href="/executive-report/hourly-trends"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-sm font-medium transition-colors"
+            >
+              <TrendingUp size={14} /> Evolutivos
+            </a>
             <button
               onClick={load}
               className="flex items-center gap-1.5 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-sm font-medium transition-colors"
