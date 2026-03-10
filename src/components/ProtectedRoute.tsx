@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Navigate, Outlet } from 'react-router-dom';
+import { Outlet } from 'react-router-dom';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../firebaseConfig';
 import { Loader2 } from 'lucide-react';
@@ -10,11 +10,8 @@ interface ProtectedRouteProps {
 
 export default function ProtectedRoute({ children }: ProtectedRouteProps) {
   const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState<any>(null);
-
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
+    const unsubscribe = onAuthStateChanged(auth, () => {
       setLoading(false);
     });
     return () => unsubscribe();
@@ -31,9 +28,10 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
     );
   }
 
-  if (!user) {
-    return <Navigate to="/login" replace />;
-  }
+  // No longer redirect to /login to allow guest usage
+  // if (!user) {
+  //   return <Navigate to="/login" replace />;
+  // }
 
   return children ? <>{children}</> : <Outlet />;
 }

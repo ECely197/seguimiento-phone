@@ -12,7 +12,7 @@ export default function Header() {
     try {
       await signOut(auth);
       localStorage.clear();
-      navigate('/', { replace: true });
+      navigate('/login', { replace: true });
     } catch (error) {
       console.error("Error signing out:", error);
     }

@@ -4,7 +4,7 @@ import { doc, setDoc } from 'firebase/firestore';
 import { ADMIN_UID } from '../constants';
 import { getAgentData } from '../api/sheetService';
 import type { AgentResponse } from '../api/sheetService';
-import { ClipboardList, Lightbulb, Loader2 } from 'lucide-react';
+import { ClipboardList, Lightbulb, Loader2, Info } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { onAuthStateChanged } from 'firebase/auth';
 
@@ -66,11 +66,16 @@ export default function HomePage() {
   const [loading,   setLoading]   = useState(true);
   const [error,     setError]     = useState('');
   const [isAdmin,   setIsAdmin]   = useState(false);
+  const [isGuest,   setIsGuest]   = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (!user) { navigate('/', { replace: true }); return; }
+      if (!user) { 
+        setIsGuest(true);
+        setLoading(false);
+        return; 
+      }
 
       if (user.uid === ADMIN_UID) {
         setIsAdmin(true);
@@ -132,18 +137,29 @@ export default function HomePage() {
       <header className="mb-6 mt-2">
         <div className="flex items-center gap-3 flex-wrap">
           <h1 className="text-3xl font-bold text-m3-primary dark:text-m3-primary-dark">
-            Hello, {loading ? '...' : agentName.split(' ')[0]}
+            Hello, {loading ? '...' : isGuest ? 'Invitado' : agentName.split(' ')[0]}
           </h1>
-          {agentData?.lob && !loading && (
+          {agentData?.lob && !loading && !isGuest && (
             <span className={`text-xs font-bold uppercase tracking-widest px-3 py-1.5 rounded-full ${badgeClass}`}>
               Área: {agentData.lob.toUpperCase()}
             </span>
           )}
         </div>
         <p className="text-m3-secondary dark:text-m3-on-surface-dark/70 text-sm mt-1">
-          Aquí están tus métricas de hoy.
+          {isGuest ? 'Bienvenido al modo de prueba del simulador.' : 'Aquí están tus métricas de hoy.'}
         </p>
       </header>
+
+      {/* ── Guest Banner ──────────────────────────────────────────────────────── */}
+      {!loading && isGuest && (
+        <div className="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800/30 text-purple-800 dark:text-purple-300 px-5 py-4 rounded-2xl mb-6 shadow-sm flex gap-3 items-start">
+          <Info className="flex-shrink-0 mt-0.5" size={20} />
+          <div>
+            <h3 className="font-bold mb-1">Modo Visitante Activo</h3>
+            <p className="text-sm">No te has registrado aún. Puedes ver la información y probar los módulos (Quizzes, Simulador ACW) en modo de visitante. Tu actividad quedará registrada temporalmente como invitado.</p>
+          </div>
+        </div>
+      )}
 
       {/* ── Loading ─────────────────────────────────────────────────────────── */}
       {loading && (

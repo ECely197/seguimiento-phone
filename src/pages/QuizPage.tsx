@@ -73,35 +73,55 @@ export default function QuizPage() {
 
   // ── Fetch ──────────────────────────────────────────────────────────────────
   const fetchQuizzes = async () => {
-    const user = auth.currentUser;
-    if (!user?.email) return;
-
     try {
-      const assignSnap = await getDocs(
-        query(collection(db, 'asignaciones_quizzes'), where('agentEmail', '==', user.email))
-      );
-      const ids = assignSnap.docs.map(d => d.data().quizId);
-      if (ids.length === 0) { setQuizzes([]); return; }
+      const user = auth.currentUser;
+      let details: QuizModule[] = [];
 
-      const details: QuizModule[] = [];
-      for (const quizId of ids) {
-        const snap = await getDocs(
-          query(collection(db, 'quizzes'), where('__name__', '==', quizId))
+      if (!user) {
+        // Modo Invitado: Cargar todos los quizzes
+        const snap = await getDocs(collection(db, 'quizzes'));
+        details = snap.docs.map(d => {
+          const data = d.data();
+          return {
+            id: d.id,
+            title: data.situation || 'Contexto del Quiz',
+            description: data.question || 'Pregunta no disponible',
+            mediaUrl: data.mediaUrl || data.audioUrl || '',
+            audioUrl: data.audioUrl || '',
+            mediaType: data.mediaType || '',
+            quizType: data.quizType || (data.options?.length ? 'multiple-choice' : 'open-audio'),
+            options: data.options || [],
+            correctOption: data.correctOption,
+            explanation: data.explanation,
+          };
+        });
+      } else {
+        // Usuario autenticado: Cargar solo lo asignado
+        const assignSnap = await getDocs(
+          query(collection(db, 'asignaciones_quizzes'), where('agentEmail', '==', user.email))
         );
-        if (!snap.empty) {
-          const d = snap.docs[0].data();
-          details.push({
-            id:            snap.docs[0].id,
-            title:         d.situation  || 'Contexto del Quiz',
-            description:   d.question   || 'Pregunta no disponible',
-            mediaUrl:      d.mediaUrl   || d.audioUrl || '',
-            audioUrl:      d.audioUrl   || '',
-            mediaType:     d.mediaType  || '',
-            quizType:      d.quizType   || (d.options?.length ? 'multiple-choice' : 'open-audio'),
-            options:       d.options    || [],
-            correctOption: d.correctOption,
-            explanation:   d.explanation,
-          });
+        const ids = assignSnap.docs.map(d => d.data().quizId);
+        if (ids.length === 0) { setQuizzes([]); return; }
+
+        for (const quizId of ids) {
+          const snap = await getDocs(
+            query(collection(db, 'quizzes'), where('__name__', '==', quizId))
+          );
+          if (!snap.empty) {
+            const d = snap.docs[0].data();
+            details.push({
+              id: snap.docs[0].id,
+              title: d.situation || 'Contexto del Quiz',
+              description: d.question || 'Pregunta no disponible',
+              mediaUrl: d.mediaUrl || d.audioUrl || '',
+              audioUrl: d.audioUrl || '',
+              mediaType: d.mediaType || '',
+              quizType: d.quizType || (d.options?.length ? 'multiple-choice' : 'open-audio'),
+              options: d.options || [],
+              correctOption: d.correctOption,
+              explanation: d.explanation,
+            });
+          }
         }
       }
       setQuizzes(details);
@@ -112,13 +132,20 @@ export default function QuizPage() {
 
   const fetchUserData = async () => {
     const user = auth.currentUser;
-    if (!user?.email) return;
+    if (!user) {
+      // Modo Invitado: Recuperar progreso de localStorage
+      const guestProgress = JSON.parse(localStorage.getItem('guest_completed_quizzes') || '[]');
+      setCompletedQuizzes(new Set(guestProgress));
+      setAccuracy(null);
+      return;
+    }
+
+    if (!user.email) return;
     try {
       const snap = await getDocs(
         query(collection(db, 'resultados_quizzes'), where('agentEmail', '==', user.email))
       );
       if (!snap.empty) {
-
         // Only count MC quizzes in accuracy (open-audio have isCorrect = null)
         const mc      = snap.docs.filter(d => d.data().isCorrect !== null);
         const correct = mc.filter(d => d.data().isCorrect).length;
@@ -168,7 +195,7 @@ export default function QuizPage() {
 
   // ── Submit ─────────────────────────────────────────────────────────────────
   const submitAnswer = async () => {
-    if (!activeQuiz || !auth.currentUser?.email) return;
+    if (!activeQuiz) return;
     const openAudio = isOpenAudio(activeQuiz);
 
     // Guard
@@ -178,11 +205,15 @@ export default function QuizPage() {
     setIsSubmitting(true);
 
     try {
+      const isGuest = !auth.currentUser;
+      const uidTemp = isGuest ? ("guest_" + crypto.randomUUID().slice(0, 8)) : auth.currentUser!.uid;
+      const agentEmail = isGuest ? "invitado@visitante.com" : auth.currentUser!.email;
+
       let answerAudioUrl = '';
 
       // Upload agent audio for open-audio quizzes
       if (openAudio && audioBlob) {
-        const path = `answers/${auth.currentUser.uid}/${activeQuiz.id}_${Date.now()}.webm`;
+        const path = `answers/${uidTemp}/${activeQuiz.id}_${Date.now()}.webm`;
         const snap = await uploadBytes(ref(storage, path), audioBlob, { contentType: 'audio/webm' });
         answerAudioUrl = await getDownloadURL(snap.ref);
       }
@@ -190,7 +221,7 @@ export default function QuizPage() {
       // For MC, also upload optional justification audio if recorded
       let mcAudioUrl = '';
       if (!openAudio && audioBlob) {
-        const path = `answers/${auth.currentUser.uid}/${activeQuiz.id}_${Date.now()}.webm`;
+        const path = `answers/${uidTemp}/${activeQuiz.id}_${Date.now()}.webm`;
         const snap = await uploadBytes(ref(storage, path), audioBlob, { contentType: 'audio/webm' });
         mcAudioUrl = await getDownloadURL(snap.ref);
       }
@@ -198,7 +229,10 @@ export default function QuizPage() {
       const correct = openAudio ? null : selectedOption === activeQuiz.correctOption;
 
       await addDoc(collection(db, 'resultados_quizzes'), {
-        agentEmail:    auth.currentUser.email,
+        agentEmail:    agentEmail,
+        isGuest:       isGuest,
+        userName:      isGuest ? "Invitado" : (auth.currentUser?.displayName || ""),
+        userId:        uidTemp,
         quizId:        activeQuiz.id,
         quizType:      openAudio ? 'open-audio' : 'multiple-choice',
         selectedOption: openAudio ? null : selectedOption,
@@ -214,7 +248,13 @@ export default function QuizPage() {
       });
 
       setIsCorrect(correct);
-      setCompletedQuizzes(prev => new Set(prev).add(activeQuiz.id));
+      setCompletedQuizzes(prev => {
+        const next = new Set(prev).add(activeQuiz.id);
+        if (isGuest) {
+          localStorage.setItem('guest_completed_quizzes', JSON.stringify(Array.from(next)));
+        }
+        return next;
+      });
       setShowResult(true);
       await fetchUserData();
 

@@ -151,6 +151,7 @@ export default function AdminAgents() {
 
   // Quiz
   const [agentResults,   setAgentResults]   = useState<any[]>([]);
+  const [agentAcw,       setAgentAcw]       = useState<any[]>([]);
   const [quizMap,        setQuizMap]        = useState<Record<string, string>>({});
   const [resultsLoading, setResultsLoading] = useState(false);
 
@@ -195,9 +196,16 @@ export default function AdminAgents() {
   const fetchAgentResults = async (email: string) => {
     setResultsLoading(true);
     try {
-      const q    = query(collection(db, 'resultados_quizzes'), where('agentEmail', '==', email));
-      const snap = await getDocs(q);
-      setAgentResults(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      const qQuizzes = query(collection(db, 'resultados_quizzes'), where('agentEmail', '==', email));
+      const qAcw     = query(collection(db, 'acw_attempts'), where('userEmail', '==', email));
+
+      const [snapQuizzes, snapAcw] = await Promise.all([
+        getDocs(qQuizzes),
+        getDocs(qAcw)
+      ]);
+
+      setAgentResults(snapQuizzes.docs.map(d => ({ id: d.id, ...d.data() })));
+      setAgentAcw(snapAcw.docs.map(d => ({ id: d.id, ...d.data() })));
     } catch (err) { console.error('[AdminAgents] fetchAgentResults:', err); }
     finally { setResultsLoading(false); }
   };
@@ -328,6 +336,24 @@ export default function AdminAgents() {
           columns={recuperoGroup.columns}
           selected={selected}
           onSelect={a => handleSelect(a, 'recupero')}
+        />
+
+        {/* Visual divider */}
+        <div className="flex items-center gap-3 my-2 mb-6 mt-6">
+          <div className="flex-1 border-t border-m3-surface-variant/40 dark:border-white/10" />
+          <span className="text-xs text-purple-400 uppercase tracking-widest font-semibold">Visitantes</span>
+          <div className="flex-1 border-t border-m3-surface-variant/40 dark:border-white/10" />
+        </div>
+
+        {/* Table 3: Invitados */}
+        <AgentTable
+          title="Actividad Visitantes"
+          badgeClass="bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300"
+          count={1}
+          agents={[{ correo: 'invitado@visitante.com', agente: 'Actividad de Invitados' }]}
+          columns={[]}
+          selected={selected}
+          onSelect={a => handleSelect(a, 'main')}
         />
       </div>
 
@@ -462,6 +488,40 @@ export default function AdminAgents() {
                         className="w-full mt-2 py-2 flex items-center justify-center gap-2 text-xs font-bold text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors border border-transparent dark:hover:border-red-900/30">
                         <RefreshCw size={14} /> Habilitar Nueva Oportunidad
                       </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* ACW results */}
+            <div className="mt-8">
+              <h3 className="font-bold text-m3-secondary dark:text-white mb-4 flex items-center gap-2">
+                <Clock size={18} /> Simulador ACW
+              </h3>
+              {resultsLoading ? (
+                <div className="flex justify-center py-8"><Loader2 className="animate-spin text-m3-primary" /></div>
+              ) : agentAcw.length === 0 ? (
+                <p className="text-center text-gray-400 text-sm py-4">No ha realizado prácticas ACW.</p>
+              ) : (
+                <div className="space-y-3">
+                  {agentAcw.map(acw => (
+                    <div key={acw.id} className="p-4 rounded-xl bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/5">
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <p className="text-sm font-bold text-m3-secondary dark:text-white line-clamp-2">
+                            {acw.scenarioTitle || 'Escenario'}
+                          </p>
+                          <p className="text-xs text-gray-500 mt-0.5">{acw.timestamp?.toDate().toLocaleDateString()} {acw.userName ? `(${acw.userName})` : ''}</p>
+                        </div>
+                        <div className={`px-2 py-1 rounded-full text-xs font-bold ${acw.timeSpent <= 30 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                          {acw.timeSpent}s
+                        </div>
+                      </div>
+                      <div className="text-xs text-gray-600 dark:text-gray-400 mt-2 space-y-1">
+                        <p><strong>Motivo:</strong> {acw.inputs?.contactReason}</p>
+                        <p><strong>Acción:</strong> {acw.inputs?.action}</p>
+                      </div>
                     </div>
                   ))}
                 </div>

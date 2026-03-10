@@ -287,9 +287,13 @@ export default function AcwPractice() {
     setIsSavingAttempt(true);
     try {
       const user = auth.currentUser;
+      const isGuest = !user;
+
       await addDoc(collection(db, 'acw_attempts'), {
-        userId: user?.uid ?? 'unknown',
-        userEmail: user?.email ?? 'unknown',
+        userId: user?.uid ?? ('guest_' + crypto.randomUUID().slice(0, 8)),
+        userEmail: user?.email ?? 'invitado@visitante.com',
+        userName: isGuest ? 'Invitado' : (user?.displayName || ''),
+        isGuest: isGuest,
         scenarioId: scenario!.id,
         scenarioTitle: scenario!.title,
         timeSpent: Math.round(finalMs / 1000),
