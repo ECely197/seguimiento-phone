@@ -206,6 +206,11 @@ export default function QuizPage() {
         audioUrl:      openAudio ? answerAudioUrl : mcAudioUrl,
         answerAudioUrl: openAudio ? answerAudioUrl : mcAudioUrl,
         timestamp:     serverTimestamp(),
+        // Open-audio specific auditing fields
+        ...(openAudio && {
+          reviewStatus: 'pending',
+          tlFeedback:   '',
+        })
       });
 
       setIsCorrect(correct);

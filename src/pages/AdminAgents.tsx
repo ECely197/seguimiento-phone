@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
-import { collection, getDocs, query, where, deleteDoc, doc } from 'firebase/firestore';
-import { db } from '../firebaseConfig';
+import { collection, getDocs, query, where, deleteDoc, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { db, auth } from '../firebaseConfig';
 import {
   ChevronRight, Search, X, Loader2, TrendingUp,
-  CheckCircle, XCircle, RefreshCw, User, Edit3, Save,
+  CheckCircle, XCircle, RefreshCw, User, Edit3, Save, Clock
 } from 'lucide-react';
 import { updateAgentSuggestion, getMainAgents, getRecuperoAgents } from '../api/sheetService';
 
@@ -210,6 +210,21 @@ export default function AdminAgents() {
     } catch (err) { console.error('[AdminAgents] deleteResult:', err); }
   };
 
+  const handleUpdateReviewStatus = async (resultId: string, newStatus: 'approved' | 'rejected') => {
+    try {
+      await updateDoc(doc(db, 'resultados_quizzes', resultId), {
+        reviewStatus: newStatus,
+        reviewedAt: serverTimestamp(),
+        reviewedBy: auth.currentUser?.uid
+      });
+      // Optimistic update
+      setAgentResults(prev => prev.map(r => r.id === resultId ? { ...r, reviewStatus: newStatus } : r));
+    } catch (err) {
+      console.error('Error updating reviewStatus:', err);
+      alert('Hubo un error al guardar la revisión.');
+    }
+  };
+
   const accuracy = () => {
     if (!agentResults.length) return 0;
     return Math.round((agentResults.filter(r => r.isCorrect).length / agentResults.length) * 100);
@@ -386,7 +401,11 @@ export default function AdminAgents() {
               ) : (
                 <div className="space-y-3">
                   {agentResults.map(r => (
-                    <div key={r.id} className="bg-gray-50 dark:bg-white/5 p-4 rounded-xl border border-gray-100 dark:border-white/5">
+                    <div key={r.id} className={`p-4 rounded-xl border transition-colors ${
+                      r.quizType === 'open-audio' && r.reviewStatus === 'pending'
+                        ? 'bg-purple-50 dark:bg-purple-900/10 border-purple-200 dark:border-purple-800'
+                        : 'bg-gray-50 dark:bg-white/5 border-gray-100 dark:border-white/5'
+                    }`}>
                       <div className="flex justify-between items-start mb-3">
                         <div className="pr-4">
                           <p className="text-sm font-bold text-m3-secondary dark:text-white line-clamp-2">
@@ -394,13 +413,53 @@ export default function AdminAgents() {
                           </p>
                           <p className="text-xs text-gray-500 mt-1">{r.timestamp?.toDate().toLocaleDateString()}</p>
                         </div>
-                        <div className={`p-1.5 rounded-full ${r.isCorrect ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                          {r.isCorrect ? <CheckCircle size={16} /> : <XCircle size={16} />}
-                        </div>
+                        {r.quizType === 'open-audio' ? (
+                           <div className={`p-1.5 rounded-full ${
+                             r.reviewStatus === 'approved' ? 'bg-green-100 text-green-700' :
+                             r.reviewStatus === 'rejected' ? 'bg-red-100 text-red-700' :
+                             'bg-amber-100 text-amber-700'
+                           }`}>
+                             {r.reviewStatus === 'approved' ? <CheckCircle size={16} /> :
+                              r.reviewStatus === 'rejected' ? <XCircle size={16} /> : 
+                              <Clock size={16} />}
+                           </div>
+                        ) : (
+                          <div className={`p-1.5 rounded-full ${r.isCorrect ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                            {r.isCorrect ? <CheckCircle size={16} /> : <XCircle size={16} />}
+                          </div>
+                        )}
                       </div>
+                      
                       {r.audioUrl && <audio src={r.audioUrl} controls className="w-full h-8 mb-3" />}
+                      
+                      {/* Sub-actions for open-audio */}
+                      {r.quizType === 'open-audio' && (
+                        <div className="flex gap-2 mb-3">
+                          <button
+                            onClick={() => handleUpdateReviewStatus(r.id, 'approved')}
+                            className={`flex flex-1 items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                              r.reviewStatus === 'approved'
+                                ? 'bg-green-600 text-white shadow-sm ring-2 ring-green-600 ring-offset-2 dark:ring-offset-[#1E1E1E]'
+                                : 'bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400'
+                            }`}
+                          >
+                            <CheckCircle size={14} /> Aprobado
+                          </button>
+                          <button
+                            onClick={() => handleUpdateReviewStatus(r.id, 'rejected')}
+                            className={`flex flex-1 items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                              r.reviewStatus === 'rejected'
+                                ? 'bg-red-600 text-white shadow-sm ring-2 ring-red-600 ring-offset-2 dark:ring-offset-[#1E1E1E]'
+                                : 'bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400'
+                            }`}
+                          >
+                            <XCircle size={14} /> Rechazado
+                          </button>
+                        </div>
+                      )}
+
                       <button onClick={() => deleteResult(r.id)}
-                        className="w-full py-2 flex items-center justify-center gap-2 text-xs font-bold text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors">
+                        className="w-full mt-2 py-2 flex items-center justify-center gap-2 text-xs font-bold text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors border border-transparent dark:hover:border-red-900/30">
                         <RefreshCw size={14} /> Habilitar Nueva Oportunidad
                       </button>
                     </div>

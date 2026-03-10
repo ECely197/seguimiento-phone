@@ -5,7 +5,8 @@ import ProcessPage from './pages/ProcessPage';
 import QuizPage from './pages/QuizPage';
 import AdminPage from './pages/AdminPage';
 import AcwPractice from './pages/AcwPractice';
-import AdminRoute from './components/AdminRoute'; 
+import ExecutiveReportPage from './pages/ExecutiveReportPage';
+import AdminRoute from './components/AdminRoute';
 import ProtectedRoute from './components/ProtectedRoute';
 import Navbar from './components/Navbar';
 import Header from './components/Header';
@@ -22,7 +23,8 @@ function Layout() {
   const navigate = useNavigate();
   
   // Hide navbar on login page AND admin dashboard
-  const showNavbar = location.pathname !== '/login' && location.pathname !== '/admin' && location.pathname !== '/';
+  const PUBLIC_NO_NAV = ['/login', '/admin', '/', '/executive-report/team-vitals'];
+  const showNavbar = !PUBLIC_NO_NAV.includes(location.pathname);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -76,6 +78,7 @@ function Layout() {
           {/* Public Routes */}
           <Route path="/login" element={<LoginPage />} />
           <Route path="/" element={<Navigate to="/home" replace />} />
+          <Route path="/executive-report/team-vitals" element={<ExecutiveReportPage />} />
 
           {/* Protected Routes */}
           <Route element={<ProtectedRoute />}>
