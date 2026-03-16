@@ -7,6 +7,7 @@ import AdminPage from './pages/AdminPage';
 import AcwPractice from './pages/AcwPractice';
 import ExecutiveReportPage from './pages/ExecutiveReportPage';
 import HourlyTrendsPage from './pages/HourlyTrendsPage';
+import PdaCriteriaPage from './pages/PdaCriteriaPage';
 import AdminRoute from './components/AdminRoute';
 import ProtectedRoute from './components/ProtectedRoute';
 import Navbar from './components/Navbar';
@@ -24,7 +25,7 @@ function Layout() {
   const navigate = useNavigate();
   
   // Hide navbar on login page AND admin dashboard
-  const PUBLIC_NO_NAV = ['/login', '/admin', '/', '/executive-report/team-vitals', '/executive-report/hourly-trends'];
+  const PUBLIC_NO_NAV = ['/login', '/admin', '/', '/executive-report/team-vitals', '/executive-report/hourly-trends', '/executive-report/pda-criteria'];
   const showNavbar = !PUBLIC_NO_NAV.includes(location.pathname);
 
   useEffect(() => {
@@ -81,6 +82,7 @@ function Layout() {
           <Route path="/" element={<Navigate to="/home" replace />} />
           <Route path="/executive-report/team-vitals" element={<ExecutiveReportPage />} />
           <Route path="/executive-report/hourly-trends" element={<HourlyTrendsPage />} />
+          <Route path="/executive-report/pda-criteria" element={<PdaCriteriaPage />} />
 
           {/* Protected Routes */}
           <Route element={<ProtectedRoute />}>

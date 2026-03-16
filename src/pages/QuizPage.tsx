@@ -276,9 +276,19 @@ export default function QuizPage() {
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-m3-surface dark:bg-black p-4 pb-24 transition-colors duration-300">
-      <header className="mb-6 mt-2">
-        <h1 className="text-3xl font-bold text-m3-primary dark:text-m3-primary">Práctica</h1>
-        <p className="text-m3-secondary dark:text-gray-400 text-sm">Mejora tus habilidades con casos reales.</p>
+      <header className="mb-6 mt-2 flex items-center justify-between flex-wrap gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-m3-primary dark:text-m3-primary">Práctica</h1>
+          <p className="text-m3-secondary dark:text-gray-400 text-sm">Mejora tus habilidades con casos reales.</p>
+        </div>
+        <a 
+          href="/executive-report/pda-criteria" 
+          target="_blank" 
+          rel="noopener noreferrer"
+          className="flex items-center gap-2 px-4 py-2 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 font-bold rounded-2xl shadow-sm border border-blue-200 dark:border-blue-800/30 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors text-sm"
+        >
+          <HelpCircle size={18} /> 📖 Conoce los criterios de evaluación
+        </a>
       </header>
 
       {/* Accuracy card — only on list view */}

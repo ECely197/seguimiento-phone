@@ -149,6 +149,28 @@ export default function AdminPage() {
                 <div className="flex flex-col items-end gap-2">
                   <div className="flex items-center gap-2">
                     <a
+                      href="/executive-report/pda-criteria"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 px-4 py-2 bg-green-600 dark:bg-green-700 text-white font-bold rounded-[20px] shadow-sm hover:bg-green-700 dark:hover:bg-green-600 transition-colors text-sm"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>
+                      Manual de Criterios
+                    </a>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(window.location.origin + '/executive-report/pda-criteria');
+                        alert('Enlace del Manual copiado al portapapeles');
+                      }}
+                      title="Copiar Link"
+                      className="p-2 bg-white dark:bg-[#2C2C2C] text-m3-secondary dark:text-white border border-m3-surface-variant dark:border-white/10 rounded-full shadow-sm hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                    </button>
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    <a
                       href="/executive-report/team-vitals"
                       target="_blank"
                       rel="noopener noreferrer"
