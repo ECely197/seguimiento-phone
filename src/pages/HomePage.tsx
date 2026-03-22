@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { auth, db } from '../firebaseConfig';
 import { doc, setDoc } from 'firebase/firestore';
+import { getUserDoc } from '../firebasePaths';
 import { ADMIN_UID } from '../constants';
 import { getAgentData } from '../api/sheetService';
 import type { AgentResponse } from '../api/sheetService';
@@ -90,7 +91,7 @@ export default function HomePage() {
           if (result) {
             setAgentData(result);
             setError('');
-            setDoc(doc(db, 'users', user.uid), { lob: result.lob, email: user.email }, { merge: true }).catch(() => {});
+            setDoc(getUserDoc(user.uid), { lob: result.lob, email: user.email }, { merge: true }).catch(() => {});
           } else {
             setError('Agente no encontrado en ninguna base de datos.');
           }

@@ -1,5 +1,7 @@
+import { auth } from '../firebaseConfig';
 import { useState, useEffect } from 'react';
-import { db } from '../firebaseConfig';
+import { db } from '../firebaseConfig';import { getPublicCollection, getUserCollection, getPublicDoc, getUserDoc, getAppStorageRef, fetchAllUsersSubcollection } from '../firebasePaths';
+
 import { collection, getDocs, orderBy, query } from 'firebase/firestore';
 import { Loader2, Users, Clock, TrendingDown, Zap, ChevronDown, ChevronUp } from 'lucide-react';
 
@@ -28,6 +30,8 @@ const timeBadge = (secs: number) => {
 };
 
 export default function AdminAcwStats() {
+  const user = auth.currentUser;
+
   const [attempts, setAttempts] = useState<AcwAttempt[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
@@ -35,9 +39,9 @@ export default function AdminAcwStats() {
   useEffect(() => {
     const fetch = async () => {
       try {
-        const q = query(collection(db, 'acw_attempts'), orderBy('timestamp', 'desc'));
-        const snap = await getDocs(q);
-        setAttempts(snap.docs.map(d => ({ id: d.id, ...d.data() } as AcwAttempt)));
+        const allData = await fetchAllUsersSubcollection('acw_attempts');
+        let sorted = allData.sort((a,b) => (b.timestamp?.toMillis?.() || 0) - (a.timestamp?.toMillis?.() || 0));
+        setAttempts(sorted as unknown as AcwAttempt[]);
       } finally {
         setLoading(false);
       }

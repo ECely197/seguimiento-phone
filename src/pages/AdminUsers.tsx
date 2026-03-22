@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
-import { db, auth } from '../firebaseConfig';
+import { appId, db, auth } from '../firebaseConfig';import { getPublicCollection, getUserCollection, getPublicDoc, getUserDoc, getAppStorageRef, fetchAllUsersSubcollection } from '../firebasePaths';
+
 import { Loader2, Shield, ShieldAlert, CheckCircle, AlertCircle, Search, User, Ban, Lock } from 'lucide-react';
 import { ADMIN_UID } from '../constants';
 
@@ -30,7 +31,7 @@ export default function AdminUsers() {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const usersRef = collection(db, 'users');
+      const usersRef = collection(db, 'artifacts', appId, 'users');
       const snapshot = await getDocs(usersRef);
       const usersList = snapshot.docs.map(doc => ({
         id: doc.id,
@@ -57,7 +58,7 @@ export default function AdminUsers() {
     const newRole = isAdmin ? 'user' : 'admin';
     
     try {
-        const userRef = doc(db, 'users', userId);
+        const userRef = getUserDoc(userId);
         await updateDoc(userRef, { 
             role: newRole,
             isAdmin: newRole === 'admin' // Keep both for safety during migration
@@ -82,7 +83,7 @@ export default function AdminUsers() {
       setProcessingId(userId);
       const newStatus = !currentStatus;
       try {
-          const userRef = doc(db, 'users', userId);
+          const userRef = getUserDoc(userId);
           await updateDoc(userRef, { isBlocked: newStatus });
           setUsers(users.map(u => u.id === userId ? {...u, isBlocked: newStatus} : u));
           showNotification(newStatus ? 'Usuario bloqueado' : 'Usuario desbloqueado', 'success');

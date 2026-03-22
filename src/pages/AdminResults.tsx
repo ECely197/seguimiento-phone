@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { collection, getDocs, deleteDoc, doc, query, orderBy } from 'firebase/firestore';
-import { db } from '../firebaseConfig';
+import { db, appId } from '../firebaseConfig';import { getPublicCollection, getUserCollection, getPublicDoc, getUserDoc, getAppStorageRef, fetchAllUsersSubcollection } from '../firebasePaths';
+
 import { Trash2, Search, CheckCircle, XCircle, RefreshCw } from 'lucide-react';
 
 interface Result {
@@ -29,8 +30,9 @@ export default function AdminResults() {
     setLoading(true);
     try {
       // 1. Fetch Results
-      const resultsSnap = await getDocs(query(collection(db, 'resultados_quizzes'), orderBy('timestamp', 'desc')));
-      const resultsData = resultsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Result));
+      const allData = await fetchAllUsersSubcollection('resultados_quizzes');
+      const sortedData = allData.sort((a, b) => (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0));
+      const resultsData = sortedData as unknown as Result[];
 
       // 2. Fetch Agents (to map email -> name)
       // Assuming 'users' collection or similar exists. If not, we use email.
@@ -38,7 +40,7 @@ export default function AdminResults() {
       // AdminAgents.tsx uses 'getAllAgents' which likely fetches from a collection.
       // We'll assume strict email matching for now. 
       // Ideally, we'd have a map of agents.
-      const agentsSnap = await getDocs(collection(db, 'users')); 
+      const agentsSnap = await getDocs(collection(db, 'artifacts', appId, 'users')); 
       const agentMap: Record<string, string> = {};
       agentsSnap.forEach(doc => {
           const data = doc.data();
@@ -46,7 +48,7 @@ export default function AdminResults() {
       });
 
       // 3. Fetch Quizzes (to map quizId -> title)
-      const quizzesSnap = await getDocs(collection(db, 'quizzes'));
+      const quizzesSnap = await getDocs(getPublicCollection('quizzes'));
       const quizMap: Record<string, string> = {};
       quizzesSnap.forEach(doc => {
           quizMap[doc.id] = doc.data().situation || doc.data().title || 'Quiz Sin Título';
@@ -68,12 +70,12 @@ export default function AdminResults() {
     }
   };
 
-  const handleDelete = async (resultId: string) => {
+  const handleDelete = async (result: any) => {
       if (!window.confirm("¿Estás seguro de habilitar un nuevo intento? Esto borrará el resultado actual.")) return;
       
       try {
-          await deleteDoc(doc(db, 'resultados_quizzes', resultId));
-          setResults(prev => prev.filter(r => r.id !== resultId));
+          await deleteDoc(doc(db, result.path));
+          setResults(prev => prev.filter(r => r.id !== result.id));
       } catch (err) {
           console.error("Error deleting result:", err);
           alert("Error al eliminar el resultado");

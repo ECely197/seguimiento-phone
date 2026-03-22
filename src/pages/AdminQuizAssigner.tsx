@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { collection, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
-import { db, auth } from '../firebaseConfig';
+import { appId, db, auth } from '../firebaseConfig';import { getPublicCollection, getUserCollection, getPublicDoc, getUserDoc, getAppStorageRef, fetchAllUsersSubcollection } from '../firebasePaths';
+
 import { Loader2, CheckCircle, AlertCircle, Send, Users, FileText } from 'lucide-react';
 
 export default function AdminQuizAssigner() {
@@ -21,12 +22,12 @@ export default function AdminQuizAssigner() {
              setLoadingData(true);
              try {
                  // 1. Fetch Quizzes
-                 const quizzesSnapshot = await getDocs(collection(db, 'quizzes'));
+                 const quizzesSnapshot = await getDocs(getPublicCollection('quizzes'));
                  const quizzesList = quizzesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                  setQuizzes(quizzesList);
 
                  // 2. Fetch Registered Users from Firestore
-                 const usersSnapshot = await getDocs(collection(db, 'users'));
+                 const usersSnapshot = await getDocs(collection(db, 'artifacts', appId, 'users'));
                  const usersList = usersSnapshot.docs.map(doc => ({ 
                     id: doc.id, 
                     email: doc.data().email,
@@ -69,7 +70,7 @@ export default function AdminQuizAssigner() {
                 : agents.filter(a => selectedAgentEmails.includes(a.email));
 
             const assignmentsUpdates = targets.map(agent => {
-                return addDoc(collection(db, 'asignaciones_quizzes'), {
+                return addDoc(getPublicCollection('asignaciones_quizzes'), {
                     quizId: selectedQuizId,
                     agentEmail: agent.email,
                     agentName: agent.displayName,

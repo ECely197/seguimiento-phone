@@ -3,6 +3,7 @@ import { Navigate } from 'react-router-dom';
 import { onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../firebaseConfig';
+import { getUserDoc } from '../firebasePaths';
 import { Loader2 } from 'lucide-react';
 import { ADMIN_UID } from '../constants'; // Fallback for hardcoded super-admin
 
@@ -22,7 +23,7 @@ export default function AdminRoute({ children }: AdminRouteProps) {
       if (currentUser) {
         try {
             // Check Firestore for role
-            const userRef = doc(db, 'users', currentUser.uid);
+            const userRef = getUserDoc(currentUser.uid);
             const userSnap = await getDoc(userRef);
             
             if (userSnap.exists()) {

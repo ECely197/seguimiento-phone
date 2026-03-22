@@ -1,5 +1,6 @@
 import { Eye } from 'lucide-react'; 
 import { db } from '../firebaseConfig';
+import { getPublicDoc } from '../firebasePaths';
 import { doc, updateDoc, arrayUnion } from 'firebase/firestore';
 
 
@@ -19,7 +20,7 @@ export default function ProcessCard({ id, title, description, videoUrl, viewedBy
     if (!userId || hasViewed) return;
     
     try {
-      const docRef = doc(db, 'processes', id);
+      const docRef = getPublicDoc('processes', id);
       await updateDoc(docRef, {
         viewedBy: arrayUnion(userId)
       });

@@ -1,6 +1,8 @@
+import { auth } from '../firebaseConfig';
 import { useState, useEffect } from 'react';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
+import { getPublicCollection, getUserCollection, getPublicDoc, getUserDoc, getAppStorageRef, fetchAllUsersSubcollection } from '../firebasePaths';
 import { getMainAgents, getRecuperoAgents } from '../api/sheetService';
 import { Printer, RefreshCw, Mic, CheckCircle, XCircle, Clock, TrendingUp } from 'lucide-react';
 
@@ -58,6 +60,8 @@ const TD = 'px-3 py-2 text-sm text-slate-700 whitespace-nowrap';
 
 // ═════════════════════════════════════════════════════════════════════════════
 export default function ExecutiveReportPage() {
+  const user = auth.currentUser;
+
   const [mainAgents,    setMainAgents]    = useState<AgentRow[]>([]);
   const [recuperoAgents,setRecuperoAgents]= useState<AgentRow[]>([]);
   const [quizResults,   setQuizResults]   = useState<QuizResult[]>([]);
@@ -72,9 +76,9 @@ export default function ExecutiveReportPage() {
       const [main, recupero, quizSnap, quizMetaSnap, acwSnap] = await Promise.all([
         getMainAgents(),
         getRecuperoAgents(),
-        getDocs(collection(db, 'resultados_quizzes')),
-        getDocs(collection(db, 'quizzes')),
-        getDocs(collection(db, 'acw_attempts')),
+        fetchAllUsersSubcollection('resultados_quizzes').then(data => ({ docs: data.map((d: any) => ({ id: d.id, data: () => d })) })),
+        getDocs(getPublicCollection('quizzes')),
+        fetchAllUsersSubcollection('acw_attempts').then(data => ({ docs: data.map((d: any) => ({ id: d.id, data: () => d })) })),
       ]);
 
       // Both come from the primary sheet — tag them all as 'phone' for now; B2X agents
@@ -137,9 +141,8 @@ export default function ExecutiveReportPage() {
       <div className="bg-[#0a2540] text-white px-6 py-5 no-print">
         <div className="max-w-6xl mx-auto flex items-start justify-between gap-4 flex-wrap">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-widest text-blue-300 mb-1">PedidosYa · Dashboard Ejecutivo</p>
+            <p className="text-xs font-semibold uppercase tracking-widest text-blue-300 mb-1">PedidosYa · Dashboard</p>
             <h1 className="text-2xl font-bold leading-tight">Reporte de Desempeño Operativo</h1>
-            <p className="text-sm text-blue-200 mt-0.5">Equipo Edwin · Actualizado: {timestamp}</p>
           </div>
           <div className="flex gap-2 flex-shrink-0 mt-1">
             <a
@@ -396,8 +399,7 @@ export default function ExecutiveReportPage() {
 
             {/* ── Footer ── */}
             <div className="mt-12 pt-6 border-t border-slate-200 flex items-center justify-between text-xs text-slate-400">
-              <span>PedidosYa · Reporte generado automáticamente</span>
-              <span>{timestamp}</span>
+              
             </div>
           </>
         )}

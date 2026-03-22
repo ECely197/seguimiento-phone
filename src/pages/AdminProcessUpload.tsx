@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Library, Upload, CheckCircle, AlertCircle, Loader2, Trash2, Pencil, Eye, Users } from 'lucide-react';
-import { auth, storage, db } from '../firebaseConfig';
+import { appId, auth, storage, db } from '../firebaseConfig';import { getPublicCollection, getUserCollection, getPublicDoc, getUserDoc, getAppStorageRef, fetchAllUsersSubcollection } from '../firebasePaths';
+
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { collection, addDoc, serverTimestamp, getDocs, deleteDoc, doc, updateDoc, query, orderBy } from 'firebase/firestore';
 
@@ -28,7 +29,7 @@ export default function AdminProcessUpload() {
 
     const fetchCategories = async () => {
         try {
-            const q = query(collection(db, 'categories'), orderBy('createdAt', 'desc'));
+            const q = query(getPublicCollection('categories'), orderBy('createdAt', 'desc'));
             const querySnapshot = await getDocs(q);
             setCategories(querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
         } catch (error) {
@@ -38,7 +39,7 @@ export default function AdminProcessUpload() {
 
     const fetchUsers = async () => {
         try {
-            const querySnapshot = await getDocs(collection(db, 'users'));
+            const querySnapshot = await getDocs(collection(db, 'artifacts', appId, 'users'));
             const userMap: Record<string, {name: string, email: string}> = {};
             querySnapshot.docs.forEach(doc => {
                 const data = doc.data();
@@ -62,7 +63,7 @@ export default function AdminProcessUpload() {
         if (!newCategoryName.trim()) return;
         setIsAddingCategory(true);
         try {
-            await addDoc(collection(db, 'categories'), {
+            await addDoc(getPublicCollection('categories'), {
                 name: newCategoryName.trim(),
                 createdAt: serverTimestamp()
             });
@@ -79,7 +80,7 @@ export default function AdminProcessUpload() {
     const handleDeleteCategory = async (id: string, name: string) => {
         if (!window.confirm(`¿Seguro que quieres eliminar la categoría "${name}"? Los videos existentes no se borrarán, pero quedarán sin categoría.`)) return;
         try {
-            await deleteDoc(doc(db, 'categories', id));
+            await deleteDoc(getPublicDoc('categories', id));
             fetchCategories();
         } catch (error) {
             console.error("Error deleting category:", error);
@@ -99,12 +100,12 @@ export default function AdminProcessUpload() {
 
         try {
             // 1. Upload to Storage
-            const storageRef = ref(storage, `processes/${Date.now()}_${file.name}`);
+            const storageRef = getAppStorageRef(`processes/${Date.now()}_${file.name}`);
             const snapshot = await uploadBytes(storageRef, file);
             const downloadURL = await getDownloadURL(snapshot.ref);
 
             // 2. Save Metadata to Firestore
-            await addDoc(collection(db, 'processes'), {
+            await addDoc(getPublicCollection('processes'), {
                 title,
                 description,
                 category,
@@ -137,7 +138,7 @@ export default function AdminProcessUpload() {
     useEffect(() => {
         const fetchMateriales = async () => {
              try {
-                const querySnapshot = await getDocs(collection(db, "processes"));
+                const querySnapshot = await getDocs(getPublicCollection('processes'));
                 const docs = querySnapshot.docs.map(doc => ({
                     id: doc.id,
                     ...doc.data()
@@ -153,7 +154,7 @@ export default function AdminProcessUpload() {
     const handleDelete = async (id: string) => {
         if (window.confirm("¿Estás seguro de que quieres eliminar este material?")) {
             try {
-                await deleteDoc(doc(db, "processes", id));
+                await deleteDoc(getPublicDoc('processes', id));
                 setMateriales(prev => prev.filter(item => item.id !== id));
             } catch (error) {
                 console.error("Error deleting document:", error);
@@ -193,7 +194,7 @@ export default function AdminProcessUpload() {
         setError(null);
         setUploadSuccess(false);
         try {
-            await updateDoc(doc(db, 'processes', editingId), { title, description, category });
+            await updateDoc(getPublicDoc('processes', editingId), { title, description, category });
             setMateriales(prev =>
                 prev.map(item =>
                     item.id === editingId ? { ...item, title, description, category } : item

@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { Play, CheckCircle, AlertCircle, TrendingUp, HelpCircle, Mic, Square, Trash2,
          SendHorizonal, Headphones, Video } from 'lucide-react';
-import { auth, storage } from '../firebaseConfig';
-import { collection, getDocs, addDoc, query, where, serverTimestamp } from 'firebase/firestore';
+import { auth, storage } from '../firebaseConfig';import { getPublicCollection, getUserCollection, getPublicDoc, getUserDoc, getAppStorageRef, fetchAllUsersSubcollection } from '../firebasePaths';
+
+import { collection, setDoc, getDocs, addDoc, query, where, serverTimestamp } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { db } from '../firebaseConfig';
+import { db, appId } from '../firebaseConfig';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface QuizOption {
@@ -79,7 +80,8 @@ export default function QuizPage() {
 
       if (!user) {
         // Modo Invitado: Cargar todos los quizzes
-        const snap = await getDocs(collection(db, 'quizzes'));
+        const { getDocsWithFallback } = await import("../firebasePaths");
+        const snap = await getDocsWithFallback("quizzes");
         details = snap.docs.map(d => {
           const data = d.data();
           return {
@@ -98,14 +100,14 @@ export default function QuizPage() {
       } else {
         // Usuario autenticado: Cargar solo lo asignado
         const assignSnap = await getDocs(
-          query(collection(db, 'asignaciones_quizzes'), where('agentEmail', '==', user.email))
+          query(getPublicCollection('asignaciones_quizzes'), where('agentEmail', '==', user.email))
         );
         const ids = assignSnap.docs.map(d => d.data().quizId);
         if (ids.length === 0) { setQuizzes([]); return; }
 
         for (const quizId of ids) {
           const snap = await getDocs(
-            query(collection(db, 'quizzes'), where('__name__', '==', quizId))
+            query(getPublicCollection('quizzes'), where('__name__', '==', quizId))
           );
           if (!snap.empty) {
             const d = snap.docs[0].data();
@@ -143,7 +145,7 @@ export default function QuizPage() {
     if (!user.email) return;
     try {
       const snap = await getDocs(
-        query(collection(db, 'resultados_quizzes'), where('agentEmail', '==', user.email))
+        query(getUserCollection(user.uid, 'resultados_quizzes'))
       );
       if (!snap.empty) {
         // Only count MC quizzes in accuracy (open-audio have isCorrect = null)
@@ -214,7 +216,7 @@ export default function QuizPage() {
       // Upload agent audio for open-audio quizzes
       if (openAudio && audioBlob) {
         const path = `answers/${uidTemp}/${activeQuiz.id}_${Date.now()}.webm`;
-        const snap = await uploadBytes(ref(storage, path), audioBlob, { contentType: 'audio/webm' });
+        const snap = await uploadBytes(getAppStorageRef(path), audioBlob, { contentType: 'audio/webm' });
         answerAudioUrl = await getDownloadURL(snap.ref);
       }
 
@@ -222,13 +224,19 @@ export default function QuizPage() {
       let mcAudioUrl = '';
       if (!openAudio && audioBlob) {
         const path = `answers/${uidTemp}/${activeQuiz.id}_${Date.now()}.webm`;
-        const snap = await uploadBytes(ref(storage, path), audioBlob, { contentType: 'audio/webm' });
+        const snap = await uploadBytes(getAppStorageRef(path), audioBlob, { contentType: 'audio/webm' });
         mcAudioUrl = await getDownloadURL(snap.ref);
       }
 
       const correct = openAudio ? null : selectedOption === activeQuiz.correctOption;
 
-      await addDoc(collection(db, 'resultados_quizzes'), {
+      await setDoc(getUserDoc(uidTemp), {
+        isGuest: isGuest,
+        email: agentEmail,
+        name: isGuest ? "Invitado" : (auth.currentUser?.displayName || ""),
+        lastActivity: serverTimestamp()
+      }, { merge: true });
+      await addDoc(getUserCollection(uidTemp, 'resultados_quizzes'), {
         agentEmail:    agentEmail,
         isGuest:       isGuest,
         userName:      isGuest ? "Invitado" : (auth.currentUser?.displayName || ""),
@@ -282,7 +290,7 @@ export default function QuizPage() {
           <p className="text-m3-secondary dark:text-gray-400 text-sm">Mejora tus habilidades con casos reales.</p>
         </div>
         <a 
-          href="/executive-report/pda-criteria" 
+          href="/pda-manual" 
           target="_blank" 
           rel="noopener noreferrer"
           className="flex items-center gap-2 px-4 py-2 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 font-bold rounded-2xl shadow-sm border border-blue-200 dark:border-blue-800/30 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors text-sm"

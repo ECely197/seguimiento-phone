@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { collection, getDocs, doc, deleteDoc, updateDoc, query, where, orderBy, serverTimestamp } from 'firebase/firestore';
 import { ref, deleteObject, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { db, storage } from '../firebaseConfig';
+import { db, storage } from '../firebaseConfig';import { getPublicCollection, getUserCollection, getPublicDoc, getUserDoc, getAppStorageRef, fetchAllUsersSubcollection } from '../firebasePaths';
+
 import { Loader2, Pencil, Trash2, Users, X, CheckCircle, AlertCircle, Upload, ChevronDown, ChevronUp, FileText } from 'lucide-react';
 
 export default function AdminQuizManager() {
@@ -27,7 +28,7 @@ export default function AdminQuizManager() {
     const fetchQuizzes = async () => {
         setLoadingQuizzes(true);
         try {
-            const q = query(collection(db, 'quizzes'), orderBy('createdAt', 'desc'));
+            const q = query(getPublicCollection('quizzes'), orderBy('createdAt', 'desc'));
             const snapshot = await getDocs(q);
             setQuizzes(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
         } catch (err) {
@@ -42,10 +43,10 @@ export default function AdminQuizManager() {
         if (!window.confirm(`¿Seguro que quieres eliminar el quiz "${quiz.situation}"? This will NOT remove existing assignments unless manually revoked.`)) return;
         
         try {
-            await deleteDoc(doc(db, 'quizzes', quiz.id));
+            await deleteDoc(getPublicDoc('quizzes', quiz.id));
             if (quiz.audioUrl) {
                 try {
-                    const audioRef = ref(storage, quiz.audioUrl);
+                    const audioRef = getAppStorageRef(quiz.audioUrl);
                     await deleteObject(audioRef);
                 } catch (e) {
                     console.warn("Could not delete audio from storage", e);
@@ -70,14 +71,14 @@ export default function AdminQuizManager() {
             let audioUrl = editingQuiz.audioUrl || '';
             
             if (newAudioFile) {
-                const storageRef = ref(storage, `quizzes/audio/${Date.now()}_${newAudioFile.name}`);
+                const storageRef = getAppStorageRef(`quizzes/audio/${Date.now()}_${newAudioFile.name}`);
                 const snapshot = await uploadBytes(storageRef, newAudioFile);
                 audioUrl = await getDownloadURL(snapshot.ref);
                 
                 // Optional: Delete old audio if it exists
                 if (editingQuiz.audioUrl) {
                     try {
-                        await deleteObject(ref(storage, editingQuiz.audioUrl));
+                        await deleteObject(getAppStorageRef(editingQuiz.audioUrl));
                     } catch (e) { console.warn("Old audio not deleted", e); }
                 }
             }
@@ -89,7 +90,7 @@ export default function AdminQuizManager() {
             };
             delete updatedData.id;
 
-            await updateDoc(doc(db, 'quizzes', editingQuiz.id), updatedData);
+            await updateDoc(getPublicDoc('quizzes', editingQuiz.id), updatedData);
             
             showSuccess("Quiz actualizado correctamente.");
             setEditingQuiz(null);
@@ -106,7 +107,7 @@ export default function AdminQuizManager() {
     const fetchAssignments = async (quizId: string) => {
         setLoadingAssignments(true);
         try {
-            const q = query(collection(db, 'asignaciones_quizzes'), where('quizId', '==', quizId));
+            const q = query(getPublicCollection('asignaciones_quizzes'), where('quizId', '==', quizId));
             const snapshot = await getDocs(q);
             setAssignments(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
         } catch (err) {
@@ -130,7 +131,7 @@ export default function AdminQuizManager() {
     const handleRevokeAssignment = async (assignmentId: string) => {
         if (!window.confirm("¿Seguro que quieres revocar esta asignación? El usuario ya no podrá realizar este quiz.")) return;
         try {
-            await deleteDoc(doc(db, 'asignaciones_quizzes', assignmentId));
+            await deleteDoc(getPublicDoc('asignaciones_quizzes', assignmentId));
             setAssignments(prev => prev.filter(a => a.id !== assignmentId));
             showSuccess("Asignación revocada.");
         } catch (err) {

@@ -7,7 +7,8 @@ import AdminPage from './pages/AdminPage';
 import AcwPractice from './pages/AcwPractice';
 import ExecutiveReportPage from './pages/ExecutiveReportPage';
 import HourlyTrendsPage from './pages/HourlyTrendsPage';
-import PdaCriteriaPage from './pages/PdaCriteriaPage';
+import PdaManualPage from './pages/PdaManualPage';
+import ExecutivePlanPage from './pages/ExecutivePlanPage';
 import AdminRoute from './components/AdminRoute';
 import ProtectedRoute from './components/ProtectedRoute';
 import Navbar from './components/Navbar';
@@ -18,6 +19,7 @@ import { useEffect } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore'; 
 import { auth, db } from './firebaseConfig';
+import { getUserDoc } from './firebasePaths';
 import { ADMIN_UID } from './constants';
 
 function Layout() {
@@ -25,7 +27,7 @@ function Layout() {
   const navigate = useNavigate();
   
   // Hide navbar on login page AND admin dashboard
-  const PUBLIC_NO_NAV = ['/login', '/admin', '/', '/executive-report/team-vitals', '/executive-report/hourly-trends', '/executive-report/pda-criteria'];
+  const PUBLIC_NO_NAV = ['/login', '/admin', '/', '/executive-report/team-vitals', '/executive-report/hourly-trends', '/pda-manual', '/executive-plan'];
   const showNavbar = !PUBLIC_NO_NAV.includes(location.pathname);
 
   useEffect(() => {
@@ -34,7 +36,7 @@ function Layout() {
 
       if (user) {
         try {
-          const userRef = doc(db, 'users', user.uid);
+          const userRef = getUserDoc(user.uid);
           const userSnap = await getDoc(userRef);
           
           if (!userSnap.exists()) {
@@ -82,7 +84,8 @@ function Layout() {
           <Route path="/" element={<Navigate to="/home" replace />} />
           <Route path="/executive-report/team-vitals" element={<ExecutiveReportPage />} />
           <Route path="/executive-report/hourly-trends" element={<HourlyTrendsPage />} />
-          <Route path="/executive-report/pda-criteria" element={<PdaCriteriaPage />} />
+          <Route path="/pda-manual" element={<PdaManualPage />} />
+          <Route path="/executive-plan" element={<ExecutivePlanPage />} />
 
           {/* Protected Routes */}
           <Route element={<ProtectedRoute />}>

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { FileEdit, CheckCircle, AlertCircle, Loader2, Upload, Video, Mic } from 'lucide-react';
-import { auth, storage, db } from '../firebaseConfig';
+import { auth, storage, db } from '../firebaseConfig';import { getPublicCollection, getUserCollection, getPublicDoc, getUserDoc, getAppStorageRef, fetchAllUsersSubcollection } from '../firebasePaths';
+
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
@@ -54,7 +55,7 @@ export default function AdminQuizEditor() {
             if (quizMedia) {
                 const ext       = quizMedia.name.split('.').pop();
                 const storePath = `quizzes/media/${Date.now()}_${quizMedia.name}`;
-                const storageRef = ref(storage, storePath);
+                const storageRef = getAppStorageRef(storePath);
                 // Pass contentType so browsers can stream video natively
                 const snapshot = await uploadBytes(storageRef, quizMedia, {
                     contentType: quizMedia.type || `video/${ext}`,
@@ -73,7 +74,7 @@ export default function AdminQuizEditor() {
                 : [];
 
             // 3. Save to Firestore
-            await addDoc(collection(db, 'quizzes'), {
+            await addDoc(getPublicCollection('quizzes'), {
                 situation:     quizSituation,
                 question:      quizQuestion,
                 mediaUrl,

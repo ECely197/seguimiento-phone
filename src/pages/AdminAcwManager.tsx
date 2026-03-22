@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { db, storage } from '../firebaseConfig';
+import { db, storage } from '../firebaseConfig';import { getPublicCollection, getUserCollection, getPublicDoc, getUserDoc, getAppStorageRef, fetchAllUsersSubcollection } from '../firebasePaths';
+
 import {
   collection, addDoc, getDocs, deleteDoc, doc, updateDoc,
   serverTimestamp, orderBy, query
@@ -32,7 +33,7 @@ export default function AdminAcwManager() {
 
   const fetchScenarios = async () => {
     try {
-      const q = query(collection(db, 'acw_scenarios'), orderBy('createdAt', 'asc'));
+      const q = query(getPublicCollection('acw_scenarios'), orderBy('createdAt', 'asc'));
       const snap = await getDocs(q);
       setScenarios(snap.docs.map(d => ({ id: d.id, ...d.data() } as AcwScenario)));
     } finally {
@@ -55,7 +56,7 @@ export default function AdminAcwManager() {
       // Upload new video if provided
       if (videoFile) {
         storagePath = `acw_videos/${Date.now()}_${videoFile.name}`;
-        const storageRef = ref(storage, storagePath);
+        const storageRef = getAppStorageRef(storagePath);
         const uploadTask = uploadBytesResumable(storageRef, videoFile);
 
         await new Promise<void>((resolve, reject) => {
@@ -78,9 +79,9 @@ export default function AdminAcwManager() {
       if (videoUrl) { payload.videoUrl = videoUrl; payload.storagePath = storagePath; }
 
       if (editingId) {
-        await updateDoc(doc(db, 'acw_scenarios', editingId), payload);
+        await updateDoc(getPublicDoc('acw_scenarios', editingId), payload);
       } else {
-        await addDoc(collection(db, 'acw_scenarios'), { ...payload, createdAt: serverTimestamp() });
+        await addDoc(getPublicCollection('acw_scenarios'), { ...payload, createdAt: serverTimestamp() });
       }
 
       await fetchScenarios();
@@ -106,9 +107,9 @@ export default function AdminAcwManager() {
 
   const handleDelete = async (s: AcwScenario) => {
     if (!confirm(`¿Eliminar el escenario "${s.title}"?`)) return;
-    await deleteDoc(doc(db, 'acw_scenarios', s.id));
+    await deleteDoc(getPublicDoc('acw_scenarios', s.id));
     if (s.storagePath) {
-      try { await deleteObject(ref(storage, s.storagePath)); } catch { /* ignore */ }
+      try { await deleteObject(getAppStorageRef(s.storagePath)); } catch { /* ignore */ }
     }
     setScenarios(prev => prev.filter(x => x.id !== s.id));
   };

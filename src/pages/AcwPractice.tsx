@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { collection, getDocs, orderBy, query, addDoc, serverTimestamp } from 'firebase/firestore';
-import { db, auth } from '../firebaseConfig';
+import { collection, setDoc, getDocs, orderBy, query, addDoc, serverTimestamp } from 'firebase/firestore';
+import { db, auth } from '../firebaseConfig';import { getPublicCollection, getUserCollection, getPublicDoc, getUserDoc, getAppStorageRef, fetchAllUsersSubcollection } from '../firebasePaths';
+
 import {
   Timer, Play, ChevronRight, CheckCircle2, Zap, Clock,
   Search, Loader2, Trophy, Copy, Check, Shuffle, PhoneOff
@@ -214,7 +215,7 @@ export default function AcwPractice() {
   useEffect(() => {
     const fetch = async () => {
       try {
-        const q = query(collection(db, 'acw_scenarios'), orderBy('createdAt', 'asc'));
+        const q = query(getPublicCollection('acw_scenarios'), orderBy('createdAt', 'asc'));
         const snap = await getDocs(q);
         setAllScenarios(snap.docs.map(d => ({ id: d.id, ...d.data() } as AcwScenario)));
       } finally {
@@ -289,8 +290,15 @@ export default function AcwPractice() {
       const user = auth.currentUser;
       const isGuest = !user;
 
-      await addDoc(collection(db, 'acw_attempts'), {
-        userId: user?.uid ?? ('guest_' + crypto.randomUUID().slice(0, 8)),
+      const uidToUse = user?.uid ?? ('guest_' + crypto.randomUUID().slice(0, 8));
+      await setDoc(getUserDoc(uidToUse), { 
+        isGuest: isGuest, 
+        email: user?.email ?? 'invitado@visitante.com', 
+        name: isGuest ? 'Invitado' : (user?.displayName || ''),
+        lastActivity: serverTimestamp() 
+      }, { merge: true });
+      await addDoc(getUserCollection(uidToUse, 'acw_attempts'), {
+        userId: uidToUse,
         userEmail: user?.email ?? 'invitado@visitante.com',
         userName: isGuest ? 'Invitado' : (user?.displayName || ''),
         isGuest: isGuest,

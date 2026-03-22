@@ -148,24 +148,28 @@ export default function AdminPage() {
                 {/* Executive Report Access Button */}
                 <div className="flex flex-col items-end gap-2">
                   <div className="flex items-center gap-2">
-                    <a
-                      href="/executive-report/pda-criteria"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-2 px-4 py-2 bg-green-600 dark:bg-green-700 text-white font-bold rounded-[20px] shadow-sm hover:bg-green-700 dark:hover:bg-green-600 transition-colors text-sm"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>
-                      Manual de Criterios
-                    </a>
                     <button
                       onClick={() => {
-                        navigator.clipboard.writeText(window.location.origin + '/executive-report/pda-criteria');
-                        alert('Enlace del Manual copiado al portapapeles');
+                        navigator.clipboard.writeText(window.location.origin + '/pda-manual');
+                        alert('Enlace del Manual de Agentes copiado al portapapeles');
                       }}
-                      title="Copiar Link"
-                      className="p-2 bg-white dark:bg-[#2C2C2C] text-m3-secondary dark:text-white border border-m3-surface-variant dark:border-white/10 rounded-full shadow-sm hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
+                      className="flex items-center gap-2 px-4 py-2 bg-green-600 dark:bg-green-700 text-white font-bold rounded-[20px] shadow-sm hover:bg-green-700 dark:hover:bg-green-600 transition-colors text-sm"
                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+                      Copiar Link para Agentes
+                    </button>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(window.location.origin + '/executive-plan');
+                        alert('Enlace del Plan Ejecutivo copiado al portapapeles');
+                      }}
+                      className="flex items-center gap-2 px-4 py-2 bg-indigo-600 dark:bg-indigo-700 text-white font-bold rounded-[20px] shadow-sm hover:bg-indigo-700 dark:hover:bg-indigo-600 transition-colors text-sm"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+                      Copiar Link Plan Ejecutivo
                     </button>
                   </div>
                   

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { collection, getDocs } from 'firebase/firestore';
-import { db, auth } from '../firebaseConfig';
+import { db, auth, appId } from '../firebaseConfig';import { getPublicCollection, getUserCollection, getPublicDoc, getUserDoc, getAppStorageRef, fetchAllUsersSubcollection } from '../firebasePaths';
+
 import { Loader2, Library } from 'lucide-react';
 import ProcessCard from '../components/ProcessCard';
 
@@ -15,13 +16,16 @@ interface VideoModule {
 }
 
 export default function ProcessPage() {
+  const user = auth.currentUser;
   const [materiales, setMateriales] = useState<VideoModule[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchMateriales = async () => {
+if (!user) return;
        try {
-         const querySnapshot = await getDocs(collection(db, "processes"));
+         const { getDocsWithFallback } = await import("../firebasePaths");
+         const querySnapshot = await getDocsWithFallback("processes");
          const videos = querySnapshot.docs.map(doc => {
             const data = doc.data();
             return {
@@ -83,7 +87,7 @@ export default function ProcessPage() {
 
       {materiales.length === 0 ? (
           <div className="text-center py-20 text-gray-400">
-              <p>No hay módulos de capacitación disponibles por el momento.</p>
+              <p>Buscando en /artifacts/{appId}/public/data/processes...</p><p className="text-xs mt-2 text-red-500 font-mono">(Fallback Mode: Evaluando también en /processes raíz automáticamente si no hay datos nuevos)</p>
           </div>
       ) : (
           <div className="space-y-12">

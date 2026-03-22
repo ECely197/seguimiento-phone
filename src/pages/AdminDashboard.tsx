@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Users, Library, FileEdit, Menu, LogOut, LayoutDashboard, Upload, CheckCircle, AlertCircle, Loader2, Pencil, Trash2, Video, Headphones, ListChecks, Eye } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { auth, storage, db } from '../firebaseConfig';
+import { auth, storage, db } from '../firebaseConfig';import { getPublicCollection, getUserCollection, getPublicDoc, getUserDoc, getAppStorageRef, fetchAllUsersSubcollection } from '../firebasePaths';
+
 import { signOut } from 'firebase/auth';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { collection, addDoc, doc, updateDoc, deleteDoc, getDocs, query, orderBy, serverTimestamp } from 'firebase/firestore';
@@ -47,7 +48,7 @@ export default function AdminDashboard() {
   // ----------------------------------------------------
   const fetchContent = async () => {
     try {
-      const q = query(collection(db, 'content'), orderBy('createdAt', 'desc'));
+      const q = query(getPublicCollection('content'), orderBy('createdAt', 'desc'));
       const querySnapshot = await getDocs(q);
       const items = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setContentList(items);
@@ -96,12 +97,12 @@ export default function AdminDashboard() {
 
     try {
         // 1. Subir archivo a Storage
-        const storageRef = ref(storage, `content/${Date.now()}_${file.name}`);
+        const storageRef = getAppStorageRef(`content/${Date.now()}_${file.name}`);
         const snapshot = await uploadBytes(storageRef, file);
         const url = await getDownloadURL(snapshot.ref);
 
         // 2. Guardar referencia en Firestore
-        await addDoc(collection(db, 'content'), {
+        await addDoc(getPublicCollection('content'), {
             title,
             description,
             url,
@@ -157,7 +158,7 @@ export default function AdminDashboard() {
     setError(null);
     setUploadSuccess(false);
     try {
-        await updateDoc(doc(db, 'content', editingId), { title, description });
+        await updateDoc(getPublicDoc('content', editingId), { title, description });
         setUploadSuccess(true);
         cancelEditing();
         fetchContent(); // Recargar lista
@@ -175,11 +176,11 @@ export default function AdminDashboard() {
 
     try {
       // 1. Eliminar de Firestore
-      await deleteDoc(doc(db, 'content', id));
+      await deleteDoc(getPublicDoc('content', id));
       
       // 2. Intentar eliminar de Storage (Opcional, si falla no rompe la app)
       try {
-        const fileRef = ref(storage, url);
+        const fileRef = getAppStorageRef(url);
         await deleteObject(fileRef);
       } catch (e) {
         console.warn("No se pudo eliminar el archivo de storage (quizás ya no existe)", e);
@@ -216,12 +217,12 @@ export default function AdminDashboard() {
       let audioUrl = '';
       
       if (quizAudio) {
-        const storageRef = ref(storage, `quizzes/audio/${Date.now()}_${quizAudio.name}`);
+        const storageRef = getAppStorageRef(`quizzes/audio/${Date.now()}_${quizAudio.name}`);
         const snapshot = await uploadBytes(storageRef, quizAudio);
         audioUrl = await getDownloadURL(snapshot.ref);
       }
 
-      await addDoc(collection(db, 'quizzes'), {
+      await addDoc(getPublicCollection('quizzes'), {
         situation: quizSituation,
         question: quizQuestion,
         audioUrl,

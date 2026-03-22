@@ -23,3 +23,6 @@ export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const storage = getStorage(app);
 export const googleProvider = new GoogleAuthProvider();
+
+// @ts-ignore
+export const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';

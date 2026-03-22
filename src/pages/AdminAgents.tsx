@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { collection, getDocs, query, where, deleteDoc, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
-import { db, auth } from '../firebaseConfig';
+import { db, auth } from '../firebaseConfig';import { getPublicCollection, getUserCollection, getPublicDoc, getUserDoc, getAppStorageRef, fetchAllUsersSubcollection } from '../firebasePaths';
+
 import {
   ChevronRight, Search, X, Loader2, TrendingUp,
   CheckCircle, XCircle, RefreshCw, User, Edit3, Save, Clock
@@ -186,7 +187,7 @@ export default function AdminAgents() {
 
   const fetchQuizzes = async () => {
     try {
-      const snap = await getDocs(collection(db, 'quizzes'));
+      const snap = await getDocs(getPublicCollection('quizzes'));
       const map: Record<string, string> = {};
       snap.forEach(d => { map[d.id] = d.data().situation || d.data().title || 'Quiz'; });
       setQuizMap(map);
@@ -196,37 +197,37 @@ export default function AdminAgents() {
   const fetchAgentResults = async (email: string) => {
     setResultsLoading(true);
     try {
-      const qQuizzes = query(collection(db, 'resultados_quizzes'), where('agentEmail', '==', email));
-      const qAcw     = query(collection(db, 'acw_attempts'), where('userEmail', '==', email));
+      const qQuizzes = {} as any; // placeholder
+      const qAcw = {} as any; // placeholder
 
       const [snapQuizzes, snapAcw] = await Promise.all([
         getDocs(qQuizzes),
         getDocs(qAcw)
       ]);
 
-      setAgentResults(snapQuizzes.docs.map(d => ({ id: d.id, ...d.data() })));
-      setAgentAcw(snapAcw.docs.map(d => ({ id: d.id, ...d.data() })));
+      const allQ = await fetchAllUsersSubcollection('resultados_quizzes'); setAgentResults(allQ.filter((r: any) => r.agentEmail === email));
+      const allAcw = await fetchAllUsersSubcollection('acw_attempts'); setAgentAcw(allAcw.filter((r: any) => r.userEmail === email));
     } catch (err) { console.error('[AdminAgents] fetchAgentResults:', err); }
     finally { setResultsLoading(false); }
   };
 
-  const deleteResult = async (id: string) => {
+  const deleteResult = async (r: any) => {
     if (!confirm('¿Reiniciar este intento?')) return;
     try {
-      await deleteDoc(doc(db, 'resultados_quizzes', id));
-      setAgentResults(prev => prev.filter(r => r.id !== id));
+      await deleteDoc(doc(db, r.path));
+      setAgentResults(prev => prev.filter(res => res.id !== r.id));
     } catch (err) { console.error('[AdminAgents] deleteResult:', err); }
   };
 
-  const handleUpdateReviewStatus = async (resultId: string, newStatus: 'approved' | 'rejected') => {
+  const handleUpdateReviewStatus = async (r: any, newStatus: 'approved' | 'rejected') => {
     try {
-      await updateDoc(doc(db, 'resultados_quizzes', resultId), {
+      await updateDoc(doc(db, r.path), {
         reviewStatus: newStatus,
         reviewedAt: serverTimestamp(),
         reviewedBy: auth.currentUser?.uid
       });
       // Optimistic update
-      setAgentResults(prev => prev.map(r => r.id === resultId ? { ...r, reviewStatus: newStatus } : r));
+      setAgentResults(prev => prev.map(res => res.id === r.id ? { ...res, reviewStatus: newStatus } : res));
     } catch (err) {
       console.error('Error updating reviewStatus:', err);
       alert('Hubo un error al guardar la revisión.');
@@ -462,7 +463,7 @@ export default function AdminAgents() {
                       {r.quizType === 'open-audio' && (
                         <div className="flex gap-2 mb-3">
                           <button
-                            onClick={() => handleUpdateReviewStatus(r.id, 'approved')}
+                            onClick={() => handleUpdateReviewStatus(r, 'approved')}
                             className={`flex flex-1 items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
                               r.reviewStatus === 'approved'
                                 ? 'bg-green-600 text-white shadow-sm ring-2 ring-green-600 ring-offset-2 dark:ring-offset-[#1E1E1E]'
@@ -472,7 +473,7 @@ export default function AdminAgents() {
                             <CheckCircle size={14} /> Aprobado
                           </button>
                           <button
-                            onClick={() => handleUpdateReviewStatus(r.id, 'rejected')}
+                            onClick={() => handleUpdateReviewStatus(r, 'rejected')}
                             className={`flex flex-1 items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
                               r.reviewStatus === 'rejected'
                                 ? 'bg-red-600 text-white shadow-sm ring-2 ring-red-600 ring-offset-2 dark:ring-offset-[#1E1E1E]'
@@ -484,7 +485,7 @@ export default function AdminAgents() {
                         </div>
                       )}
 
-                      <button onClick={() => deleteResult(r.id)}
+                      <button onClick={() => deleteResult(r)}
                         className="w-full mt-2 py-2 flex items-center justify-center gap-2 text-xs font-bold text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors border border-transparent dark:hover:border-red-900/30">
                         <RefreshCw size={14} /> Habilitar Nueva Oportunidad
                       </button>
