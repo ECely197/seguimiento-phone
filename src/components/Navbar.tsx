@@ -1,48 +1,19 @@
-import { useEffect, useState } from "react";
 import { NavLink } from "react-router-dom";
 import { Home, BookOpen, CheckCircle, Timer, Clock } from "lucide-react";
-import { auth } from "../firebaseConfig";
-import { getDoc } from "firebase/firestore";
-import { getUserDoc } from "../firebasePaths";
-import { onAuthStateChanged } from "firebase/auth";
+import { usePermissions } from "../context/PermissionsContext";
 
 export default function Navbar() {
-  const [userLOB, setUserLOB] = useState<string | null>(null);
+  const { permissions, loading } = usePermissions();
 
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        try {
-          const snap = await getDoc(getUserDoc(user.uid));
-          if (snap.exists()) {
-            setUserLOB(snap.data().lob?.toLowerCase() || null);
-          } else {
-            setUserLOB(null);
-          }
-        } catch (e) {
-          setUserLOB(null);
-        }
-      } else {
-        setUserLOB(null);
-      }
-    });
-    return () => unsubscribe();
-  }, []);
+  const navItems = [
+    { name: "Inicio", path: "/home", icon: Home, show: true },
+    { name: "Explicaciones", path: "/procesos", icon: BookOpen, show: permissions.capacitaciones },
+    { name: "Práctica", path: "/quizzes", icon: CheckCircle, show: permissions.quizzes },
+    { name: "ACW", path: "/acw", icon: Timer, show: permissions.acw },
+    { name: "Idle", path: "/idle-tracker", icon: Clock, show: permissions.idle_tracker },
+  ].filter(item => item.show);
 
-  const isRecupero = userLOB === 'recupero';
-
-  const navItems = isRecupero
-    ? [
-        { name: "Inicio", path: "/home", icon: Home },
-        { name: "Explicaciones", path: "/procesos", icon: BookOpen },
-        { name: "Idle", path: "/idle-tracker", icon: Clock },
-      ]
-    : [
-        { name: "Inicio", path: "/home", icon: Home },
-        { name: "Explicaciones", path: "/procesos", icon: BookOpen },
-        { name: "Práctica", path: "/quizzes", icon: CheckCircle },
-        { name: "ACW", path: "/acw", icon: Timer },
-      ];
+  if (loading) return null;
 
   const cols = navItems.length;
 

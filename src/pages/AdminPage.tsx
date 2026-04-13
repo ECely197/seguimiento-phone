@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Users, Library, FileEdit, Menu, LogOut, LayoutDashboard, CheckCircle, ListChecks, Zap, Eye, Clock } from 'lucide-react';
+import { Users, Library, FileEdit, Menu, LogOut, LayoutDashboard, CheckCircle, ListChecks, Zap, Eye, Clock, Shield } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { auth } from '../firebaseConfig';
 
@@ -12,8 +12,9 @@ import AdminQuizManager from './AdminQuizManager';
 import AdminAcwManager from './AdminAcwManager';
 import AdminAcwStats from './AdminAcwStats';
 import AdminIdleReport from './AdminIdleReport';
+import AdminLobPermissions from './AdminLobPermissions';
 
-type AdminSection = 'agents' | 'processes' | 'quizzes' | 'manage-quizzes' | 'assignments' | 'users' | 'acw' | 'acw-stats' | 'idle-report';
+type AdminSection = 'agents' | 'processes' | 'quizzes' | 'manage-quizzes' | 'assignments' | 'users' | 'acw' | 'acw-stats' | 'idle-report' | 'permissions';
 
 export default function AdminPage() {
   const [activeSection, setActiveSection] = useState<AdminSection>('agents');
@@ -39,6 +40,7 @@ export default function AdminPage() {
     { id: 'acw', label: 'Simulador ACW', icon: Zap },
     { id: 'acw-stats', label: 'Estadísticas ACW', icon: Zap },
     { id: 'idle-report', label: 'Reporte de Disponibilidad', icon: Clock },
+    { id: 'permissions', label: 'Permisos por Área', icon: Shield },
   ];
 
   return (
@@ -232,6 +234,7 @@ export default function AdminPage() {
                 { activeSection === 'acw' && <AdminAcwManager /> }
                 { activeSection === 'acw-stats' && <AdminAcwStats /> }
                 { activeSection === 'idle-report' && <AdminIdleReport /> }
+                { activeSection === 'permissions' && <AdminLobPermissions /> }
 
             </div>
         </div>

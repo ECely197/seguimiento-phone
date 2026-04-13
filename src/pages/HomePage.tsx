@@ -5,9 +5,10 @@ import { getUserDoc } from '../firebasePaths';
 import { ADMIN_UID } from '../constants';
 import { getAgentData } from '../api/sheetService';
 import type { AgentResponse } from '../api/sheetService';
-import { ClipboardList, Lightbulb, Loader2, Info } from 'lucide-react';
+import { ClipboardList, Lightbulb, Loader2, Info, BarChart3 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { onAuthStateChanged } from 'firebase/auth';
+import { usePermissions } from '../context/PermissionsContext';
 
 // ── LOB badge colours ──────────────────────────────────────────────────────────
 const LOB_BADGE: Record<string, string> = {
@@ -69,6 +70,7 @@ export default function HomePage() {
   const [isAdmin,   setIsAdmin]   = useState(false);
   const [isGuest,   setIsGuest]   = useState(false);
   const navigate = useNavigate();
+  const { permissions, loading: permissionsLoading } = usePermissions();
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -177,8 +179,22 @@ export default function HomePage() {
         </div>
       )}
 
+      {/* ── Disabled Module Message ─────────────────────────────────────────── */}
+      {!loading && !permissions.metrics && (
+        <div className="flex flex-col items-center justify-center py-24 gap-4 px-6 text-center">
+          <div className="p-6 bg-m3-surface-variant/20 rounded-full">
+            <BarChart3 className="text-m3-secondary/40" size={64} />
+          </div>
+          <h3 className="text-xl font-bold text-m3-secondary">Módulo Deshabilitado</h3>
+          <p className="text-sm text-gray-500 leading-relaxed">
+            Las métricas de rendimiento no están habilitadas para tu área en este momento.
+            Contacta a tu supervisor para más información.
+          </p>
+        </div>
+      )}
+
       {/* ── Metric cards + suggestion ────────────────────────────────────────── */}
-      {!loading && !error && agentData && (
+      {!loading && !error && agentData && permissions.metrics && (
         <>
           {/* Stat card grid */}
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-8">
