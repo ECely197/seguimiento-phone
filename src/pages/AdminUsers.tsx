@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
 import { appId, db, auth } from '../firebaseConfig';import { getPublicCollection, getUserCollection, getPublicDoc, getUserDoc, getAppStorageRef, fetchAllUsersSubcollection } from '../firebasePaths';
 
-import { Loader2, Shield, ShieldAlert, CheckCircle, AlertCircle, Search, User, Ban, Lock } from 'lucide-react';
+import { Loader2, Shield, ShieldAlert, CheckCircle, AlertCircle, Search, User, Ban, Lock, Users } from 'lucide-react';
 import { ADMIN_UID } from '../constants';
 
 interface UserData {
@@ -31,13 +31,35 @@ export default function AdminUsers() {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const usersRef = collection(db, 'artifacts', appId, 'users');
-      const snapshot = await getDocs(usersRef);
-      const usersList = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as UserData[];
+      console.log(`[AdminUsers] Iniciando Doble Fetch de Usuarios (artifacts/${appId} y raíz /users)...`);
+      
+      const pathNew = collection(db, 'artifacts', appId, 'users');
+      const pathOld = collection(db, 'users');
+
+      const [resNew, resOld] = await Promise.allSettled([
+        getDocs(pathNew),
+        getDocs(pathOld)
+      ]);
+
+      const userMap = new Map<string, UserData>();
+
+      if (resNew.status === 'fulfilled') {
+        resNew.value.docs.forEach(doc => {
+          userMap.set(doc.id, { id: doc.id, ...doc.data() } as UserData);
+        });
+      }
+
+      if (resOld.status === 'fulfilled') {
+        resOld.value.docs.forEach(doc => {
+          if (!userMap.has(doc.id)) {
+            userMap.set(doc.id, { id: doc.id, ...doc.data(), _isLegacy: true } as UserData);
+          }
+        });
+      }
+
+      const usersList = Array.from(userMap.values());
       setUsers(usersList);
+      console.log(`[AdminUsers] Total usuarios consolidados: ${usersList.length}`);
     } catch (error) {
       console.error("Error fetching users:", error);
       showNotification("Error al cargar usuarios", 'error');
@@ -162,8 +184,13 @@ export default function AdminUsers() {
                 <tbody className="divide-y divide-m3-surface-variant/20 dark:divide-white/5">
                     {loading ? (
                          <tr><td colSpan={4} className="p-10 text-center"><Loader2 className="animate-spin mx-auto text-m3-primary" /></td></tr>
-                    ) : filteredUsers.length === 0 ? (
-                         <tr><td colSpan={4} className="p-10 text-center text-gray-500">No se encontraron usuarios.</td></tr>
+                    ) : users.length === 0 ? (
+                         <tr>
+                            <td colSpan={4} className="p-10 text-center text-gray-400">
+                                <Users className="mx-auto mb-2 opacity-20" size={40} />
+                                <p>No se encontraron usuarios en artifacts/{appId} ni en raíz.</p>
+                            </td>
+                         </tr>
                     ) : (
                         filteredUsers.map((user) => {
                             const isAdmin = user.role === 'admin' || user.isAdmin === true;
@@ -186,7 +213,10 @@ export default function AdminUsers() {
                                                 )}
                                             </div>
                                             <div>
-                                                <p className={`font-medium text-sm ${user.isBlocked ? 'text-gray-400 line-through' : 'text-m3-secondary dark:text-white'}`}>{user.email}</p>
+                                                <div className="flex items-center gap-2">
+                                                    <p className={`font-medium text-sm ${user.isBlocked ? 'text-gray-400 line-through' : 'text-m3-secondary dark:text-white'}`}>{user.email}</p>
+                                                    {user._isLegacy && <span className="text-[9px] bg-amber-100 text-amber-700 px-1 rounded font-bold uppercase">Legacy</span>}
+                                                </div>
                                                 <p className="text-xs text-gray-400">{formatDate(user.createdAt || user.lastLogin)}</p>
                                             </div>
                                         </div>

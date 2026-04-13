@@ -1,17 +1,54 @@
+import { useEffect, useState } from "react";
 import { NavLink } from "react-router-dom";
-import { Home, BookOpen, CheckCircle, Timer } from "lucide-react";
+import { Home, BookOpen, CheckCircle, Timer, Clock } from "lucide-react";
+import { auth } from "../firebaseConfig";
+import { getDoc } from "firebase/firestore";
+import { getUserDoc } from "../firebasePaths";
+import { onAuthStateChanged } from "firebase/auth";
 
 export default function Navbar() {
-  const navItems = [
-    { name: "Inicio", path: "/home", icon: Home },
-    { name: "Explicaciones", path: "/procesos", icon: BookOpen },
-    { name: "Práctica", path: "/quizzes", icon: CheckCircle },
-    { name: "ACW", path: "/acw", icon: Timer },
-  ];
+  const [userLOB, setUserLOB] = useState<string | null>(null);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        try {
+          const snap = await getDoc(getUserDoc(user.uid));
+          if (snap.exists()) {
+            setUserLOB(snap.data().lob?.toLowerCase() || null);
+          } else {
+            setUserLOB(null);
+          }
+        } catch (e) {
+          setUserLOB(null);
+        }
+      } else {
+        setUserLOB(null);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const isRecupero = userLOB === 'recupero';
+
+  const navItems = isRecupero
+    ? [
+        { name: "Inicio", path: "/home", icon: Home },
+        { name: "Explicaciones", path: "/procesos", icon: BookOpen },
+        { name: "Idle", path: "/idle-tracker", icon: Clock },
+      ]
+    : [
+        { name: "Inicio", path: "/home", icon: Home },
+        { name: "Explicaciones", path: "/procesos", icon: BookOpen },
+        { name: "Práctica", path: "/quizzes", icon: CheckCircle },
+        { name: "ACW", path: "/acw", icon: Timer },
+      ];
+
+  const cols = navItems.length;
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 bg-white dark:bg-[#1E1E1E] border-t border-gray-200 dark:border-white/10 h-20 z-50 shadow-lg transition-colors duration-300">
-      <div className="grid grid-cols-4 h-full max-w-lg mx-auto">
+      <div className={`grid h-full max-w-lg mx-auto`} style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}>
         {navItems.map((item) => (
           <NavLink
             key={item.path}

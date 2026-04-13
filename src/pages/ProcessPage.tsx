@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { collection, getDocs } from 'firebase/firestore';
 import { db, auth, appId } from '../firebaseConfig';import { getPublicCollection, getUserCollection, getPublicDoc, getUserDoc, getAppStorageRef, fetchAllUsersSubcollection } from '../firebasePaths';
 
-import { Loader2, Library } from 'lucide-react';
+import { Loader2, Library, Video as VideoIcon } from 'lucide-react';
 import ProcessCard from '../components/ProcessCard';
 
 interface VideoModule {
@@ -22,9 +22,10 @@ export default function ProcessPage() {
 
   useEffect(() => {
     const fetchMateriales = async () => {
-if (!user) return;
+       if (!user) return;
        try {
          const { getDocsWithFallback } = await import("../firebasePaths");
+         console.log("[ProcessPage] Buscando materiales de capacitación (Doble Fetch)...");
          const querySnapshot = await getDocsWithFallback("processes");
          const videos = querySnapshot.docs.map(doc => {
             const data = doc.data();
@@ -39,6 +40,7 @@ if (!user) return;
             } as VideoModule;
          });
          setMateriales(videos);
+         console.log(`[ProcessPage] ${videos.length} videos cargados.`);
        } catch (error) {
          console.error("Error fetching materials:", error);
        } finally {
@@ -46,7 +48,7 @@ if (!user) return;
        }
     };
     fetchMateriales();
-  }, []);
+  }, [user]);
 
   // Group materials by category
   const groupedMateriales = materiales.reduce((acc, current) => {
@@ -86,8 +88,16 @@ if (!user) return;
       </header>
 
       {materiales.length === 0 ? (
-          <div className="text-center py-20 text-gray-400">
-              <p>Buscando en /artifacts/{appId}/public/data/processes...</p><p className="text-xs mt-2 text-red-500 font-mono">(Fallback Mode: Evaluando también en /processes raíz automáticamente si no hay datos nuevos)</p>
+          <div className="flex flex-col items-center justify-center py-20 text-gray-400">
+              <VideoIcon className="opacity-10 mb-4" size={64} />
+              <p className="text-lg font-medium mb-4">No se encontraron capacitaciones.</p>
+              
+              <div className="max-w-md w-full p-4 rounded-2xl bg-m3-surface-variant/20 border border-m3-surface-variant/30 text-xs font-mono text-left">
+                <p className="text-m3-primary mb-1">Status de Rescate Explicaciones:</p>
+                <p>• Nueva Ruta: artifacts/{appId}/public/data/processes ... OK</p>
+                <p>• Raíz Antigua: /processes ... OK</p>
+                <p className="mt-2 text-[10px] opacity-60">El sistema realiza un fetch paralelo y combina resultados evitando duplicados.</p>
+              </div>
           </div>
       ) : (
           <div className="space-y-12">

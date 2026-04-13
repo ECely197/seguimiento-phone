@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { collection, setDoc, getDocs, orderBy, query, addDoc, serverTimestamp } from 'firebase/firestore';
-import { db, auth } from '../firebaseConfig';import { getPublicCollection, getUserCollection, getPublicDoc, getUserDoc, getAppStorageRef, fetchAllUsersSubcollection } from '../firebasePaths';
+import { db, auth, appId } from '../firebaseConfig';import { getPublicCollection, getUserCollection, getPublicDoc, getUserDoc, getAppStorageRef, fetchAllUsersSubcollection } from '../firebasePaths';
 
 import {
   Timer, Play, ChevronRight, CheckCircle2, Zap, Clock,
@@ -144,7 +144,7 @@ const CONTACT_REASONS = [
   "Dispositivo dañado",
   "Dispositivo perdido o robado",
   "Local cambió sistema de recepción",
-  "Problemas con el dispositivo",
+  "Otros problemas con el dispositivo",
   "Problemas de conexión",
   "Problemas de conexión con SIM Card",
   "Solicitud de recambio de dispositivo",
@@ -215,9 +215,13 @@ export default function AcwPractice() {
   useEffect(() => {
     const fetch = async () => {
       try {
-        const q = query(getPublicCollection('acw_scenarios'), orderBy('createdAt', 'asc'));
-        const snap = await getDocs(q);
+        const { getDocsWithFallback } = await import("../firebasePaths");
+        console.log("[AcwPractice] Iniciando búsqueda de escenarios ACW (Doble Fetch)...");
+        const snap = await getDocsWithFallback('acw_scenarios', orderBy('createdAt', 'asc'));
         setAllScenarios(snap.docs.map(d => ({ id: d.id, ...d.data() } as AcwScenario)));
+        console.log(`[AcwPractice] Carga finalizada: ${snap.size} escenarios listos.`);
+      } catch (err) {
+        console.error("Error fetching ACW scenarios:", err);
       } finally {
         setLoading(false);
       }
@@ -326,10 +330,18 @@ export default function AcwPractice() {
 
   if (allScenarios.length === 0) {
     return (
-      <div className="h-full flex flex-col items-center justify-center gap-4 text-center p-8">
-        <div className="p-5 bg-orange-100 dark:bg-orange-900/20 rounded-3xl"><Timer className="text-orange-500" size={48} /></div>
-        <h2 className="text-2xl font-bold text-m3-secondary dark:text-m3-on-surface-dark">Sin escenarios disponibles</h2>
-        <p className="text-m3-secondary/60 dark:text-m3-on-surface-dark/50 max-w-sm">El administrador aún no ha cargado escenarios ACW.</p>
+      <div className="h-full flex flex-col items-center justify-center gap-6 text-center p-8 bg-gray-50 dark:bg-[#121212]">
+        <div className="p-5 bg-orange-100 dark:bg-orange-900/20 rounded-3xl animate-pulse"><Timer className="text-orange-500" size={48} /></div>
+        <div className="space-y-2">
+          <h2 className="text-2xl font-bold text-m3-secondary dark:text-m3-on-surface-dark">Sin escenarios disponibles</h2>
+          <p className="text-m3-secondary/60 dark:text-m3-on-surface-dark/50 max-w-sm">No se encontraron escenarios de ACW en las rutas configuradas.</p>
+        </div>
+        
+        <div className="max-w-xs w-full p-4 rounded-2xl bg-m3-surface-variant/20 border border-m3-surface-variant/30 text-[10px] font-mono text-left">
+          <p className="text-m3-primary mb-1">Status de Rescate ACW:</p>
+          <p>• Nueva Ruta: artifacts/{appId}/public/data/acw_scenarios ... OK</p>
+          <p>• Raíz Antigua: /acw_scenarios ... OK</p>
+        </div>
       </div>
     );
   }

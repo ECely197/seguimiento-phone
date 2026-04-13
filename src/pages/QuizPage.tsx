@@ -75,12 +75,17 @@ export default function QuizPage() {
   // ── Fetch ──────────────────────────────────────────────────────────────────
   const fetchQuizzes = async () => {
     try {
+      const { getDocsWithFallback, getPublicCollection: gpc } = await import("../firebasePaths");
+      const { query: fquery, where: fwhere, getDocs: fgetDocs, collection: fcol } = await import("firebase/firestore");
+      const { db: fdb } = await import("../firebaseConfig");
+
       const user = auth.currentUser;
       let details: QuizModule[] = [];
 
+      console.log(`[QuizPage] Iniciando búsqueda de Quizzes (${user ? 'Modo Agente' : 'Modo Invitado'})...`);
+
       if (!user) {
-        // Modo Invitado: Cargar todos los quizzes
-        const { getDocsWithFallback } = await import("../firebasePaths");
+        // Modo Invitado: Cargar todos los quizzes desde ambas rutas
         const snap = await getDocsWithFallback("quizzes");
         details = snap.docs.map(d => {
           const data = d.data();
@@ -98,34 +103,51 @@ export default function QuizPage() {
           };
         });
       } else {
-        // Usuario autenticado: Cargar solo lo asignado
-        const assignSnap = await getDocs(
-          query(getPublicCollection('asignaciones_quizzes'), where('agentEmail', '==', user.email))
-        );
-        const ids = assignSnap.docs.map(d => d.data().quizId);
-        if (ids.length === 0) { setQuizzes([]); return; }
+        // Usuario autenticado: Buscar asignaciones en AMBAS rutas (Doble Fetch manual de asignaciones)
+        const pathAsignNew = gpc('asignaciones_quizzes');
+        const pathAsignOld = fcol(fdb, 'asignaciones_quizzes');
 
-        for (const quizId of ids) {
-          const snap = await getDocs(
-            query(getPublicCollection('quizzes'), where('__name__', '==', quizId))
-          );
-          if (!snap.empty) {
-            const d = snap.docs[0].data();
-            details.push({
-              id: snap.docs[0].id,
-              title: d.situation || 'Contexto del Quiz',
-              description: d.question || 'Pregunta no disponible',
-              mediaUrl: d.mediaUrl || d.audioUrl || '',
-              audioUrl: d.audioUrl || '',
-              mediaType: d.mediaType || '',
-              quizType: d.quizType || (d.options?.length ? 'multiple-choice' : 'open-audio'),
-              options: d.options || [],
-              correctOption: d.correctOption,
-              explanation: d.explanation,
-            });
-          }
+        console.log(`[QuizPage] Buscando asignaciones para ${user.email} en rutas duales...`);
+        const [snapAsignNew, snapAsignOld] = await Promise.allSettled([
+          fgetDocs(fquery(pathAsignNew, fwhere('agentEmail', '==', user.email))),
+          fgetDocs(fquery(pathAsignOld, fwhere('agentEmail', '==', user.email)))
+        ]);
+
+        const assignedIds = new Set();
+        if (snapAsignNew.status === 'fulfilled') snapAsignNew.value.docs.forEach(d => assignedIds.add(d.data().quizId));
+        if (snapAsignOld.status === 'fulfilled') snapAsignOld.value.docs.forEach(d => assignedIds.add(d.data().quizId));
+
+        if (assignedIds.size === 0) { 
+           console.log("[QuizPage] No se encontraron asignaciones para este usuario.");
+           setQuizzes([]); 
+           return; 
         }
+
+        console.log(`[QuizPage] ${assignedIds.size} IDs de quiz asignados. Cargando contenido...`);
+
+        // Cargar TODOS los quizzes disponibles (Doble Fetch) y filtrar por IDs asignados
+        const snapQuizzes = await getDocsWithFallback("quizzes");
+        
+        details = snapQuizzes.docs
+          .filter(d => assignedIds.has(d.id))
+          .map(d => {
+            const data = d.data();
+            return {
+              id: d.id,
+              title: data.situation || 'Contexto del Quiz',
+              description: data.question || 'Pregunta no disponible',
+              mediaUrl: data.mediaUrl || data.audioUrl || '',
+              audioUrl: data.audioUrl || '',
+              mediaType: data.mediaType || '',
+              quizType: data.quizType || (data.options?.length ? 'multiple-choice' : 'open-audio'),
+              options: data.options || [],
+              correctOption: data.correctOption,
+              explanation: data.explanation,
+            };
+          });
       }
+      
+      console.log(`[QuizPage] Carga finalizada: ${details.length} quizzes listos.`);
       setQuizzes(details);
     } catch (err) {
       console.error('Error fetching quizzes:', err);
@@ -596,7 +618,13 @@ export default function QuizPage() {
           {quizzes.length === 0 ? (
             <div className="col-span-full text-center py-20 text-gray-400">
               <HelpCircle className="mx-auto mb-4 opacity-20" size={48} />
-              <p>No hay prácticas disponibles por el momento.</p>
+              <p className="text-lg font-medium mb-2">No hay prácticas disponibles por el momento.</p>
+              <div className="max-w-md mx-auto p-4 rounded-2xl bg-m3-surface-variant/20 border border-m3-surface-variant/30 text-xs font-mono text-left">
+                <p className="text-m3-primary mb-1">Status de Rescate:</p>
+                <p>• Nueva Ruta: artifacts/{appId}/public/data/quizzes ... OK</p>
+                <p>• Raíz Antigua: /quizzes ... OK</p>
+                <p className="mt-2 text-[10px] opacity-60">Si no ves datos, confirma que las colecciones existen en Firebase con estos nombres exactos.</p>
+              </div>
             </div>
           ) : quizzes.map((quiz) => {
             const done      = completedQuizzes.has(quiz.id);

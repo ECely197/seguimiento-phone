@@ -23,6 +23,8 @@ export const fetchAllUsersSubcollection = async (collectionName: string) => {
   
   const allDataMap = new Map();
 
+  console.log(`[Firebase] fetchAllUsersSubcollection: Iniciando doble escaneo para ${collectionName}...`);
+
   // Búsqueda en ruta nueva (por cada usuario)
   try {
     const usersRef = collection(db, 'artifacts', appId, 'users');
@@ -30,11 +32,11 @@ export const fetchAllUsersSubcollection = async (collectionName: string) => {
     for (const userDoc of usersSnap.docs) {
       const subSnap = await getDocs(getUserCollection(userDoc.id, collectionName));
       subSnap.forEach(d => {
-        allDataMap.set(d.id, { id: d.id, path: d.ref.path, ...d.data() });
+        allDataMap.set(d.id, { id: d.id, userId: userDoc.id, path: d.ref.path, ...d.data() });
       });
     }
   } catch (err) {
-    console.error('[Firebase] Error leyendo subcolecciones en new path:', err);
+    console.warn('[Firebase] Warning leyendo subcolecciones en new path:', err);
   }
 
   // Búsqueda en ruta antigua raíz (ej. /acw_attempts_o_resultados_quizzes si existieran ahí)
@@ -48,7 +50,7 @@ export const fetchAllUsersSubcollection = async (collectionName: string) => {
      });
      console.log(`[Firebase] fetchAllUsersSubcollection ${collectionName}: consolidados ${allDataMap.size} registros.`);
   } catch(err) {
-     console.warn(`[Firebase] No se pudo rescatar legacy en ${collectionName} (quizás no existía).`, err);
+     console.warn(`[Firebase] No se pudo rescatar legacy en ${collectionName} (quizás no existía).`);
   }
 
   return Array.from(allDataMap.values());
@@ -56,61 +58,64 @@ export const fetchAllUsersSubcollection = async (collectionName: string) => {
 
 export const getDocsWithFallback = async (collectionName: string, ...queryConstraints: any[]) => {
   const { getDocs, query, collection, setDoc, doc } = await import('firebase/firestore');
-  const path1 = getPublicCollection(collectionName);
-  const oldPath = collection(db, collectionName);
+  const pathNew = getPublicCollection(collectionName);
+  const pathOld = collection(db, collectionName);
   
-  console.log(`[Firebase] Ejecutando Doble Fetch para: ${collectionName}`);
+  console.log(`[Firebase] Doble Fetch: Buscando ${collectionName} en artifacts/${appId} y raíz /${collectionName}...`);
   
-  const qNew = queryConstraints.length > 0 ? query(path1, ...queryConstraints) : path1;
-  const qOld = queryConstraints.length > 0 ? query(oldPath, ...queryConstraints) : oldPath;
-
-  const [snapNewRes, snapOldRes] = await Promise.allSettled([
-      getDocs(qNew),
-      getDocs(qOld)
+  const [resNew, resOld] = await Promise.allSettled([
+      getDocs(queryConstraints.length > 0 ? query(pathNew, ...queryConstraints) : pathNew),
+      getDocs(queryConstraints.length > 0 ? query(pathOld, ...queryConstraints) : pathOld)
   ]);
 
   const mapData = new Map();
-  const docsToReturn: any[] = [];
   const docsToMigrate: any[] = [];
 
-  // Data from NEW path has priority
-  if (snapNewRes.status === 'fulfilled' && snapNewRes.value && !snapNewRes.value.empty) {
-      snapNewRes.value.docs.forEach(d => {
-          mapData.set(d.id, true);
-          docsToReturn.push(d); // we keep standard DocumentSnapshots to emulate getDocs return format!
+  // Prioridad: Datos en la ruta nueva de Artifacts
+  if (resNew.status === 'fulfilled' && !resNew.value.empty) {
+      resNew.value.docs.forEach(d => {
+          mapData.set(d.id, d);
       });
-      console.log(`[Firebase] ${snapNewRes.value.size} items detectados en artifacts/${appId}`);
+      console.log(`[Firebase] ${resNew.value.size} items encontrados en la ruta de artifacts.`);
+  } else if (resNew.status === 'rejected') {
+      console.warn(`[Firebase] Error consultando ruta nueva de ${collectionName}:`, resNew.reason);
   }
 
-  // Rescate from OLD path
-  if (snapOldRes.status === 'fulfilled' && snapOldRes.value && !snapOldRes.value.empty) {
-      snapOldRes.value.docs.forEach(d => {
+  // Rescate: Datos en la raíz antigua (si no existen ya en la nueva)
+  if (resOld.status === 'fulfilled' && !resOld.value.empty) {
+      let rescueCount = 0;
+      resOld.value.docs.forEach(d => {
           if (!mapData.has(d.id)) {
-              mapData.set(d.id, true);
-              docsToReturn.push(d);
+              mapData.set(d.id, d);
               docsToMigrate.push(d);
+              rescueCount++;
           }
       });
-      console.log(`[Firebase] ${docsToMigrate.length} items rescatados desde raíz /${collectionName}`);
+      if (rescueCount > 0) {
+          console.log(`[Firebase] ${rescueCount} items rescatados desde la raíz /${collectionName}.`);
+      }
   }
 
-  // Funciones de emulación para mantener la compatibilidad con el resto del app
+  const finalDocs = Array.from(mapData.values());
+
+  // Emulación de snapshot para compatibilidad
   const fauxSnap = {
-     empty: docsToReturn.length === 0,
-     size: docsToReturn.length,
-     docs: docsToReturn
+     empty: finalDocs.length === 0,
+     size: finalDocs.length,
+     docs: finalDocs
   };
 
   // Auto-Miguel: Guarda la copia para hacerlo permanente
   if (docsToMigrate.length > 0) {
-      console.log(`[Firebase-Migrator] Guardando copia permanente de ${docsToMigrate.length} docs en artifacts/${appId}/public/data/${collectionName}...`);
+      console.log(`[Firebase-Migrator] Detectada información en raíz. Migrando ${docsToMigrate.length} docs a artifacts/${appId}/public/data/${collectionName}...`);
       const promises = docsToMigrate.map(d => {
           const newDocRef = doc(db, 'artifacts', appId, 'public', 'data', collectionName, d.id);
           return setDoc(newDocRef, d.data(), { merge: true });
       });
+      
       Promise.allSettled(promises).then((results) => {
           const ok = results.filter(r => r.status === 'fulfilled').length;
-          console.log(`[Firebase-Migrator] ¡Éxito! ${ok} docs migrados a ${collectionName}`);
+          console.log(`[Firebase-Migrator] ¡Éxito! ${ok}/${docsToMigrate.length} documentos migrados permanentemente.`);
       });
   }
 

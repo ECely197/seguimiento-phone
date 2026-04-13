@@ -9,6 +9,7 @@ import ExecutiveReportPage from './pages/ExecutiveReportPage';
 import HourlyTrendsPage from './pages/HourlyTrendsPage';
 import PdaManualPage from './pages/PdaManualPage';
 import ExecutivePlanPage from './pages/ExecutivePlanPage';
+import IdleTrackerRecord from './pages/IdleTrackerRecord';
 import AdminRoute from './components/AdminRoute';
 import ProtectedRoute from './components/ProtectedRoute';
 import Navbar from './components/Navbar';
@@ -93,6 +94,7 @@ function Layout() {
             <Route path="/procesos" element={<ProcessPage />} />
             <Route path="/quizzes" element={<QuizPage />} />
             <Route path="/acw" element={<AcwPractice />} />
+            <Route path="/idle-tracker" element={<IdleTrackerRecord />} />
             <Route 
               path="/admin" 
               element={

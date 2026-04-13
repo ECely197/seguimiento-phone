@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Users, Library, FileEdit, Menu, LogOut, LayoutDashboard, CheckCircle, ListChecks, Zap, Eye } from 'lucide-react';
+import { Users, Library, FileEdit, Menu, LogOut, LayoutDashboard, CheckCircle, ListChecks, Zap, Eye, Clock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { auth } from '../firebaseConfig';
 
@@ -11,8 +11,9 @@ import AdminUsers from './AdminUsers';
 import AdminQuizManager from './AdminQuizManager';
 import AdminAcwManager from './AdminAcwManager';
 import AdminAcwStats from './AdminAcwStats';
+import AdminIdleReport from './AdminIdleReport';
 
-type AdminSection = 'agents' | 'processes' | 'quizzes' | 'manage-quizzes' | 'assignments' | 'users' | 'acw' | 'acw-stats';
+type AdminSection = 'agents' | 'processes' | 'quizzes' | 'manage-quizzes' | 'assignments' | 'users' | 'acw' | 'acw-stats' | 'idle-report';
 
 export default function AdminPage() {
   const [activeSection, setActiveSection] = useState<AdminSection>('agents');
@@ -37,6 +38,7 @@ export default function AdminPage() {
     { id: 'assignments', label: 'Asignar Quizzes (Retos)', icon: CheckCircle },
     { id: 'acw', label: 'Simulador ACW', icon: Zap },
     { id: 'acw-stats', label: 'Estadísticas ACW', icon: Zap },
+    { id: 'idle-report', label: 'Reporte de Disponibilidad', icon: Clock },
   ];
 
   return (
@@ -56,8 +58,8 @@ export default function AdminPage() {
         transform transition-transform duration-300 ease-in-out p-4 flex flex-col justify-between
         ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
       `}>
-        <div>
-          <div className="flex items-center gap-3 px-4 mb-8 mt-2">
+        <div className="flex-1 min-h-0 overflow-y-auto">
+          <div className="flex items-center gap-3 px-4 mb-6 mt-2">
             <div className="p-2 bg-m3-primary/10 dark:bg-m3-primary-dark/20 rounded-xl">
                <LayoutDashboard className="text-m3-primary dark:text-m3-primary-dark" size={28} />
             </div>
@@ -66,7 +68,7 @@ export default function AdminPage() {
             </h1>
           </div>
 
-          <nav className="space-y-2">
+          <nav className="space-y-1">
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = activeSection === item.id;
@@ -79,14 +81,14 @@ export default function AdminPage() {
                     setIsMobileMenuOpen(false);
                   }}
                   className={`
-                    w-full flex items-center gap-3 px-4 py-3.5 rounded-[28px] transition-all duration-200 font-medium text-sm tracking-wide
+                    w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all duration-200 font-medium text-sm tracking-wide
                     ${isActive 
                       ? 'bg-m3-primary text-white shadow-md' 
                       : 'text-m3-secondary dark:text-m3-on-surface-dark/70 hover:bg-m3-surface-variant/50 dark:hover:bg-white/5'
                     }
                   `}
                 >
-                  <Icon size={20} className={isActive ? 'text-white' : ''} />
+                  <Icon size={18} className={isActive ? 'text-white' : ''} />
                   {item.label}
                 </button>
               );
@@ -227,8 +229,9 @@ export default function AdminPage() {
                 {activeSection === 'quizzes' && <AdminQuizEditor />}
                 {activeSection === 'manage-quizzes' && <AdminQuizManager />}
                 {activeSection === 'assignments' && <AdminQuizAssigner />}
-                {activeSection === 'acw' && <AdminAcwManager />}
-                {activeSection === 'acw-stats' && <AdminAcwStats />}
+                { activeSection === 'acw' && <AdminAcwManager /> }
+                { activeSection === 'acw-stats' && <AdminAcwStats /> }
+                { activeSection === 'idle-report' && <AdminIdleReport /> }
 
             </div>
         </div>
