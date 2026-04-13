@@ -17,8 +17,8 @@ const LOB_BADGE: Record<string, string> = {
 };
 
 // ── Metric formatting ─────────────────────────────────────────────────────────
-const NUM_HEADERS = new Set(['AHT Real', 'ATT', 'ACW', 'HS Gestionadas', 'Prod. Tot. Llamadas', 'Prod. Tot. Efectivas']);
-const PCT_HEADERS = new Set(['RES', 'PSAT', 'No contestada']);
+const NUM_HEADERS = new Set(['AHT Real', 'ATT', 'ACW', 'HS Gestionadas', 'Prod. Tot. Llamadas', 'Prod. Tot. Efectivas', 'AHT', 'FRT']);
+const PCT_HEADERS = new Set(['RES', 'PSAT', 'No contestada', 'SAT']);
 const INT_HEADERS = new Set(['Efectiva', 'Tot. Llamadas']);
 
 const fmtNum = (v: any): string => {

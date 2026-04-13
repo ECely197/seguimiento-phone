@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { collection, getDocs, query, where, deleteDoc, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
-import { db, auth } from '../firebaseConfig';import { getPublicCollection, getUserCollection, getPublicDoc, getUserDoc, getAppStorageRef, fetchAllUsersSubcollection } from '../firebasePaths';
+import { db, auth } from '../firebaseConfig';
+import { getPublicCollection, getUserCollection, getPublicDoc, getUserDoc, getAppStorageRef, fetchAllUsersSubcollection } from '../firebasePaths';
 
 import {
   ChevronRight, Search, X, Loader2, TrendingUp,
   CheckCircle, XCircle, RefreshCw, User, Edit3, Save, Clock
 } from 'lucide-react';
-import { updateAgentSuggestion, getMainAgents, getRecuperoAgents } from '../api/sheetService';
+import { updateAgentSuggestion, getMainAgents, getRecuperoAgents, getB2xAgents } from '../api/sheetService';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 interface Agent { [key: string]: any; }
@@ -21,9 +22,9 @@ const getName  = (a: Agent) => a.agente ?? a.Agente ?? a.nombre ?? a.name ?? '';
 const initials = (a: Agent) => getName(a).substring(0, 2).toUpperCase() || '??';
 
 /** Columns that should be rounded to 1 decimal */
-const NUM_COLS = new Set(['AHT Real', 'ATT', 'ACW', 'HS Gestionadas', 'Prod. Tot. Llamadas', 'Prod. Tot. Efectivas']);
+const NUM_COLS = new Set(['AHT Real', 'ATT', 'ACW', 'HS Gestionadas', 'Prod. Tot. Llamadas', 'Prod. Tot. Efectivas', 'AHT', 'FRT']);
 /** Columns that are rates (may arrive as 0-1 decimal or already %-formatted) */
-const PCT_COLS = new Set(['RES', 'PSAT', 'No contestada']);
+const PCT_COLS = new Set(['RES', 'PSAT', 'No contestada', 'SAT']);
 /** Columns that are plain integers (no % symbol, no decimals) */
 const INT_COLS = new Set(['Efectiva', 'Tot. Llamadas']);
 
@@ -34,10 +35,9 @@ const fmtNum = (v: any): string => {
 
 const fmtPct = (v: any): string => {
   const s = String(v ?? '');
-  if (s.includes('%')) return s;                            // already formatted
+  if (s.includes('%')) return s;
   const n = parseFloat(s.replace(/[^0-9.\-]/g, ''));
   if (isNaN(n)) return s || '—';
-  // If value is between 0 and 1, treat as decimal rate → multiply by 100
   return (n > 0 && n <= 1 ? (n * 100).toFixed(1) : n.toFixed(1)) + '%';
 };
 
@@ -139,13 +139,14 @@ export default function AdminAgents() {
   // Data
   const [mainGroup,     setMainGroup]     = useState<AgentGroup>({ agents: [], columns: [] });
   const [recuperoGroup, setRecuperoGroup] = useState<AgentGroup>({ agents: [], columns: [] });
+  const [b2xGroup,      setB2xGroup]      = useState<AgentGroup>({ agents: [], columns: [] });
   const [loading,       setLoading]       = useState(true);
   const [loadError,     setLoadError]     = useState<string | null>(null);
 
   // UI
   const [searchTerm,    setSearchTerm]    = useState('');
   const [selected,      setSelected]      = useState<Agent | null>(null);
-  const [selectedSrc,   setSelectedSrc]   = useState<'main' | 'recupero'>('main');
+  const [selectedSrc,   setSelectedSrc]   = useState<'main' | 'recupero' | 'b2x'>('main');
   const [suggestion,    setSuggestion]    = useState('');
   const [saving,        setSaving]        = useState(false);
   const [saveError,     setSaveError]     = useState<string | null>(null);
@@ -169,14 +170,17 @@ export default function AdminAgents() {
     setLoading(true);
     setLoadError(null);
     try {
-      const [mainRaw, recuperoRaw] = await Promise.all([
+      const [mainRaw, recuperoRaw, b2xRaw] = await Promise.all([
         getMainAgents(),
         getRecuperoAgents(),
+        getB2xAgents(),
       ]);
       const m = Array.isArray(mainRaw)     ? mainRaw     : [];
       const r = Array.isArray(recuperoRaw) ? recuperoRaw : [];
+      const b = Array.isArray(b2xRaw)      ? b2xRaw      : [];
       setMainGroup({     agents: m, columns: deriveColumns(m) });
       setRecuperoGroup({ agents: r, columns: deriveColumns(r) });
+      setB2xGroup({      agents: b, columns: deriveColumns(b) });
     } catch (err) {
       console.error('[AdminAgents] loadAll:', err);
       setLoadError('No se pudieron cargar los agentes.');
@@ -239,7 +243,7 @@ export default function AdminAgents() {
     return Math.round((agentResults.filter(r => r.isCorrect).length / agentResults.length) * 100);
   };
 
-  const handleSelect = (agent: Agent, src: 'main' | 'recupero') => {
+  const handleSelect = (agent: Agent, src: 'main' | 'recupero' | 'b2x') => {
     setSelected(agent);
     setSelectedSrc(src);
     setSuggestion(agent.sugerencia || '');
@@ -257,7 +261,7 @@ export default function AdminAgents() {
           getEmail(a) === getEmail(selected!) ? { ...a, sugerencia: suggestion } : a
         ),
       });
-      if (selectedSrc === 'main') setMainGroup(patch); else setRecuperoGroup(patch);
+      if (selectedSrc === 'main') setMainGroup(patch); else if (selectedSrc === 'recupero') setRecuperoGroup(patch); else setB2xGroup(patch);
       setSelected(null);
     } catch { setSaveError('Error al guardar la sugerencia.'); }
     finally { setSaving(false); }
@@ -270,6 +274,7 @@ export default function AdminAgents() {
   );
   const fMain     = filter(mainGroup.agents);
   const fRecupero = filter(recuperoGroup.agents);
+  const fB2x      = filter(b2xGroup.agents);
 
   if (loading) return (
     <div className="flex justify-center items-center h-64">
@@ -340,6 +345,89 @@ export default function AdminAgents() {
         />
 
         {/* Visual divider */}
+        <div className="flex items-center gap-3 my-2 mb-6">
+          <div className="flex-1 border-t border-m3-surface-variant/40 dark:border-white/10" />
+          <span className="text-xs text-gray-400 uppercase tracking-widest font-semibold">B2X</span>
+          <div className="flex-1 border-t border-m3-surface-variant/40 dark:border-white/10" />
+        </div>
+
+        {/* Table 3: B2X with traffic lights */}
+        <div className="mb-8">
+          <div className="flex items-center gap-3 mb-3">
+            <span className="text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300">
+              Métricas B2X
+            </span>
+            <span className="text-sm text-gray-400">{fB2x.length} agente{fB2x.length !== 1 ? 's' : ''}</span>
+          </div>
+          <div className="rounded-3xl border border-m3-surface-variant/30 bg-white dark:bg-[#1E1E1E] shadow-sm overflow-auto max-h-[420px]">
+            <table className="w-full text-left border-collapse">
+              <thead className="bg-m3-surface-variant/40 dark:bg-white/10 sticky top-0 backdrop-blur-md">
+                <tr>
+                  <th className="px-3 py-2 text-xs font-bold text-m3-secondary dark:text-m3-on-surface-dark uppercase tracking-wider">Correo</th>
+                  <th className="px-3 py-2 text-xs font-bold text-m3-secondary dark:text-m3-on-surface-dark uppercase tracking-wider text-center">AHT</th>
+                  <th className="px-3 py-2 text-xs font-bold text-m3-secondary dark:text-m3-on-surface-dark uppercase tracking-wider text-center">FRT</th>
+                  <th className="px-3 py-2 text-xs font-bold text-m3-secondary dark:text-m3-on-surface-dark uppercase tracking-wider text-center">ACW</th>
+                  <th className="px-3 py-2 text-xs font-bold text-m3-secondary dark:text-m3-on-surface-dark uppercase tracking-wider text-center">SAT</th>
+                  <th className="px-3 py-2 w-8">&nbsp;</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-m3-surface-variant/20 dark:divide-white/5">
+                {fB2x.length === 0 ? (
+                  <tr><td colSpan={6} className="p-8 text-center text-gray-400 text-xs">No se encontraron agentes B2X.</td></tr>
+                ) : fB2x.map((agent, idx) => {
+                  const ahtVal = parseFloat(String(agent.AHT ?? '').replace(/[^0-9.\-]/g, ''));
+                  const satRaw = String(agent.SAT ?? '').replace(/[^0-9.\-]/g, '');
+                  const satVal = parseFloat(satRaw);
+                  // SAT may arrive as 0-1 decimal
+                  const satPct = !isNaN(satVal) ? (satVal > 0 && satVal <= 1 ? satVal * 100 : satVal) : NaN;
+
+                  const ahtColor = !isNaN(ahtVal) && ahtVal < 300
+                    ? 'text-green-600 bg-green-50 dark:bg-green-900/20'
+                    : !isNaN(ahtVal) ? 'text-red-600 bg-red-50 dark:bg-red-900/20' : '';
+                  const satColor = !isNaN(satPct)
+                    ? satPct > 85 ? 'text-green-600 bg-green-50 dark:bg-green-900/20'
+                      : satPct < 75 ? 'text-red-600 bg-red-50 dark:bg-red-900/20'
+                      : 'text-yellow-600 bg-yellow-50 dark:bg-yellow-900/20'
+                    : '';
+
+                  return (
+                    <tr key={getEmail(agent) || idx}
+                      onClick={() => handleSelect(agent, 'b2x')}
+                      className={`group hover:bg-m3-surface-variant/10 dark:hover:bg-white/5 transition-colors cursor-pointer
+                        ${selected && getEmail(selected) === getEmail(agent) ? 'bg-m3-primary/10 dark:bg-m3-primary/20' : ''}`}
+                    >
+                      <td className="px-3 py-2">
+                        <div className="flex items-center gap-2">
+                          <div className="w-6 h-6 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center text-green-700 font-bold text-[10px] flex-shrink-0">
+                            {initials(agent)}
+                          </div>
+                          <span className="text-xs font-medium text-m3-secondary dark:text-m3-on-surface-dark whitespace-nowrap">{getEmail(agent)}</span>
+                        </div>
+                      </td>
+                      <td className="px-3 py-2 text-center">
+                        <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${ahtColor}`}>
+                          {fmtCell('AHT', agent.AHT)}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 text-center text-xs text-m3-secondary dark:text-m3-on-surface-dark">{fmtCell('FRT', agent.FRT)}</td>
+                      <td className="px-3 py-2 text-center text-xs text-m3-secondary dark:text-m3-on-surface-dark">{fmtCell('ACW', agent.ACW)}</td>
+                      <td className="px-3 py-2 text-center">
+                        <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${satColor}`}>
+                          {fmtCell('SAT', agent.SAT)}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 text-right">
+                        <ChevronRight size={14} className="text-gray-300 group-hover:text-m3-primary transition-colors" />
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Visual divider */}
         <div className="flex items-center gap-3 my-2 mb-6 mt-6">
           <div className="flex-1 border-t border-m3-surface-variant/40 dark:border-white/10" />
           <span className="text-xs text-purple-400 uppercase tracking-widest font-semibold">Visitantes</span>
@@ -367,8 +455,10 @@ export default function AdminAgents() {
               <span className={`text-xs font-bold uppercase px-2 py-0.5 rounded-full mt-1 inline-block
                 ${selectedSrc === 'recupero'
                   ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300'
-                  : 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300'}`}>
-                {selectedSrc === 'recupero' ? 'Recupero' : 'Phone / B2X'}
+                  : selectedSrc === 'b2x'
+                    ? 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300'
+                    : 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300'}`}>
+                {selectedSrc === 'recupero' ? 'Recupero' : selectedSrc === 'b2x' ? 'B2X' : 'Phone'}
               </span>
             </div>
             <button onClick={() => setSelected(null)} className="p-2 hover:bg-gray-100 dark:hover:bg-white/10 rounded-full">
