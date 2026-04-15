@@ -1,17 +1,20 @@
 import { useState, useEffect } from 'react';
 import { collection, getDocs, query, where, deleteDoc, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
-import { db, auth } from '../firebaseConfig';
+import { db, auth, appId as firebaseAppId } from '../firebaseConfig';
+// @ts-ignore
+const appId = typeof __app_id !== 'undefined' ? __app_id : firebaseAppId;
 import { getPublicCollection, getUserCollection, getPublicDoc, getUserDoc, getAppStorageRef, fetchAllUsersSubcollection } from '../firebasePaths';
 
 import {
   ChevronRight, Search, X, Loader2, TrendingUp,
-  CheckCircle, XCircle, RefreshCw, User, Edit3, Save, Clock
+  CheckCircle, XCircle, RefreshCw, User, Edit3, Save, Clock, Building2
 } from 'lucide-react';
 import { updateAgentSuggestion, getMainAgents, getRecuperoAgents, getB2xAgents } from '../api/sheetService';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 interface Agent { [key: string]: any; }
 interface AgentGroup { agents: Agent[]; columns: string[]; }
+interface LobConfig { id: string; name: string; }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 const deriveColumns = (rows: Agent[]): string[] =>
@@ -148,6 +151,8 @@ export default function AdminAgents() {
   const [selected,      setSelected]      = useState<Agent | null>(null);
   const [selectedSrc,   setSelectedSrc]   = useState<'main' | 'recupero' | 'b2x'>('main');
   const [suggestion,    setSuggestion]    = useState('');
+  const [selectedLob,   setSelectedLob]   = useState('phone');
+  const [lobs,          setLobs]          = useState<LobConfig[]>([]);
   const [saving,        setSaving]        = useState(false);
   const [saveError,     setSaveError]     = useState<string | null>(null);
 
@@ -157,14 +162,40 @@ export default function AdminAgents() {
   const [quizMap,        setQuizMap]        = useState<Record<string, string>>({});
   const [resultsLoading, setResultsLoading] = useState(false);
 
-  useEffect(() => { loadAll(); fetchQuizzes(); }, []);
+  useEffect(() => { loadAll(); fetchQuizzes(); fetchLobs(); }, []);
 
   useEffect(() => {
     if (selected) {
       const email = getEmail(selected);
-      if (email) fetchAgentResults(email);
+      if (email) {
+        fetchAgentResults(email);
+        fetchAgentLob(email);
+      }
     }
   }, [selected]);
+
+  const fetchLobs = async () => {
+    try {
+      const snap = await getDocs(getPublicCollection('lob_configs'));
+      const list = snap.docs.map(d => ({ id: d.id, name: d.data().name }));
+      setLobs(list);
+    } catch (err) { console.error('[AdminAgents] fetchLobs:', err); }
+  };
+
+  const fetchAgentLob = async (email: string) => {
+    try {
+      // Find user by email in Firestore
+      const usersRef = collection(db, 'artifacts', appId, 'users');
+      const q = query(usersRef, where('email', '==', email));
+      const snap = await getDocs(q);
+      if (!snap.empty) {
+        const userData = snap.docs[0].data();
+        setSelectedLob(userData.lob || 'phone');
+      } else {
+        setSelectedLob('phone');
+      }
+    } catch (err) { console.error('[AdminAgents] fetchAgentLob:', err); }
+  };
 
   const loadAll = async () => {
     setLoading(true);
@@ -254,7 +285,22 @@ export default function AdminAgents() {
     if (!selected) return;
     setSaving(true); setSaveError(null);
     try {
+      // 1. Update Suggestion in Sheet (Legacy/LOB-specific)
       await updateAgentSuggestion(getEmail(selected), suggestion);
+      
+      // 2. Update LOB in Firestore
+      const email = getEmail(selected);
+      const usersRef = collection(db, 'artifacts', appId, 'users');
+      const q = query(usersRef, where('email', '==', email));
+      const snap = await getDocs(q);
+      
+      if (!snap.empty) {
+        await updateDoc(doc(db, 'artifacts', appId, 'users', snap.docs[0].id), {
+          lob: selectedLob,
+          updatedAt: serverTimestamp()
+        });
+      }
+
       const patch = (prev: AgentGroup): AgentGroup => ({
         ...prev,
         agents: prev.agents.map(a =>
@@ -263,7 +309,11 @@ export default function AdminAgents() {
       });
       if (selectedSrc === 'main') setMainGroup(patch); else if (selectedSrc === 'recupero') setRecuperoGroup(patch); else setB2xGroup(patch);
       setSelected(null);
-    } catch { setSaveError('Error al guardar la sugerencia.'); }
+      alert('Cambios guardados correctamente.');
+    } catch (err) { 
+      console.error('[AdminAgents] handleSave:', err);
+      setSaveError('Error al guardar los cambios.'); 
+    }
     finally { setSaving(false); }
   };
 
@@ -488,6 +538,26 @@ export default function AdminAgents() {
               </div>
             </div>
 
+            {/* LOB Assignment */}
+            <div className="p-4 bg-m3-primary/5 rounded-2xl border border-m3-primary/20">
+              <label className="block text-sm font-bold text-m3-primary mb-2 flex items-center gap-2">
+                <Building2 size={16} /> Asignar Line of Business (LOB)
+              </label>
+              <select 
+                value={selectedLob}
+                onChange={e => setSelectedLob(e.target.value)}
+                className="w-full px-4 py-2.5 rounded-xl border border-m3-primary/30 bg-white dark:bg-[#2C2C2C] text-sm outline-none focus:ring-2 focus:ring-m3-primary transition-all"
+              >
+                <option value="phone">Phone (Default)</option>
+                {lobs.map(lob => (
+                  <option key={lob.id} value={lob.id}>{lob.name}</option>
+                ))}
+              </select>
+              <p className="text-[10px] text-gray-500 mt-2">
+                Esto define qué videos, quizzes y escenarios verá el agente.
+              </p>
+            </div>
+
             {/* Feedback */}
             <div>
               <label className="block text-sm font-bold text-m3-secondary dark:text-white mb-2 flex items-center gap-2">
@@ -501,7 +571,7 @@ export default function AdminAgents() {
               <button onClick={handleSave} disabled={saving}
                 className="mt-2 w-full py-2 rounded-xl font-bold bg-m3-primary text-white hover:bg-m3-primary/90 transition-all shadow-sm flex items-center justify-center gap-2 disabled:opacity-70 text-sm">
                 {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-                Guardar Feedback
+                Guardar Cambios
               </button>
               {saveError && <p className="mt-2 text-xs text-red-500">{saveError}</p>}
             </div>

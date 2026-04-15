@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Users, Library, FileEdit, Menu, LogOut, LayoutDashboard, CheckCircle, ListChecks, Zap, Eye, Clock, Shield } from 'lucide-react';
+import { Users, Library, FileEdit, Menu, LogOut, LayoutDashboard, CheckCircle, ListChecks, Zap, Eye, Clock, Shield, Building2, Globe, BarChart3 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { auth } from '../firebaseConfig';
 
@@ -13,8 +13,10 @@ import AdminAcwManager from './AdminAcwManager';
 import AdminAcwStats from './AdminAcwStats';
 import AdminIdleReport from './AdminIdleReport';
 import AdminLobPermissions from './AdminLobPermissions';
+import AdminLobManager from './AdminLobManager';
+import AdminHistoryReport from './AdminHistoryReport';
 
-type AdminSection = 'agents' | 'processes' | 'quizzes' | 'manage-quizzes' | 'assignments' | 'users' | 'acw' | 'acw-stats' | 'idle-report' | 'permissions';
+type AdminSection = 'agents' | 'processes' | 'quizzes' | 'manage-quizzes' | 'assignments' | 'users' | 'acw' | 'acw-stats' | 'idle-report' | 'permissions' | 'lob-manager' | 'glob-stats' | 'daily-history';
 
 export default function AdminPage() {
   const [activeSection, setActiveSection] = useState<AdminSection>('agents');
@@ -40,7 +42,10 @@ export default function AdminPage() {
     { id: 'acw', label: 'Simulador ACW', icon: Zap },
     { id: 'acw-stats', label: 'Estadísticas ACW', icon: Zap },
     { id: 'idle-report', label: 'Reporte de Disponibilidad', icon: Clock },
-    { id: 'permissions', label: 'Permisos por Área', icon: Shield },
+    { id: 'daily-history', label: 'Reporte Histórico Daily', icon: BarChart3 },
+    { id: 'permissions', label: 'Matriz (Legacy)', icon: Shield },
+    { id: 'lob-manager', label: 'Gestión LOB', icon: Building2 },
+    { id: 'glob-stats', label: 'Consolidado Global', icon: Globe },
   ];
 
   return (
@@ -235,6 +240,9 @@ export default function AdminPage() {
                 { activeSection === 'acw-stats' && <AdminAcwStats /> }
                 { activeSection === 'idle-report' && <AdminIdleReport /> }
                 { activeSection === 'permissions' && <AdminLobPermissions /> }
+                { activeSection === 'lob-manager' && <AdminLobManager /> }
+                { activeSection === 'daily-history' && <AdminHistoryReport /> }
+                { activeSection === 'glob-stats'  && <div className="p-12 text-center text-gray-500">Próximamente: Dashboard Consolidado Global</div> }
 
             </div>
         </div>

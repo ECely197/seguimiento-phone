@@ -3,12 +3,15 @@ import { auth, db } from '../firebaseConfig';
 import { doc, setDoc } from 'firebase/firestore';
 import { getUserDoc } from '../firebasePaths';
 import { ADMIN_UID } from '../constants';
-import { getAgentData } from '../api/sheetService';
-import type { AgentResponse } from '../api/sheetService';
-import { ClipboardList, Lightbulb, Loader2, Info, BarChart3 } from 'lucide-react';
+import { getAgentData, getAgentHistory } from '../api/sheetService';
+import type { AgentResponse, AgentHistory } from '../api/sheetService';
 import { useNavigate } from 'react-router-dom';
 import { onAuthStateChanged } from 'firebase/auth';
 import { usePermissions } from '../context/PermissionsContext';
+import { 
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend 
+} from 'recharts';
+import { Clock, Zap, Edit3, Smile, Info, BarChart3, Lightbulb, Loader2, ClipboardList, CheckSquare, TrendingUp } from 'lucide-react';
 
 // ── LOB badge colours ──────────────────────────────────────────────────────────
 const LOB_BADGE: Record<string, string> = {
@@ -62,13 +65,55 @@ function StatCard({ label, value }: { label: string; value: string }) {
   );
 }
 
+function MonthlyImpactCard({ label, value, unit, icon: Icon, colorClass, status }: any) {
+  const statusColors: any = {
+    green:  'bg-emerald-500',
+    yellow: 'bg-amber-500',
+    red:    'bg-rose-500',
+    gray:   'bg-gray-300'
+  };
+
+  return (
+    <div className="group relative bg-white dark:bg-[#1E1E1E] rounded-2xl p-6 shadow-sm border border-m3-surface-variant/40 dark:border-white/10 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 overflow-hidden">
+      {/* Status Bar */}
+      <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${statusColors[status] || statusColors.gray}`} />
+      
+      <div className="flex justify-between items-start mb-4">
+        <div className={`p-2.5 rounded-xl ${colorClass.bg}`}>
+          <Icon size={22} className={colorClass.text} />
+        </div>
+      </div>
+
+      <div>
+        <h4 className="text-[10px] font-bold uppercase tracking-widest text-m3-secondary/50 dark:text-m3-on-surface-dark/40 mb-1">
+          {label}
+        </h4>
+        <div className="flex items-baseline gap-1">
+          <span className="text-3xl font-black text-m3-primary dark:text-m3-primary-dark tracking-tight">
+            {value}
+          </span>
+          <span className="text-[10px] font-bold text-m3-secondary/40 dark:text-m3-on-surface-dark/30 uppercase">
+            {unit}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Main component ─────────────────────────────────────────────────────────────
 export default function HomePage() {
   const [agentData, setAgentData] = useState<AgentResponse | null>(null);
+  const [historyData, setHistoryData] = useState<AgentHistory | null>(null);
   const [loading,   setLoading]   = useState(true);
   const [error,     setError]     = useState('');
   const [isAdmin,   setIsAdmin]   = useState(false);
   const [isGuest,   setIsGuest]   = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [chartMetric, setChartMetric] = useState<'aht' | 'frt' | 'acw' | 'psat'>('aht');
+
+  const now = new Date();
+  const today = now.toISOString().split('T')[0];
   const navigate = useNavigate();
   const { permissions, loading: permissionsLoading } = usePermissions();
 
@@ -88,10 +133,17 @@ export default function HomePage() {
 
       if (user.email) {
         try {
-          const result = await getAgentData(user.email);
+          const [result, history] = await Promise.all([
+            getAgentData(user.email),
+            getAgentHistory(user.email)
+          ]);
+
           console.log('[HomePage] getAgentData result:', result);
+          console.log('[HomePage] getAgentHistory result:', history);
+
           if (result) {
             setAgentData(result);
+            setHistoryData(history);
             setError('');
             setDoc(getUserDoc(user.uid), { lob: result.lob, email: user.email }, { merge: true }).catch(() => {});
           } else {
@@ -193,37 +245,239 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* ── Metric cards + suggestion ────────────────────────────────────────── */}
+      {/* ── Monthly Impact Section (Source A: Real-time B2X/Main Sheet) ───── */}
       {!loading && !error && agentData && permissions.metrics && (
-        <>
-          {/* Stat card grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-8">
-            {agentData.headers?.map((header, i) => (
-              <StatCard
-                key={`metric-${i}`}
-                label={header}
-                value={formatMetric(header, agentData.metrics?.[i])}
-              />
-            ))}
-          </div>
+        <section className="mb-10">
+          <h2 className="text-xl font-bold text-m3-secondary dark:text-m3-on-surface-dark mb-5 flex items-center gap-2">
+            <TrendingUp size={22} className="text-m3-primary" />
+            Tu Impacto este Mes (Acumulado Real)
+          </h2>
+          
+          {(() => {
+            const m = agentData.rawMetrics || {};
+            const parseStat = (v: any) => {
+              const val = parseFloat(String(v || '0').replace(/[^0-9.\-]/g, ''));
+              return isNaN(val) ? 0 : (val > 0 && val <= 1 && !String(v).includes('%') ? val * 100 : val);
+            };
 
-          {/* Supervisor suggestion */}
-          <section className="bg-m3-surface-variant/30 dark:bg-m3-surface-variant/10 rounded-[28px] p-8 shadow-sm border border-m3-surface-variant/50 dark:border-transparent hover:shadow-md hover:-translate-y-1 transition-all duration-300">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-3 bg-white dark:bg-m3-primary-dark/20 rounded-full shadow-sm">
-                <Lightbulb className="text-yellow-600 dark:text-yellow-300" size={24} strokeWidth={2.5} />
+            const stats = {
+              aht:  parseStat(m.AHT || m['AHT Real']),
+              frt:  parseStat(m.FRT),
+              acw:  parseStat(m.ACW),
+              psat: parseStat(m.PSAT || m.SAT || m.RES),
+              kpi5: parseStat(m.KPI5)
+            };
+
+            return (
+              <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+                <MonthlyImpactCard 
+                  label="AHT Mes" 
+                  value={stats.aht.toFixed(1)} 
+                  unit="seg" 
+                  icon={Clock} 
+                  status={stats.aht < 280 ? 'green' : stats.aht < 320 ? 'yellow' : 'red'}
+                  colorClass={{ bg: 'bg-blue-50 dark:bg-blue-900/20', text: 'text-blue-600 dark:text-blue-400' }} 
+                />
+                <MonthlyImpactCard 
+                  label="FRT Mes" 
+                  value={stats.frt.toFixed(1)} 
+                  unit="seg" 
+                  icon={Zap} 
+                  status={stats.frt < 60 ? 'green' : stats.frt < 90 ? 'yellow' : 'red'}
+                  colorClass={{ bg: 'bg-orange-50 dark:bg-orange-900/20', text: 'text-orange-600 dark:text-orange-400' }} 
+                />
+                <MonthlyImpactCard 
+                  label="ACW Mes" 
+                  value={stats.acw.toFixed(1)} 
+                  unit="seg" 
+                  icon={Edit3} 
+                  status={stats.acw < 20 ? 'green' : stats.acw < 40 ? 'yellow' : 'red'}
+                  colorClass={{ bg: 'bg-purple-50 dark:bg-purple-900/20', text: 'text-purple-600 dark:text-purple-400' }} 
+                />
+                <MonthlyImpactCard 
+                  label="PSAT Mes" 
+                  value={stats.psat.toFixed(1)} 
+                  unit="%" 
+                  icon={Smile} 
+                  status={stats.psat > 85 ? 'green' : stats.psat > 75 ? 'yellow' : 'red'}
+                  colorClass={{ bg: 'bg-emerald-50 dark:bg-emerald-900/20', text: 'text-emerald-600 dark:text-emerald-400' }} 
+                />
+                <MonthlyImpactCard 
+                  label="Calidad (KPI 5)" 
+                  value={stats.kpi5.toFixed(1)} 
+                  unit="%" 
+                  icon={CheckSquare} 
+                  status={stats.kpi5 > 90 ? 'green' : stats.kpi5 > 80 ? 'yellow' : 'red'}
+                  colorClass={{ bg: 'bg-indigo-50 dark:bg-indigo-900/20', text: 'text-indigo-600 dark:text-indigo-400' }} 
+                />
               </div>
-              <h2 className="text-xl font-semibold text-m3-secondary dark:text-m3-on-surface-dark">
-                Sugerencia del Supervisor
-              </h2>
+            );
+          })()}
+        </section>
+      )}
+
+      {/* ── Supervisor Suggestions ────────────────────────────────────────── */}
+      {!loading && !error && agentData && (
+        <section className="mb-10 p-7 bg-m3-surface-variant/20 dark:bg-white/5 rounded-[32px] border border-m3-surface-variant/30 dark:border-white/10 shadow-sm transition-all duration-300">
+          <div className="flex items-center gap-3 mb-5">
+            <div className="p-2.5 bg-yellow-100 dark:bg-yellow-900/30 rounded-full shadow-inner">
+              <Lightbulb className="text-yellow-600 dark:text-yellow-300" size={24} />
             </div>
-            <div className="bg-white dark:bg-[#1E1E1E]/50 rounded-2xl p-6 border border-white/50 dark:border-white/5">
-              <p className="text-m3-secondary dark:text-m3-on-surface-dark/90 text-lg leading-loose font-medium italic">
-                "{agentData?.sugerencia || 'No hay sugerencias disponibles por el momento.'}"
-              </p>
+            <h2 className="text-xl font-bold text-m3-secondary dark:text-m3-on-surface-dark">
+              Sugerencia Comercial
+            </h2>
+          </div>
+          <div className="bg-white dark:bg-[#1E1E1E] p-6 rounded-2xl border border-m3-surface-variant/20 shadow-sm">
+            <p className="text-m3-secondary/80 dark:text-m3-on-surface-dark/90 text-base italic leading-relaxed font-medium">
+              "{agentData?.sugerencia || 'Maximiza tu impacto: mantén el enfoque en la calidad de cada interacción.'}"
+            </p>
+          </div>
+        </section>
+      )}
+
+      {/* ── Performance Details Module ─────────────────────────────────────── */}
+      {!loading && !error && historyData?.history && permissions.metrics && (
+        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+          
+          {/* Section: Tendencia Mensual */}
+          <section className="bg-white dark:bg-[#1E1E1E] rounded-3xl p-6 border border-m3-surface-variant/40 dark:border-white/10 shadow-sm">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+              <div>
+                <h3 className="text-xl font-bold text-m3-secondary dark:text-m3-on-surface-dark flex items-center gap-2">
+                  <BarChart3 size={24} className="text-m3-primary" />
+                  Rendimiento Mensual
+                </h3>
+                <p className="text-xs text-m3-secondary/60 dark:text-m3-on-surface-dark/50 italic">Evolución completa del mes actual (1 al 31)</p>
+              </div>
+              
+              <div className="flex p-1 bg-m3-surface-variant/20 dark:bg-white/5 rounded-xl w-fit">
+                {['aht', 'frt', 'acw', 'psat'].map((m) => (
+                  <button 
+                    key={m}
+                    onClick={() => setChartMetric(m as any)}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all uppercase ${chartMetric === m ? 'bg-white dark:bg-m3-primary text-m3-primary dark:text-white shadow-sm' : 'text-m3-secondary/60 dark:text-m3-on-surface-dark/40'}`}
+                  >
+                    {m}
+                  </button>
+                ))}
+              </div>
             </div>
+
+            {(() => {
+              const history = historyData.history;
+              const now = new Date();
+              const year = now.getFullYear();
+              const month = now.getMonth();
+              const daysInMonth = new Date(year, month + 1, 0).getDate();
+              
+              const monthArray = Array.from({ length: daysInMonth }, (_, i) => {
+                const day = i + 1;
+                const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                
+                const dayData = history[dateStr] || { aht: null, frt: null, acw: null, psat: null, kpi5: null };
+                return {
+                  day: day,
+                  date: `${day}/${month + 1}`,
+                  fullDate: dateStr,
+                  aht: dayData.aht,
+                  frt: dayData.frt,
+                  acw: dayData.acw,
+                  psat: dayData.psat,
+                  kpi5: (dayData as any).kpi5
+                };
+              });
+
+              // Find last day with data for highlighting
+              let lastDayWithData = '';
+              monthArray.forEach(row => {
+                if (history[row.fullDate]) lastDayWithData = row.fullDate;
+              });
+
+              return (
+                <>
+                  <div className="h-72 w-full mb-12">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={monthArray}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#88888820" />
+                        <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#888888'}} interval={0} />
+                        <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#888888'}} />
+                        <Tooltip contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)', fontSize: '12px' }} />
+                        <Line 
+                          type="monotone" 
+                          dataKey={chartMetric} 
+                          stroke={chartMetric === 'aht' ? '#3B82F6' : chartMetric === 'frt' ? '#EAB308' : chartMetric === 'acw' ? '#A855F7' : '#10B981'} 
+                          strokeWidth={3} 
+                          dot={{ r: 3, strokeWidth: 2, fill: '#fff' }} 
+                          activeDot={{ r: 5 }} 
+                          connectNulls={true}
+                          animationDuration={1000} 
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  {/* Monthly Metrics Table */}
+                  <div className="mt-8">
+                    <h4 className="text-sm font-bold text-m3-secondary dark:text-m3-on-surface-dark mb-4 flex items-center gap-2 px-1">
+                      <ClipboardList size={16} /> Detalle Diario del Mes
+                    </h4>
+                    <div className="rounded-2xl border border-m3-surface-variant/30 bg-m3-surface/50 dark:bg-black/10 overflow-hidden shadow-sm">
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left text-xs">
+                          <thead className="bg-m3-surface-variant/20 dark:bg-white/5 text-gray-500 font-bold uppercase tracking-wider">
+                            <tr>
+                              <th className="px-4 py-3">Día</th>
+                              <th className="px-4 py-3 text-center">AHT</th>
+                              <th className="px-4 py-3 text-center">FRT</th>
+                              <th className="px-4 py-3 text-center">ACW</th>
+                              <th className="px-4 py-3 text-center">PSAT</th>
+                              <th className="px-4 py-3 text-center">KPI 5</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-m3-surface-variant/10 dark:divide-white/5">
+                            {monthArray.map((row) => {
+                              const isTodayRow = row.fullDate === today;
+                              const isLastDataRow = !history[today] && row.fullDate === lastDayWithData;
+                              const hasRowData = !!history[row.fullDate];
+
+                              return (
+                                <tr 
+                                  key={row.fullDate}
+                                  className={`transition-colors 
+                                    ${isTodayRow ? 'bg-m3-primary/10 dark:bg-m3-primary/20 font-bold' : ''}
+                                    ${isLastDataRow ? 'bg-yellow-50 dark:bg-yellow-900/10 ring-1 ring-yellow-400/20' : ''}
+                                    ${!hasRowData ? 'opacity-30' : 'hover:bg-m3-surface-variant/10 dark:hover:bg-white/5'}
+                                  `}
+                                >
+                                  <td className="px-4 py-2.5 font-medium">
+                                    <div className="flex items-center gap-2">
+                                      {row.day}
+                                      {(isTodayRow || isLastDataRow) && (
+                                        <span className={`text-[8px] px-1.5 py-0.5 rounded-full uppercase leading-none font-black
+                                          ${isTodayRow ? 'bg-m3-primary text-white' : 'bg-yellow-500 text-white'}`}>
+                                          {isTodayRow ? 'Hoy' : 'Cierre'}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </td>
+                                  <td className="px-4 py-2.5 text-center">{row.aht ? fmtNum(row.aht) : '—'}</td>
+                                  <td className="px-4 py-2.5 text-center">{row.frt ? fmtNum(row.frt) : '—'}</td>
+                                  <td className="px-4 py-2.5 text-center">{row.acw ? fmtNum(row.acw) : '—'}</td>
+                                  <td className="px-4 py-2.5 text-center">{row.psat ? fmtPct(row.psat) : '—'}</td>
+                                  <td className="px-4 py-2.5 text-center">{row.kpi5 ? fmtPct(row.kpi5) : '—'}</td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
           </section>
-        </>
+        </div>
       )}
     </div>
   );

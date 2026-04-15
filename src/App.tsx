@@ -57,7 +57,8 @@ function Layout() {
               photoURL: user.photoURL,
               createdAt: serverTimestamp(),
               lastLogin: serverTimestamp(),
-              role: currentRole
+              role: currentRole,
+              lob: 'phone'
             });
           } else {
             const data = userSnap.data();

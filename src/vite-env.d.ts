@@ -12,6 +12,7 @@ interface ImportMetaEnv {
   // API endpoints — must be added to Vercel dashboard with the VITE_ prefix
   readonly VITE_SHEETDB_URL: string;
   readonly VITE_RECUPERO_SCRIPT_URL: string;
+  readonly VITE_HISTORICO_URL: string;
 }
 
 interface ImportMeta {

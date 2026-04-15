@@ -15,6 +15,7 @@ interface Permissions {
 interface PermissionsContextType {
   userLOB: string | null;
   permissions: Permissions;
+  lobApiUrl: string | null;
   loading: boolean;
 }
 
@@ -31,6 +32,7 @@ const DEFAULT_PERMISSIONS: Permissions = {
 export const PermissionsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [userLOB, setUserLOB] = useState<string | null>(null);
   const [permissions, setPermissions] = useState<Permissions>(DEFAULT_PERMISSIONS);
+  const [lobApiUrl, setLobApiUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -46,20 +48,30 @@ export const PermissionsProvider: React.FC<{ children: React.ReactNode }> = ({ c
           }
           setUserLOB(lob);
 
-          // 2. Get Visibility Matrix
-          const configSnap = await getDoc(getPublicDoc('module_config', 'visibility_matrix'));
-          if (configSnap.exists()) {
-            const matrix = configSnap.data();
-            if (matrix[lob]) {
-              setPermissions({
-                ...DEFAULT_PERMISSIONS,
-                ...matrix[lob]
-              });
+          // 2. Get LOB Configuration (Dynamic)
+          const lobConfigSnap = await getDoc(getPublicDoc('lobs', lob));
+          
+          if (lobConfigSnap.exists()) {
+            const data = lobConfigSnap.data();
+            setPermissions({
+              ...DEFAULT_PERMISSIONS,
+              ...(data.permissions || {})
+            });
+            setLobApiUrl(data.apiUrl || null);
+          } else {
+            // Fallback: Check legacy Visibility Matrix
+            const configSnap = await getDoc(getPublicDoc('module_config', 'visibility_matrix'));
+            if (configSnap.exists()) {
+              const matrix = configSnap.data();
+              if (matrix[lob]) {
+                setPermissions({ ...DEFAULT_PERMISSIONS, ...matrix[lob] });
+              } else {
+                setPermissions(DEFAULT_PERMISSIONS);
+              }
             } else {
               setPermissions(DEFAULT_PERMISSIONS);
             }
-          } else {
-            setPermissions(DEFAULT_PERMISSIONS);
+            setLobApiUrl(null);
           }
         } catch (error) {
           console.error("Error loading permissions:", error);
@@ -68,6 +80,7 @@ export const PermissionsProvider: React.FC<{ children: React.ReactNode }> = ({ c
       } else {
         setUserLOB(null);
         setPermissions(DEFAULT_PERMISSIONS);
+        setLobApiUrl(null);
       }
       setLoading(false);
     });
@@ -76,7 +89,7 @@ export const PermissionsProvider: React.FC<{ children: React.ReactNode }> = ({ c
   }, []);
 
   return (
-    <PermissionsContext.Provider value={{ userLOB, permissions, loading }}>
+    <PermissionsContext.Provider value={{ userLOB, permissions, lobApiUrl, loading }}>
       {children}
     </PermissionsContext.Provider>
   );

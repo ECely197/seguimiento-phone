@@ -4,14 +4,29 @@
 const PRIMARY_URL  = import.meta.env.VITE_SHEETDB_URL          as string | undefined;
 const RECUPERO_URL = import.meta.env.VITE_RECUPERO_SCRIPT_URL  as string | undefined;
 const B2X_URL      = import.meta.env.VITE_B2X_SCRIPT_URL       as string | undefined;
+const HISTORICO_URL = import.meta.env.VITE_HISTORICO_URL       as string | undefined;
 
 // ── Exported type ──────────────────────────────────────────────────────────────
 export interface AgentResponse {
   lob: string;
-  name: string;        // agent display name
+  name: string;
   headers: string[];
   metrics: any[];
   sugerencia?: string;
+  rawMetrics?: Record<string, any>; // Added for direct access to metrics like AHT, SAT, etc.
+}
+
+export interface AgentHistory {
+  history: {
+    [date: string]: {
+      aht: any;
+      frt: any;
+      acw: any;
+      psat: any;
+      kpi5?: any;
+      [key: string]: any;
+    };
+  };
 }
 
 
@@ -60,6 +75,7 @@ const mapB2xAgent = (raw: any) => {
     FRT:    raw.FRT    ?? raw.frt    ?? raw.D ?? '',
     ACW:    raw.ACW    ?? raw.acw    ?? raw.E ?? '',
     SAT:    raw.SAT    ?? raw.sat    ?? raw.I ?? '',
+    KPI5:   raw.KPI5   ?? raw.kpi5   ?? raw.M ?? '', // Assuming M or named
   };
 };
 
@@ -184,6 +200,7 @@ export const getAgentData = async (email: string): Promise<AgentResponse | null>
       headers,
       metrics:    headers.map(h => mapped[h as keyof typeof mapped]),
       sugerencia: mainMatch.sugerencia ?? mainMatch.Sugerencia ?? '',
+      rawMetrics: mapped
     };
   }
 
@@ -198,6 +215,7 @@ export const getAgentData = async (email: string): Promise<AgentResponse | null>
       headers,
       metrics:    headers.map(h => mapped[h as keyof typeof mapped]),
       sugerencia: recMatch.sugerencia ?? recMatch.Sugerencia ?? '',
+      rawMetrics: mapped
     };
   }
 
@@ -212,6 +230,7 @@ export const getAgentData = async (email: string): Promise<AgentResponse | null>
       headers,
       metrics:    headers.map(h => mapped[h as keyof typeof mapped]),
       sugerencia: b2xMatch.sugerencia ?? b2xMatch.Sugerencia ?? '',
+      rawMetrics: mapped
     };
   }
 
@@ -285,4 +304,26 @@ export const updateAgentSuggestion = async (email: string, suggestion: string): 
 export const findAgentLob = async (email: string) => {
   const r = await getAgentData(email);
   return r ? { lob: r.lob as any, data: r.metrics } : null;
+};
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  Public: History lookup
+// ══════════════════════════════════════════════════════════════════════════════
+export const getAgentHistory = async (email: string): Promise<AgentHistory | null> => {
+  if (!HISTORICO_URL) {
+    console.warn('[sheetService] getAgentHistory: VITE_HISTORICO_URL is undefined.');
+    return null;
+  }
+  
+  try {
+    const target = email.trim().toLowerCase();
+    const res = await fetch(`${HISTORICO_URL}?email=${target}`, { redirect: 'follow' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const json = await res.json();
+    console.log('[sheetService] getAgentHistory result:', json);
+    return json as AgentHistory;
+  } catch (err) {
+    console.warn('[sheetService] getAgentHistory failed:', err);
+    return null;
+  }
 };

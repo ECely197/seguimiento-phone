@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { FileEdit, CheckCircle, AlertCircle, Loader2, Upload, Video, Mic } from 'lucide-react';
 import { auth, storage, db } from '../firebaseConfig';import { getPublicCollection, getUserCollection, getPublicDoc, getUserDoc, getAppStorageRef, fetchAllUsersSubcollection } from '../firebasePaths';
 
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, getDocs } from 'firebase/firestore';
 
 export default function AdminQuizEditor() {
     // Quiz State
@@ -14,7 +14,19 @@ export default function AdminQuizEditor() {
     const [optionC,       setOptionC]         = useState('');
     const [correctOption, setCorrectOption]   = useState('A');
     const [explanation,   setExplanation]     = useState('');
-    const [quizMedia,     setQuizMedia]       = useState<File | null>(null);
+    const [quizMedia, setQuizMedia] = useState<File | null>(null);
+    const [lobs, setLobs] = useState<any[]>([]);
+    const [selectedLob, setSelectedLob] = useState('phone');
+
+    useEffect(() => {
+        const fetchLobs = async () => {
+            try {
+                const snap = await getDocs(getPublicCollection('lobs'));
+                setLobs(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+            } catch (err) { console.error(err); }
+        };
+        fetchLobs();
+    }, []);
 
     const [isUploading,   setIsUploading]     = useState(false);
     const [uploadSuccess, setUploadSuccess]   = useState(false);
@@ -77,6 +89,7 @@ export default function AdminQuizEditor() {
             await addDoc(getPublicCollection('quizzes'), {
                 situation:     quizSituation,
                 question:      quizQuestion,
+                lobId:         selectedLob,
                 mediaUrl,
                 mediaType,
                 // Backwards-compat field for old QuizPage code
@@ -97,6 +110,7 @@ export default function AdminQuizEditor() {
             setCorrectOption('A');
             setExplanation('');
             setQuizMedia(null);
+            setSelectedLob('phone');
             setTimeout(() => setUploadSuccess(false), 3500);
 
         } catch (err) {
@@ -143,6 +157,24 @@ export default function AdminQuizEditor() {
                         className="w-full px-4 py-3 rounded-xl bg-m3-surface dark:bg-[#2C2C2C] border border-m3-surface-variant dark:border-white/10 focus:border-m3-primary focus:ring-1 focus:ring-m3-primary outline-none transition-all text-m3-secondary dark:text-m3-on-surface-dark"
                         required
                     />
+                </div>
+
+                {/* LOB Selector */}
+                <div>
+                    <label className="block text-sm font-medium text-m3-secondary dark:text-m3-on-surface-dark/80 mb-2">
+                        Área (LOB) Destino *
+                    </label>
+                    <select
+                        value={selectedLob}
+                        onChange={(e) => setSelectedLob(e.target.value)}
+                        className="w-full px-4 py-3 rounded-xl bg-m3-surface dark:bg-[#2C2C2C] border border-m3-surface-variant dark:border-white/10 focus:border-m3-primary focus:ring-1 focus:ring-m3-primary outline-none transition-all text-m3-secondary dark:text-m3-on-surface-dark cursor-pointer"
+                        required
+                    >
+                        <option value="phone">Phone (General)</option>
+                        {lobs.map(lob => (
+                            <option key={lob.id} value={lob.id}>{lob.name}</option>
+                        ))}
+                    </select>
                 </div>
 
                 {/* Media upload */}
