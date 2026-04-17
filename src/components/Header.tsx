@@ -24,7 +24,7 @@ export default function Header() {
         <div className="p-1.5 bg-m3-primary/10 rounded-lg">
           <LayoutDashboard className="text-m3-primary" size={20} />
         </div>
-        <span className="font-bold text-m3-secondary dark:text-m3-on-surface-dark tracking-tight">PDA Humanizing</span>
+        <span className="font-bold text-m3-secondary dark:text-m3-on-surface-dark tracking-tight">Gestión Team</span>
       </div>
 
       <div className="flex items-center gap-2">

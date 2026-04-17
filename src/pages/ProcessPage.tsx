@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
 import { db, auth, appId } from '../firebaseConfig';import { getPublicCollection, getUserCollection, getPublicDoc, getUserDoc, getAppStorageRef, fetchAllUsersSubcollection } from '../firebasePaths';
 
 import { Loader2, Library, Video as VideoIcon } from 'lucide-react';
@@ -13,34 +13,62 @@ interface VideoModule {
   category: string;
   viewedBy: string[];
   thumbnailUrl?: string;
+  lobId?: string;
 }
 
 export default function ProcessPage() {
   const user = auth.currentUser;
   const [materiales, setMateriales] = useState<VideoModule[]>([]);
   const [loading, setLoading] = useState(true);
+  const [userLob, setUserLob] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchUserLob = async () => {
+      if (!user) {
+        setUserLob('phone'); // Guest default
+        return;
+      }
+      try {
+        const userRef = doc(db, 'artifacts', appId, 'users', user.uid);
+        const userSnap = await getDoc(userRef);
+        if (userSnap.exists()) {
+          setUserLob(userSnap.data().lob || 'phone');
+        } else {
+          setUserLob('phone');
+        }
+      } catch (err) {
+        console.error("Error fetching user LOB:", err);
+        setUserLob('phone');
+      }
+    };
+    fetchUserLob();
+  }, [user]);
 
   useEffect(() => {
     const fetchMateriales = async () => {
-       if (!user) return;
+       if (!userLob) return; // Wait for LOB
+       setLoading(true);
        try {
          const { getDocsWithFallback } = await import("../firebasePaths");
-         console.log("[ProcessPage] Buscando materiales de capacitación (Doble Fetch)...");
+         console.log(`[ProcessPage] Buscando materiales para LOB: ${userLob}`);
          const querySnapshot = await getDocsWithFallback("processes");
-         const videos = querySnapshot.docs.map(doc => {
-            const data = doc.data();
-            return {
-                id: doc.id,
-                title: data.title || "Sin título",
-                description: data.description || "Sin descripción disponible.",
-                videoUrl: data.url || "", 
-                category: data.category || "General",
-                viewedBy: data.viewedBy || [],
-                thumbnailUrl: data.thumbnailUrl 
-            } as VideoModule;
-         });
+         const videos = querySnapshot.docs
+          .map(doc => {
+             const data = doc.data();
+             return {
+                 id: doc.id,
+                 title: data.title || "Sin título",
+                 description: data.description || "Sin descripción disponible.",
+                 videoUrl: data.url || "", 
+                 category: data.category || "General",
+                 viewedBy: data.viewedBy || [],
+                 thumbnailUrl: data.thumbnailUrl,
+                 lobId: data.lobId || 'phone'
+             } as VideoModule;
+          })
+          .filter(v => v.lobId === userLob || v.lobId === 'phone'); // Show user's LOB + global
+          
          setMateriales(videos);
-         console.log(`[ProcessPage] ${videos.length} videos cargados.`);
        } catch (error) {
          console.error("Error fetching materials:", error);
        } finally {
@@ -48,7 +76,7 @@ export default function ProcessPage() {
        }
     };
     fetchMateriales();
-  }, [user]);
+  }, [userLob]);
 
   // Group materials by category
   const groupedMateriales = materiales.reduce((acc, current) => {
@@ -84,19 +112,20 @@ export default function ProcessPage() {
             </div>
             <h1 className="text-3xl font-bold text-m3-secondary dark:text-m3-on-surface-dark">Capacitaciones</h1>
         </div>
-        <p className="text-m3-secondary/70 dark:text-m3-on-surface-dark/60 text-sm">Explora los módulos de aprendizaje continuo por categoría.</p>
+        <p className="text-m3-secondary/70 dark:text-m3-on-surface-dark/60 text-sm">
+          {userLob ? `Mostrando contenido para el área: ${userLob.toUpperCase()}` : 'Explora los módulos de aprendizaje continuo por categoría.'}
+        </p>
       </header>
 
       {materiales.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-gray-400">
               <VideoIcon className="opacity-10 mb-4" size={64} />
-              <p className="text-lg font-medium mb-4">No se encontraron capacitaciones.</p>
+              <p className="text-lg font-medium mb-4">No se encontraron capacitaciones para tu área.</p>
               
               <div className="max-w-md w-full p-4 rounded-2xl bg-m3-surface-variant/20 border border-m3-surface-variant/30 text-xs font-mono text-left">
                 <p className="text-m3-primary mb-1">Status de Rescate Explicaciones:</p>
-                <p>• Nueva Ruta: artifacts/{appId}/public/data/processes ... OK</p>
-                <p>• Raíz Antigua: /processes ... OK</p>
-                <p className="mt-2 text-[10px] opacity-60">El sistema realiza un fetch paralelo y combina resultados evitando duplicados.</p>
+                <p>• LOB asignado: {userLob} ... OK</p>
+                <p>• El sistema filtra automáticamente el contenido por LOB.</p>
               </div>
           </div>
       ) : (

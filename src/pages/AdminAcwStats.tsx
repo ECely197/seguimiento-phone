@@ -1,9 +1,8 @@
 import { auth } from '../firebaseConfig';
 import { useState, useEffect } from 'react';
-import { db } from '../firebaseConfig';import { getPublicCollection, getUserCollection, getPublicDoc, getUserDoc, getAppStorageRef, fetchAllUsersSubcollection } from '../firebasePaths';
+import { db } from '../firebaseConfig';import { fetchAllUsersSubcollection } from '../firebasePaths';
 
-import { collection, getDocs, orderBy, query } from 'firebase/firestore';
-import { Loader2, Users, Clock, TrendingDown, Zap, ChevronDown, ChevronUp } from 'lucide-react';
+import { Loader2, Users, Clock, TrendingDown, Zap, ChevronDown, ChevronUp, Building2 } from 'lucide-react';
 
 interface AcwAttempt {
   id: string;
@@ -11,7 +10,8 @@ interface AcwAttempt {
   userEmail: string;
   scenarioId: string;
   scenarioTitle: string;
-  timeSpent: number; // seconds
+  timeSpent: number; 
+  lobId?: string; // Phase 1 field
   inputs: { contactReason: string; comment: string; action: string };
   timestamp: { seconds: number };
 }
@@ -24,32 +24,43 @@ const formatDate = (ts: { seconds: number } | undefined) => {
 };
 
 const timeBadge = (secs: number) => {
-  if (secs < 30) return 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400';
-  if (secs < 60) return 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400';
-  return 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400';
+  if (secs < 30) return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400';
+  if (secs < 60) return 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400';
+  return 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400';
 };
 
-export default function AdminAcwStats() {
-  const user = auth.currentUser;
-
+export default function AdminAcwStats({ selectedLob: globalLobFilter }: { selectedLob?: string }) {
   const [attempts, setAttempts] = useState<AcwAttempt[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetch = async () => {
-      try {
-        const allData = await fetchAllUsersSubcollection('acw_attempts');
-        let sorted = allData.sort((a,b) => (b.timestamp?.toMillis?.() || 0) - (a.timestamp?.toMillis?.() || 0));
-        setAttempts(sorted as unknown as AcwAttempt[]);
-      } finally {
-        setLoading(false);
-      }
-    };
     fetch();
-  }, []);
+  }, [globalLobFilter]);
 
-  if (loading) return <div className="flex items-center justify-center py-20"><Loader2 className="animate-spin text-m3-primary" size={32} /></div>;
+  const fetch = async () => {
+    try {
+      setLoading(true);
+      const allData = await fetchAllUsersSubcollection('acw_attempts');
+      let sorted = allData.sort((a,b) => (b.timestamp?.toMillis?.() || 0) - (a.timestamp?.toMillis?.() || 0));
+      
+      // Filter by LOB
+      if (globalLobFilter && globalLobFilter !== 'all') {
+          sorted = sorted.filter(a => (a.lobId || 'phone') === globalLobFilter);
+      }
+
+      setAttempts(sorted as unknown as AcwAttempt[]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) return (
+    <div className="flex flex-col items-center justify-center py-32 gap-4">
+      <Loader2 className="animate-spin text-m3-primary" size={32} />
+      <p className="text-[10px] font-black uppercase text-gray-400">Analizando registros ACW...</p>
+    </div>
+  );
 
   // ── KPIs ─────────────────────────────────────────────────────────────────
   const totalAttempts = attempts.length;
@@ -57,7 +68,6 @@ export default function AdminAcwStats() {
   const under30 = attempts.filter(a => a.timeSpent < 30).length;
   const uniqueAgents = new Set(attempts.map(a => a.userId)).size;
 
-  // Per-agent averages for performance table
   const agentMap: Record<string, { email: string; times: number[] }> = {};
   attempts.forEach(a => {
     if (!agentMap[a.userId]) agentMap[a.userId] = { email: a.userEmail, times: [] };
@@ -74,121 +84,127 @@ export default function AdminAcwStats() {
     .sort((a, b) => a.avg - b.avg);
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 animate-in fade-in duration-500">
 
       {/* ── KPI Cards ── */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { icon: Clock, label: 'Promedio del Equipo', value: `${avgTime}s`, sub: 'meta: < 30s', color: avgTime < 30 ? 'text-green-600 dark:text-green-400' : avgTime < 60 ? 'text-yellow-600 dark:text-yellow-400' : 'text-red-600 dark:text-red-400' },
-          { icon: Zap, label: 'Intentos Totales', value: totalAttempts, sub: 'todos los agentes', color: 'text-m3-primary dark:text-m3-primary-dark' },
-          { icon: TrendingDown, label: 'Bajo 30 segundos', value: `${totalAttempts > 0 ? Math.round((under30 / totalAttempts) * 100) : 0}%`, sub: `${under30} de ${totalAttempts}`, color: 'text-green-600 dark:text-green-400' },
-          { icon: Users, label: 'Agentes Activos', value: uniqueAgents, sub: 'al menos 1 intento', color: 'text-purple-600 dark:text-purple-400' },
-        ].map(({ icon: Icon, label, value, sub, color }) => (
-          <div key={label} className="bg-white dark:bg-[#1E1E1E] rounded-2xl p-4 border border-gray-100 dark:border-white/5 shadow-sm">
-            <div className="flex items-center gap-2 mb-2">
-              <Icon size={16} className={color} />
-              <span className="text-xs text-gray-400 font-medium">{label}</span>
+          { icon: Clock, label: 'Promedio LOB', value: `${avgTime}s`, sub: 'Meta: < 30s', color: avgTime < 30 ? 'text-emerald-500' : avgTime < 60 ? 'text-amber-500' : 'text-rose-500', bg: 'bg-emerald-50/50 dark:bg-emerald-900/10' },
+          { icon: Zap, label: 'Intentos en Segmento', value: totalAttempts, sub: 'Volumen total', color: 'text-m3-primary', bg: 'bg-m3-primary/5' },
+          { icon: TrendingDown, label: 'Bajo Meta (30s)', value: `${totalAttempts > 0 ? Math.round((under30 / totalAttempts) * 100) : 0}%`, sub: `${under30} de ${totalAttempts}`, color: 'text-emerald-500', bg: 'bg-emerald-50/50 dark:bg-emerald-900/10' },
+          { icon: Users, label: 'Frecuencia (Agentes)', value: uniqueAgents, sub: 'Agentes activos', color: 'text-indigo-500', bg: 'bg-indigo-50/50 dark:bg-indigo-900/10' },
+        ].map(({ icon: Icon, label, value, sub, color, bg }) => (
+          <div key={label} className={`rounded-3xl p-5 border border-m3-surface-variant/20 dark:border-white/5 shadow-sm transition-all hover:shadow-md ${bg}`}>
+            <div className="flex items-center gap-2 mb-3">
+              <div className={`p-1.5 rounded-lg ${bg} ring-1 ring-white/20`}>
+                <Icon size={16} className={color} />
+              </div>
+              <span className="text-[10px] font-black uppercase text-gray-500 tracking-widest">{label}</span>
             </div>
-            <p className={`text-2xl font-bold ${color}`}>{value}</p>
-            <p className="text-xs text-gray-400 mt-0.5">{sub}</p>
+            <p className={`text-3xl font-black tracking-tighter ${color}`}>{value}</p>
+            <p className="text-[9px] font-bold text-gray-400 mt-1 uppercase tracking-tight">{sub}</p>
           </div>
         ))}
       </div>
 
-      {/* ── Agent Performance ── */}
-      {agentStats.length > 0 && (
-        <div>
-          <h3 className="text-sm font-bold uppercase tracking-widest text-gray-400 mb-3">Rendimiento por Agente</h3>
-          <div className="bg-white dark:bg-[#1E1E1E] rounded-2xl border border-gray-100 dark:border-white/5 overflow-hidden shadow-sm">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-100 dark:border-white/5 text-xs uppercase tracking-wide text-gray-400">
-                  <th className="text-left px-4 py-3">Agente</th>
-                  <th className="text-center px-4 py-3">Intentos</th>
-                  <th className="text-center px-4 py-3">Promedio</th>
-                  <th className="text-center px-4 py-3">Mejor</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50 dark:divide-white/5">
-                {agentStats.map((agent, i) => (
-                  <tr key={agent.uid} className="hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-gray-300 dark:text-gray-600 w-5">#{i + 1}</span>
-                        <span className="text-m3-secondary dark:text-m3-on-surface-dark font-medium truncate max-w-[180px]">{agent.email}</span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-center text-gray-500 dark:text-gray-400">{agent.count}</td>
-                    <td className="px-4 py-3 text-center">
-                      <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${timeBadge(agent.avg)}`}>{agent.avg}s</span>
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${timeBadge(agent.best)}`}>{agent.best}s</span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* ── Attempts Timeline ── */}
-      <div>
-        <h3 className="text-sm font-bold uppercase tracking-widest text-gray-400 mb-3">Historial de Intentos</h3>
-        {attempts.length === 0
-          ? (
-            <div className="text-center py-16 text-gray-400">
-              <Clock size={40} className="mx-auto mb-3 opacity-30" />
-              <p>Sin intentos aún. Los agentes deben completar el simulador primero.</p>
-            </div>
-          )
-          : (
-            <div className="bg-white dark:bg-[#1E1E1E] rounded-2xl border border-gray-100 dark:border-white/5 overflow-hidden shadow-sm">
-              <table className="w-full text-sm">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* ── Agent Performance ── */}
+          <div className="space-y-4">
+            <h3 className="text-xs font-black uppercase tracking-widest text-m3-secondary/50 flex items-center gap-2">
+                <Users size={16} /> Rankings de Velocidad
+            </h3>
+            <div className="bg-white dark:bg-[#1E1E1E] rounded-[32px] border border-m3-surface-variant/30 dark:border-white/10 overflow-hidden shadow-sm">
+                <table className="w-full text-xs font-bold">
                 <thead>
-                  <tr className="border-b border-gray-100 dark:border-white/5 text-xs uppercase tracking-wide text-gray-400">
-                    <th className="text-left px-4 py-3">Agente</th>
-                    <th className="text-left px-4 py-3 hidden md:table-cell">Escenario</th>
-                    <th className="text-center px-4 py-3">Tiempo</th>
-                    <th className="text-right px-4 py-3 hidden md:table-cell">Fecha</th>
-                    <th className="px-4 py-3"></th>
-                  </tr>
+                    <tr className="bg-m3-surface-variant/10 dark:bg-white/5 text-[9px] uppercase tracking-widest text-gray-400">
+                    <th className="text-left px-5 py-4">Agente</th>
+                    <th className="text-center px-4 py-4">Vol.</th>
+                    <th className="text-center px-4 py-4">Prom.</th>
+                    <th className="text-center px-4 py-4">TOP</th>
+                    </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-50 dark:divide-white/5">
-                  {attempts.map(a => (
-                    <>
-                      <tr key={a.id} className="hover:bg-gray-50 dark:hover:bg-white/5 transition-colors cursor-pointer" onClick={() => setExpandedRow(expandedRow === a.id ? null : a.id)}>
-                        <td className="px-4 py-3">
-                          <p className="font-medium text-m3-secondary dark:text-m3-on-surface-dark truncate max-w-[140px]">{a.userEmail}</p>
-                        </td>
-                        <td className="px-4 py-3 hidden md:table-cell text-gray-500 dark:text-gray-400">{a.scenarioTitle}</td>
-                        <td className="px-4 py-3 text-center">
-                          <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${timeBadge(a.timeSpent)}`}>{a.timeSpent}s</span>
-                        </td>
-                        <td className="px-4 py-3 text-right text-xs text-gray-400 hidden md:table-cell">{formatDate(a.timestamp)}</td>
-                        <td className="px-4 py-3 text-right">
-                          {expandedRow === a.id ? <ChevronUp size={14} className="text-gray-400" /> : <ChevronDown size={14} className="text-gray-400" />}
-                        </td>
-                      </tr>
-                      {expandedRow === a.id && (
-                        <tr key={`${a.id}-expanded`} className="bg-gray-50 dark:bg-white/5">
-                          <td colSpan={5} className="px-4 py-3">
-                            <div className="text-xs space-y-1 text-gray-500 dark:text-gray-400">
-                              <p><span className="font-semibold">Motivo:</span> {a.inputs?.contactReason || '—'}</p>
-                              <p><span className="font-semibold">Acción:</span> {a.inputs?.action || '—'}</p>
-                              <p><span className="font-semibold">Comentario:</span> {a.inputs?.comment || '—'}</p>
+                <tbody className="divide-y divide-m3-surface-variant/10 dark:divide-white/5">
+                    {agentStats.length === 0 ? (
+                        <tr><td colSpan={4} className="p-8 text-center text-gray-400 italic">No hay datos para este grupo</td></tr>
+                    ) : agentStats.map((agent, i) => (
+                    <tr key={agent.uid} className="hover:bg-m3-primary/5 dark:hover:bg-white/5 transition-colors">
+                        <td className="px-5 py-4">
+                            <div className="flex items-center gap-2">
+                                <span className={`text-[8px] font-black w-5 h-5 flex items-center justify-center rounded-full ${i === 0 ? 'bg-yellow-400 text-white' : 'bg-gray-100 text-gray-400'}`}>
+                                    {i + 1}
+                                </span>
+                                <span className="truncate max-w-[140px] text-m3-secondary dark:text-m3-on-surface-dark">{agent.email}</span>
                             </div>
-                          </td>
-                        </tr>
-                      )}
-                    </>
-                  ))}
+                        </td>
+                        <td className="px-4 py-4 text-center text-gray-400">{agent.count}</td>
+                        <td className="px-4 py-4 text-center">
+                        <span className={`px-2 py-1 rounded-lg text-[10px] ${timeBadge(agent.avg)} animate-in zoom-in duration-300`}>{agent.avg}s</span>
+                        </td>
+                        <td className="px-4 py-4 text-center">
+                        <span className="text-m3-primary">{agent.best}s</span>
+                        </td>
+                    </tr>
+                    ))}
                 </tbody>
-              </table>
+                </table>
             </div>
-          )
-        }
+          </div>
+
+          {/* ── Attempts Timeline ── */}
+          <div className="space-y-4">
+            <h3 className="text-xs font-black uppercase tracking-widest text-m3-secondary/50 flex items-center gap-2">
+                <Clock size={16} /> Log de Prácticas
+            </h3>
+            <div className="bg-white dark:bg-[#1E1E1E] rounded-[32px] border border-m3-surface-variant/30 dark:border-white/10 overflow-hidden shadow-sm">
+                <table className="w-full text-xs font-bold">
+                    <thead>
+                    <tr className="bg-m3-surface-variant/10 dark:bg-white/5 text-[9px] uppercase tracking-widest text-gray-400">
+                        <th className="text-left px-5 py-4">Usuario</th>
+                        <th className="text-center px-4 py-4">Tiempo</th>
+                        <th className="text-right px-4 py-4">Fecha</th>
+                        <th className="w-8"></th>
+                    </tr>
+                    </thead>
+                    <tbody className="divide-y divide-m3-surface-variant/10 dark:divide-white/5">
+                    {attempts.length === 0 ? (
+                        <tr><td colSpan={4} className="p-8 text-center text-gray-400 italic">Sin actividad reciente</td></tr>
+                    ) : attempts.map(a => (
+                        <>
+                        <tr key={a.id} className="hover:bg-m3-primary/5 dark:hover:bg-white/5 transition-all cursor-pointer group" onClick={() => setExpandedRow(expandedRow === a.id ? null : a.id)}>
+                            <td className="px-5 py-4">
+                            <p className="text-m3-secondary dark:text-m3-on-surface-dark truncate max-w-[140px]">{a.userEmail}</p>
+                            <p className="text-[9px] text-gray-400 font-bold uppercase truncate max-w-[140px]">{a.scenarioTitle}</p>
+                            </td>
+                            <td className="px-4 py-4 text-center">
+                            <span className={`px-2 py-1 rounded-lg text-[10px] ${timeBadge(a.timeSpent)}`}>{a.timeSpent}s</span>
+                            </td>
+                            <td className="px-4 py-4 text-right text-[9px] text-gray-500 group-hover:text-m3-primary transition-colors">{formatDate(a.timestamp)}</td>
+                            <td className="px-4 py-4 text-right">
+                            {expandedRow === a.id ? <ChevronUp size={16} className="text-m3-primary" /> : <ChevronDown size={16} className="text-gray-300" />}
+                            </td>
+                        </tr>
+                        {expandedRow === a.id && (
+                            <tr key={`${a.id}-expanded`} className="bg-m3-surface-variant/10 dark:bg-black/20 animate-in slide-in-from-top-1 duration-200">
+                            <td colSpan={4} className="px-5 py-5">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-[10px] text-gray-600 dark:text-gray-400">
+                                    <div className="bg-white dark:bg-[#121212] p-3 rounded-2xl border border-m3-surface-variant/20 shadow-sm">
+                                        <p className="uppercase font-black text-m3-primary mb-1">Motivo Contacto</p>
+                                        <p className="italic font-bold">"{a.inputs?.contactReason || 'Sin registro'}"</p>
+                                    </div>
+                                    <div className="bg-white dark:bg-[#121212] p-3 rounded-2xl border border-m3-surface-variant/20 shadow-sm">
+                                        <p className="uppercase font-black text-indigo-500 mb-1">Acción Realizada</p>
+                                        <p className="italic font-bold">"{a.inputs?.action || 'Sin registro'}"</p>
+                                    </div>
+                                </div>
+                            </td>
+                            </tr>
+                        )}
+                        </>
+                    ))}
+                    </tbody>
+                </table>
+            </div>
+          </div>
       </div>
     </div>
   );

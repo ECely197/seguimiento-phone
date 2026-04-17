@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { auth, db } from '../firebaseConfig';
-import { doc, setDoc } from 'firebase/firestore';
-import { getUserDoc } from '../firebasePaths';
+import { getPublicDoc, getUserDoc } from '../firebasePaths';
+import { getDoc, setDoc } from 'firebase/firestore';
 import { ADMIN_UID } from '../constants';
 import { getAgentData, getAgentHistory } from '../api/sheetService';
 import type { AgentResponse, AgentHistory } from '../api/sheetService';
@@ -11,7 +11,7 @@ import { usePermissions } from '../context/PermissionsContext';
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend 
 } from 'recharts';
-import { Clock, Zap, Edit3, Smile, Info, BarChart3, Lightbulb, Loader2, ClipboardList, CheckSquare, TrendingUp } from 'lucide-react';
+import { Clock, Zap, Edit3, Smile, Info, BarChart3, Lightbulb, Loader2, ClipboardList, CheckSquare, TrendingUp, User } from 'lucide-react';
 
 // ── LOB badge colours ──────────────────────────────────────────────────────────
 const LOB_BADGE: Record<string, string> = {
@@ -111,6 +111,9 @@ export default function HomePage() {
   const [isGuest,   setIsGuest]   = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [chartMetric, setChartMetric] = useState<'aht' | 'frt' | 'acw' | 'psat'>('aht');
+  const [lobConfig, setLobConfig] = useState<any | null>(null);
+  const [metricsPending, setMetricsPending] = useState(false);
+  const [isUnassigned, setIsUnassigned] = useState(false);
 
   const now = new Date();
   const today = now.toISOString().split('T')[0];
@@ -133,25 +136,48 @@ export default function HomePage() {
 
       if (user.email) {
         try {
+          // 1. Get User LOB from Firestore
+          const uSnap = await getDoc(getUserDoc(user.uid));
+          const uData = uSnap.data();
+          
+          if (!uData?.lob) {
+            setIsUnassigned(true);
+            setLoading(false);
+            return;
+          }
+          const lobId = uData.lob;
+          setIsUnassigned(false);
+
+          // 2. Get LOB Config (URLs)
+          const lSnap = await getDoc(getPublicDoc('lobs', lobId));
+          const lData = lSnap.data();
+          setLobConfig(lData || null);
+
+          const currentUrl = lData?.currentMetricsUrl;
+          const historyUrl = lData?.historicalMetricsUrl;
+
+          if (!currentUrl && !historyUrl) {
+            setMetricsPending(true);
+            setLoading(false);
+            return;
+          }
+
+          // 3. Fetch from Dynamic URLs
           const [result, history] = await Promise.all([
-            getAgentData(user.email),
-            getAgentHistory(user.email)
+            getAgentData(user.email, currentUrl),
+            historyUrl ? getAgentHistory(user.email, historyUrl) : Promise.resolve(null)
           ]);
 
-          console.log('[HomePage] getAgentData result:', result);
-          console.log('[HomePage] getAgentHistory result:', history);
-
           if (result) {
-            setAgentData(result);
+            setAgentData({ ...result, lob: result.lob === 'dynamic' ? (lData?.name || lobId) : result.lob });
             setHistoryData(history);
             setError('');
-            setDoc(getUserDoc(user.uid), { lob: result.lob, email: user.email }, { merge: true }).catch(() => {});
           } else {
-            setError('Agente no encontrado en ninguna base de datos.');
+            setError('Agente no encontrado en el origen de datos de tu área.');
           }
         } catch (err: any) {
           console.error('[HomePage] error:', err);
-          setError('Error de conexión con la base de datos.');
+          setError('Error de conexión con la base de datos operativa.');
         } finally {
           setLoading(false);
         }
@@ -224,6 +250,22 @@ export default function HomePage() {
         </div>
       )}
 
+      {/* ── Unassigned Account Banner (Onboarding) ─────────────────────────── */}
+      {!loading && isUnassigned && !isAdmin && (
+        <div className="flex flex-col items-center justify-center py-20 px-8 text-center bg-m3-surface-variant/10 dark:bg-white/[0.03] rounded-[48px] border-2 border-dashed border-m3-surface-variant/30">
+          <div className="p-8 bg-m3-primary/10 rounded-full mb-6">
+            <User className="text-m3-primary" size={64} />
+          </div>
+          <h3 className="text-3xl font-black text-m3-secondary dark:text-white leading-tight">¡Bienvenido al equipo!</h3>
+          <p className="text-base text-gray-500 max-w-sm mt-4 leading-relaxed">
+            Tu cuenta está **pendiente de asignación de área**. Por favor, avísale a tu supervisor para que active tu perfil y puedas ver tus resultados.
+          </p>
+          <div className="mt-8 px-6 py-3 bg-white dark:bg-[#1E1E1E] rounded-2xl shadow-sm italic text-xs text-gray-400">
+             Una vez asignado, aquí aparecerán tus métricas de AHT, FRT y PSAT.
+          </div>
+        </div>
+      )}
+
       {/* ── Error ───────────────────────────────────────────────────────────── */}
       {error && !loading && (
         <div className="bg-red-50 border border-red-200 text-red-700 dark:bg-red-900/20 dark:border-red-800/30 dark:text-red-400 px-5 py-4 rounded-2xl mb-6 text-sm">
@@ -231,22 +273,27 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* ── Disabled Module Message ─────────────────────────────────────────── */}
-      {!loading && !permissions.metrics && (
-        <div className="flex flex-col items-center justify-center py-24 gap-4 px-6 text-center">
-          <div className="p-6 bg-m3-surface-variant/20 rounded-full">
-            <BarChart3 className="text-m3-secondary/40" size={64} />
+      {/* ── Pending Metrics Message ─────────────────────────────────────────── */}
+      {!loading && metricsPending && (
+        <div className="flex flex-col items-center justify-center py-24 gap-6 px-8 text-center bg-white/50 dark:bg-white/5 rounded-[40px] border border-dashed border-m3-surface-variant/40">
+          <div className="p-8 bg-blue-50 dark:bg-blue-900/20 rounded-full animate-pulse">
+            <BarChart3 className="text-blue-500" size={64} />
           </div>
-          <h3 className="text-xl font-bold text-m3-secondary">Módulo Deshabilitado</h3>
-          <p className="text-sm text-gray-500 leading-relaxed">
-            Las métricas de rendimiento no están habilitadas para tu área en este momento.
-            Contacta a tu supervisor para más información.
-          </p>
+          <div>
+            <h3 className="text-2xl font-black text-m3-secondary dark:text-white">Panel en Configuración</h3>
+            <p className="text-sm text-gray-500 leading-relaxed mt-2 max-w-sm">
+                Las métricas para tu área (**{agentData?.lob || 'asignada'}**) aún no han sido sincronizadas.
+                <br/><br/>
+                Consulta con tu supervisor para vincular el reporte de Google Sheets correspondiente.
+            </p>
+          </div>
         </div>
       )}
 
+      {/* ── Disabled Module Message ─────────────────────────────────────────── */}
+
       {/* ── Monthly Impact Section (Source A: Real-time B2X/Main Sheet) ───── */}
-      {!loading && !error && agentData && permissions.metrics && (
+      {!loading && !error && agentData && permissions.canViewMetrics && (
         <section className="mb-10">
           <h2 className="text-xl font-bold text-m3-secondary dark:text-m3-on-surface-dark mb-5 flex items-center gap-2">
             <TrendingUp size={22} className="text-m3-primary" />
@@ -261,11 +308,11 @@ export default function HomePage() {
             };
 
             const stats = {
-              aht:  parseStat(m.AHT || m['AHT Real']),
-              frt:  parseStat(m.FRT),
-              acw:  parseStat(m.ACW),
-              psat: parseStat(m.PSAT || m.SAT || m.RES),
-              kpi5: parseStat(m.KPI5)
+              aht:  parseStat(m.aht || m.AHT || m['AHT Real']),
+              frt:  parseStat(m.frt || m.FRT),
+              acw:  parseStat(m.acw || m.ACW),
+              psat: parseStat(m.sat || m.SAT || m.psat || m.PSAT || m.RES),
+              kpi5: parseStat(m.kpi5 || m.KPI5)
             };
 
             return (
@@ -329,14 +376,14 @@ export default function HomePage() {
           </div>
           <div className="bg-white dark:bg-[#1E1E1E] p-6 rounded-2xl border border-m3-surface-variant/20 shadow-sm">
             <p className="text-m3-secondary/80 dark:text-m3-on-surface-dark/90 text-base italic leading-relaxed font-medium">
-              "{agentData?.sugerencia || 'Maximiza tu impacto: mantén el enfoque en la calidad de cada interacción.'}"
+              "{lobConfig?.supervisorSuggestion || 'Sigue dando lo mejor de ti en cada contacto. ¡Excelente turno!'}"
             </p>
           </div>
         </section>
       )}
 
       {/* ── Performance Details Module ─────────────────────────────────────── */}
-      {!loading && !error && historyData?.history && permissions.metrics && (
+      {!loading && !error && historyData?.history && permissions.canViewMetrics && (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
           
           {/* Section: Tendencia Mensual */}

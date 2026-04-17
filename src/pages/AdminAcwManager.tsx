@@ -6,20 +6,27 @@ import {
   serverTimestamp, orderBy, query
 } from 'firebase/firestore';
 import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
-import { Loader2, Plus, Trash2, Pencil, Zap, CheckCircle, X, Upload, Video } from 'lucide-react';
+import { Loader2, Plus, Trash2, Pencil, Zap, CheckCircle, X, Upload, Video, Building2 } from 'lucide-react';
 
 interface AcwScenario {
   id: string;
   title: string;
   videoUrl: string;
+  lobId?: string;
   storagePath?: string;
   contextOrderNumber?: string;
   contextTicketId?: string;
 }
 
 
-export default function AdminAcwManager() {
+interface AdminAcwManagerProps {
+  selectedLob?: string;
+}
+
+export default function AdminAcwManager({ selectedLob: globalLobFilter }: AdminAcwManagerProps) {
   const [scenarios, setScenarios] = useState<AcwScenario[]>([]);
+  const [lobs, setLobs] = useState<any[]>([]);
+  const [selectedLob, setSelectedLob] = useState('');
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
@@ -41,7 +48,24 @@ export default function AdminAcwManager() {
     }
   };
 
-  useEffect(() => { fetchScenarios(); }, []);
+  const fetchLobs = async () => {
+    try {
+        const snap = await getDocs(getPublicCollection('lobs'));
+        setLobs(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    } catch (err) { console.error(err); }
+  };
+
+  useEffect(() => { 
+    fetchScenarios(); 
+    fetchLobs();
+  }, [globalLobFilter]);
+
+  // Sync with global filter
+  useEffect(() => {
+    if (globalLobFilter && globalLobFilter !== 'all') {
+      setSelectedLob(globalLobFilter);
+    }
+  }, [globalLobFilter]);
 
   const handleSave = async () => {
     if (!title.trim()) { setError('El título es obligatorio.'); return; }
@@ -73,6 +97,7 @@ export default function AdminAcwManager() {
 
       const payload: Record<string, unknown> = {
         title: title.trim(),
+        lobId: selectedLob,
         contextOrderNumber: orderNumber.trim(),
         contextTicketId: ticketId.trim(),
       };
@@ -97,6 +122,7 @@ export default function AdminAcwManager() {
 
   const startEditing = (s: AcwScenario) => {
     setTitle(s.title);
+    setSelectedLob(s.lobId || '');
     setOrderNumber(s.contextOrderNumber ?? '');
     setTicketId(s.contextTicketId ?? '');
     setVideoFile(null);
@@ -118,6 +144,7 @@ export default function AdminAcwManager() {
     setShowForm(false);
     setEditingId(null);
     setTitle('');
+    setSelectedLob('');
     setOrderNumber('');
     setTicketId('');
     setVideoFile(null);
@@ -150,6 +177,28 @@ export default function AdminAcwManager() {
               <label className="block text-xs font-semibold text-orange-800/70 dark:text-orange-300/70 mb-1.5 uppercase tracking-wide">Título del Escenario *</label>
               <input type="text" value={title} onChange={e => setTitle(e.target.value)} placeholder="Ej: Local Cerrado"
                 className="w-full px-4 py-2.5 rounded-xl bg-white dark:bg-[#1A1E1E] border border-orange-200 dark:border-orange-900/30 text-sm outline-none focus:ring-2 focus:ring-orange-400 transition-all dark:text-white" />
+            </div>
+
+            {/* LOB Selector */}
+            <div>
+              <label className="block text-xs font-semibold text-orange-800/70 dark:text-orange-300/70 mb-1.5 uppercase tracking-wide">Área (LOB) Destino *</label>
+              <select
+                  value={selectedLob}
+                  onChange={(e) => setSelectedLob(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl bg-white dark:bg-[#1A1E1E] border border-orange-200 dark:border-orange-900/30 text-sm outline-none focus:ring-2 focus:ring-orange-400 transition-all dark:text-white cursor-pointer"
+                  required
+              >
+                  {lobs.length === 0 ? (
+                      <option value="">Cargando áreas...</option>
+                  ) : (
+                      <>
+                          <option value="">Selecciona un Área...</option>
+                          {lobs.map(lob => (
+                              <option key={lob.id} value={lob.id}>{lob.name}</option>
+                          ))}
+                      </>
+                  )}
+              </select>
             </div>
 
             {/* Context Data */}
@@ -212,7 +261,7 @@ export default function AdminAcwManager() {
       {/* ── Add Button ── */}
       {!showForm && (
         <button
-          onClick={() => { setShowForm(true); setEditingId(null); setTitle(''); setVideoFile(null); }}
+          onClick={() => { setShowForm(true); setEditingId(null); setTitle(''); setSelectedLob(''); setVideoFile(null); }}
           className="mb-6 flex items-center gap-2 px-5 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-2xl font-bold text-sm transition-all shadow-md"
         >
           <Plus size={16} /> Agregar Escenario
@@ -229,9 +278,11 @@ export default function AdminAcwManager() {
                 <div className="h-36 bg-black relative">
                   <video src={s.videoUrl} className="absolute inset-0 w-full h-full object-contain" />
                   <div className="absolute top-2 left-2 px-2 py-0.5 bg-orange-500/90 text-white text-[10px] font-bold rounded-full">#{i + 1}</div>
+                  <div className="absolute top-2 right-2 px-2 py-0.5 bg-black/50 text-white text-[10px] font-bold rounded-full uppercase tracking-widest">{s.lobId || 'phone'}</div>
                 </div>
                 <div className="p-4 flex flex-col gap-1">
                   <h4 className="font-bold text-m3-secondary dark:text-m3-on-surface-dark">{s.title}</h4>
+                  <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">LOB: {s.lobId || 'phone'}</p>
                   <div className="flex gap-3 text-xs text-gray-400 font-mono mb-2">
                     {s.contextOrderNumber && <span>Order: {s.contextOrderNumber}</span>}
                     {s.contextTicketId && <span>Ticket: {s.contextTicketId}</span>}

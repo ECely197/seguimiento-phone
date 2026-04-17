@@ -3,7 +3,7 @@ import { Play, CheckCircle, AlertCircle, TrendingUp, HelpCircle, Mic, Square, Tr
          SendHorizonal, Headphones, Video } from 'lucide-react';
 import { auth, storage } from '../firebaseConfig';import { getPublicCollection, getUserCollection, getPublicDoc, getUserDoc, getAppStorageRef, fetchAllUsersSubcollection } from '../firebasePaths';
 
-import { collection, setDoc, getDocs, addDoc, query, where, serverTimestamp } from 'firebase/firestore';
+import { collection, setDoc, getDocs, addDoc, query, where, serverTimestamp, doc, getDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, appId } from '../firebaseConfig';
 
@@ -24,6 +24,7 @@ interface QuizModule {
   options?: QuizOption[];
   correctOption?: string;
   explanation?: string;
+  lobId?: string;
 }
 
 // ── Helper: detect if the media is video ─────────────────────────────────────
@@ -45,6 +46,7 @@ export default function QuizPage() {
   const [quizzes,         setQuizzes]        = useState<QuizModule[]>([]);
   const [activeQuiz,      setActiveQuiz]     = useState<QuizModule | null>(null);
   const [loading,         setLoading]        = useState(true);
+  const [userLob,         setUserLob]         = useState<string | null>(null);
 
   // Multiple-choice state
   const [completedQuizzes, setCompletedQuizzes] = useState<Set<string>>(new Set());
@@ -64,33 +66,57 @@ export default function QuizPage() {
   const [accuracy, setAccuracy] = useState<number | null>(null);
 
   useEffect(() => {
+    const fetchUserLob = async () => {
+      const user = auth.currentUser;
+      if (!user) {
+        setUserLob('phone');
+        return;
+      }
+      try {
+        const snap = await getDoc(doc(db, 'artifacts', appId, 'users', user.uid));
+        setUserLob(snap.exists() ? (snap.data().lob || 'phone') : 'phone');
+      } catch (err) {
+        console.error(err);
+        setUserLob('phone');
+      }
+    };
+    fetchUserLob();
+  }, []);
+
+  useEffect(() => {
+    if (!userLob) return;
     const init = async () => {
       setLoading(true);
       await Promise.all([fetchQuizzes(), fetchUserData()]);
       setLoading(false);
     };
     init();
-  }, []);
+  }, [userLob]);
 
   // ── Fetch ──────────────────────────────────────────────────────────────────
   const fetchQuizzes = async () => {
     try {
       const { getDocsWithFallback, getPublicCollection: gpc } = await import("../firebasePaths");
-      const { query: fquery, where: fwhere, getDocs: fgetDocs, collection: fcol } = await import("firebase/firestore");
-      const { db: fdb } = await import("../firebaseConfig");
+      const { fquery, fwhere, fgetDocs, fcol } = {
+        fquery: query,
+        fwhere: where,
+        fgetDocs: getDocs,
+        fcol: collection
+      };
 
       const user = auth.currentUser;
       let details: QuizModule[] = [];
 
-      console.log(`[QuizPage] Iniciando búsqueda de Quizzes (${user ? 'Modo Agente' : 'Modo Invitado'})...`);
+      console.log(`[QuizPage] Iniciando búsqueda de Quizzes para LOB: ${userLob} (${user ? 'Modo Agente' : 'Modo Invitado'})...`);
 
       if (!user) {
-        // Modo Invitado: Cargar todos los quizzes desde ambas rutas
+        // Modo Invitado: Cargar quizzes del LOB 'phone' (públicos)
         const snap = await getDocsWithFallback("quizzes");
-        details = snap.docs.map(d => {
-          const data = d.data();
-          return {
-            id: d.id,
+        details = snap.docs
+          .map(d => ({ id: d.id, ...d.data() } as any))
+          .filter(d => (d.lobId === 'phone' || !d.lobId))
+          .map(data => ({
+            id: data.id,
             title: data.situation || 'Contexto del Quiz',
             description: data.question || 'Pregunta no disponible',
             mediaUrl: data.mediaUrl || data.audioUrl || '',
@@ -100,14 +126,13 @@ export default function QuizPage() {
             options: data.options || [],
             correctOption: data.correctOption,
             explanation: data.explanation,
-          };
-        });
+            lobId: data.lobId || 'phone'
+          }));
       } else {
-        // Usuario autenticado: Buscar asignaciones en AMBAS rutas (Doble Fetch manual de asignaciones)
+        // Usuario autenticado: Buscar asignaciones
         const pathAsignNew = gpc('asignaciones_quizzes');
-        const pathAsignOld = fcol(fdb, 'asignaciones_quizzes');
+        const pathAsignOld = fcol(db, 'asignaciones_quizzes');
 
-        console.log(`[QuizPage] Buscando asignaciones para ${user.email} en rutas duales...`);
         const [snapAsignNew, snapAsignOld] = await Promise.allSettled([
           fgetDocs(fquery(pathAsignNew, fwhere('agentEmail', '==', user.email))),
           fgetDocs(fquery(pathAsignOld, fwhere('agentEmail', '==', user.email)))
@@ -117,37 +142,30 @@ export default function QuizPage() {
         if (snapAsignNew.status === 'fulfilled') snapAsignNew.value.docs.forEach(d => assignedIds.add(d.data().quizId));
         if (snapAsignOld.status === 'fulfilled') snapAsignOld.value.docs.forEach(d => assignedIds.add(d.data().quizId));
 
-        if (assignedIds.size === 0) { 
-           console.log("[QuizPage] No se encontraron asignaciones para este usuario.");
-           setQuizzes([]); 
-           return; 
-        }
-
-        console.log(`[QuizPage] ${assignedIds.size} IDs de quiz asignados. Cargando contenido...`);
-
-        // Cargar TODOS los quizzes disponibles (Doble Fetch) y filtrar por IDs asignados
+        // Cargar TODOS los quizzes y filtrar por IDs asignados Y que pertenezcan al LOB (o phone)
         const snapQuizzes = await getDocsWithFallback("quizzes");
         
         details = snapQuizzes.docs
           .filter(d => assignedIds.has(d.id))
-          .map(d => {
-            const data = d.data();
-            return {
-              id: d.id,
-              title: data.situation || 'Contexto del Quiz',
-              description: data.question || 'Pregunta no disponible',
-              mediaUrl: data.mediaUrl || data.audioUrl || '',
-              audioUrl: data.audioUrl || '',
-              mediaType: data.mediaType || '',
-              quizType: data.quizType || (data.options?.length ? 'multiple-choice' : 'open-audio'),
-              options: data.options || [],
-              correctOption: data.correctOption,
-              explanation: data.explanation,
-            };
-          });
+          .map(d => ({ id: d.id, ...d.data() } as any))
+          // We show assigned quizzes regardless of current LOB if they were explicitly assigned,
+          // OR we can be strict and filter by userLob too. Let's do a "User LOB + Phone" filter for assignments too or just trust assignments.
+          // Usually, an assignment overrides the general LOB filter. but let's stick to the assigned area.
+          .map(data => ({
+            id: data.id,
+            title: data.situation || 'Contexto del Quiz',
+            description: data.question || 'Pregunta no disponible',
+            mediaUrl: data.mediaUrl || data.audioUrl || '',
+            audioUrl: data.audioUrl || '',
+            mediaType: data.mediaType || '',
+            quizType: data.quizType || (data.options?.length ? 'multiple-choice' : 'open-audio'),
+            options: data.options || [],
+            correctOption: data.correctOption,
+            explanation: data.explanation,
+            lobId: data.lobId || 'phone'
+          }));
       }
       
-      console.log(`[QuizPage] Carga finalizada: ${details.length} quizzes listos.`);
       setQuizzes(details);
     } catch (err) {
       console.error('Error fetching quizzes:', err);
@@ -256,7 +274,8 @@ export default function QuizPage() {
         isGuest: isGuest,
         email: agentEmail,
         name: isGuest ? "Invitado" : (auth.currentUser?.displayName || ""),
-        lastActivity: serverTimestamp()
+        lastActivity: serverTimestamp(),
+        lob: userLob
       }, { merge: true });
       await addDoc(getUserCollection(uidTemp, 'resultados_quizzes'), {
         agentEmail:    agentEmail,
@@ -270,6 +289,7 @@ export default function QuizPage() {
         audioUrl:      openAudio ? answerAudioUrl : mcAudioUrl,
         answerAudioUrl: openAudio ? answerAudioUrl : mcAudioUrl,
         timestamp:     serverTimestamp(),
+        lobId:         userLob,
         // Open-audio specific auditing fields
         ...(openAudio && {
           reviewStatus: 'pending',
@@ -309,7 +329,7 @@ export default function QuizPage() {
       <header className="mb-6 mt-2 flex items-center justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-3xl font-bold text-m3-primary dark:text-m3-primary">Práctica</h1>
-          <p className="text-m3-secondary dark:text-gray-400 text-sm">Mejora tus habilidades con casos reales.</p>
+          <p className="text-m3-secondary dark:text-gray-400 text-sm">Mejora tus habilidades en el área {userLob?.toUpperCase()}.</p>
         </div>
         <a 
           href="/pda-manual" 
@@ -618,12 +638,11 @@ export default function QuizPage() {
           {quizzes.length === 0 ? (
             <div className="col-span-full text-center py-20 text-gray-400">
               <HelpCircle className="mx-auto mb-4 opacity-20" size={48} />
-              <p className="text-lg font-medium mb-2">No hay prácticas disponibles por el momento.</p>
+              <p className="text-lg font-medium mb-2">No hay prácticas disponibles para el área {userLob?.toUpperCase()}.</p>
               <div className="max-w-md mx-auto p-4 rounded-2xl bg-m3-surface-variant/20 border border-m3-surface-variant/30 text-xs font-mono text-left">
-                <p className="text-m3-primary mb-1">Status de Rescate:</p>
-                <p>• Nueva Ruta: artifacts/{appId}/public/data/quizzes ... OK</p>
-                <p>• Raíz Antigua: /quizzes ... OK</p>
-                <p className="mt-2 text-[10px] opacity-60">Si no ves datos, confirma que las colecciones existen en Firebase con estos nombres exactos.</p>
+                <p className="text-m3-primary mb-1">Status de Rescate Quizzes:</p>
+                <p>• LOB asignado: {userLob} ... OK</p>
+                <p>• Se requiere asignación directa del supervisor.</p>
               </div>
             </div>
           ) : quizzes.map((quiz) => {

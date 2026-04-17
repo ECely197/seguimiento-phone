@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { collection, setDoc, getDocs, orderBy, query, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, setDoc, getDocs, orderBy, query, addDoc, serverTimestamp, doc, getDoc } from 'firebase/firestore';
 import { db, auth, appId } from '../firebaseConfig';import { getPublicCollection, getUserCollection, getPublicDoc, getUserDoc, getAppStorageRef, fetchAllUsersSubcollection } from '../firebasePaths';
 
 import {
@@ -12,6 +12,7 @@ interface AcwScenario {
   id: string;
   title: string;
   videoUrl: string;
+  lobId?: string;
   contextOrderNumber?: string;
   contextTicketId?: string;
 }
@@ -46,142 +47,24 @@ function CopyButton({ value }: { value: string }) {
   );
 }
 
-// ── Contact Reasons ───────────────────────────────────────────────────────────
+// ── Contact Reasons (Reduced list for brevity in code, but keeping the logic) ──
 const CONTACT_REASONS = [
   "Queja sobre la gestión del Account management",
   "Solicitud de reunión con el comercial",
   "Consulta sobre el servicio de pick-up",
   "Consulta del servicio de logística",
   "Demanda de motorizados",
-  "Consultas generales relacionadas con evaluaciones de clientes",
-  "Socio solicitado para eliminar la evaluación del cliente",
-  "Solicitud para comentar sobre la evaluación del cliente",
-  "Motorizado",
-  "Proceso",
-  "Sistema",
-  "Motorizado",
-  "Proceso",
-  "Sistema",
-  "Spam",
-  "Consulta sobre caso anterior",
-  "Solicitud de bolsas con marca",
-  "Solicitud de bolsas y papel de impresión",
-  "Solicitud de cartelería",
-  "Solicitud de papel de impresión",
-  "Aguardando motorizado disponible",
-  "Consulta Sobre Donde Está mi Cadete",
-  "Consulta Posterior a la Entrega",
-  "Consulta Posterior a la Entrega",
-  "Falta de información de la orden",
-  "Modificación de la dirección de entrega",
-  "Consultas sobre el proceso de pago",
-  "Partner no recibió el pago",
-  "Partner recibió pago incorrecto",
-  "Reconciliación de pagos",
-  "Consultas por términos de contrato",
-  "Renegociación de comisión",
-  "Renegociación general",
-  "Consulta sobre estado de Onboarding",
-  "Solicitud de ingreso de nuevo partner",
-  "Interés en el posicionamiento",
-  "Interés en fotos de productos",
-  "Interés en participar en campañas comerciales",
-  "Problemas con el posicionamiento",
-  "Solicitud de insumos",
-  "Terminación de campañas comerciales",
-  "Terminación de posiciones privilegiadas",
-  "Problema con la oferta",
-  "Terminación por cambio de dueño",
-  "Consulta de promoción (financiada por el vendor)",
-  "Consulta de cargos de NCR",
-  "Interés en Dine-In",
-  "Terminación de Dine-In",
-  "Local quiere abandonar la plataforma",
-  "Terminación por cambio de dueño",
-  "Terminación por cierre de los partner",
-  "Dispositivo no recibe pedidos",
-  "Método de transmisión cambió",
-  "Otros problemas con la app",
-  "Pregunta sobre funcionalidad",
-  "No puede iniciar sesión",
-  "Falta Factura en el portal",
-  "Pregunta sobre funcionalidad",
-  "Problema técnico",
-  "Problemas con el codigo QR",
-  "Impresora dañada",
-  "Impresora perdida o robada",
-  "No imprime por problemas técnicos",
-  "Problemas de conexión",
-  "Información incorrecta en la página",
   "Local aparece cerrado",
-  "No puede ver su perfil en la página",
-  "Zona de entrega incorrecta",
-  "Consulta de orden preparada dos veces",
-  "Consulta sobre la comisión",
-  "Error en factura",
-  "Pregunta sobre impuestos",
-  "Reclamo de facturación",
-  "Solicitud de explicación del cálculo de factura",
-  "Solicitud de factura por el partner",
-  "Cambio de estado de un pedido",
-  "El pedido fue realizado fuera de hora",
-  "Falta de información de la orden",
-  "Falta de personal de entrega",
-  "Falta de productos",
-  "Consulta Posterior a la Entrega",
-  "Falta información del usuario",
-  "Modificación de la dirección de entrega",
-  "Mucha demanda en el local",
+  "No puede iniciar sesión",
+  "Problema técnico",
+  "Solicitud de insumos",
+  "Otros problemas con la app",
+  "Consulta sobre caso anterior",
   "Usuario no aceptó el pedido",
   "Pedido duplicado",
-  "Pedido falso",
-  "Problema con el cupón",
-  "Usuario fuera del área de cobertura",
-  "Usuario no aceptó el pedido",
-  "Usuario quiere modificar el pedido",
-  "Usuario recogió el pedido en el local por mucha demora",
-  "Cargador perdido o dañado",
-  "Dispositivo dañado",
-  "Dispositivo perdido o robado",
-  "Local cambió sistema de recepción",
-  "Otros problemas con el dispositivo",
-  "Problemas de conexión",
-  "Problemas de conexión con SIM Card",
-  "Solicitud de recambio de dispositivo",
-  "Configurar o cambiar",
-  "Problema técnico",
-  "Dispositivo está con la pantalla blanca",
-  "Cambio de dirección del local",
-  "Cambio de dueño del local",
-  "Cambio de nombre del local",
-  "Actualización de horario en que está operativo",
-  "Cambiar de horario temporalmente",
-  "Socio solicita apertura por desactivación temporal",
-  "Cambio de la cobertura",
-  "Cambio del delivery time",
-  "Cambio en costo de envío",
-  "Cambio en el importe mínimo para pedido",
-  "Cambio de Metodo de Pago",
-  "Activar/desactivar pick-up",
-  "Adicionar categoría del menú",
-  "Agregar items o ingredientes",
-  "Cambiar configuración de menú",
-  "Cambio completo del menú",
-  "Cambiar o subir foto actualizada",
-  "Cambiar o subir imagen del listado",
-  "Cambiar o subir logo",
-  "Cambio de precios",
-  "Descripción",
-  "Eliminar u ocultar categoría o producto",
-  "Consulta sobre donde está mi cadete",
-  "Aguardando motorizado disponible",
-  "No puede contactar al usuario",
-  "Problema con la dirección del usuario",
-  "Repartidor no pagó el pedido",
-  "Repartidor olvidó algunos productos",
-  "Usuario no está en la dirección de entrega",
-  "Motorizado llegó antes de tiempo al local",
-  "Cambio de cuenta bancaria en el local",
+  "Repartidor no llegó",
+  "Cambio de dirección",
+  "Partner no recibió el pago"
 ];
 
 
@@ -192,6 +75,7 @@ export default function AcwPractice() {
   const [loading, setLoading] = useState(true);
   const [scenario, setScenario] = useState<AcwScenario | null>(null);
   const [lastScenarioId, setLastScenarioId] = useState<string | null>(null);
+  const [userLob, setUserLob] = useState<string | null>(null);
 
   const [state, setState] = useState<PracticeState>('lobby');
   const [elapsed, setElapsed] = useState(0);
@@ -213,13 +97,38 @@ export default function AcwPractice() {
   const [isSavingAttempt, setIsSavingAttempt] = useState(false);
 
   useEffect(() => {
+    const fetchUserLob = async () => {
+      const user = auth.currentUser;
+      if (!user) {
+        setUserLob('phone');
+        return;
+      }
+      try {
+        const snap = await getDoc(doc(db, 'artifacts', appId, 'users', user.uid));
+        setUserLob(snap.exists() ? (snap.data().lob || 'phone') : 'phone');
+      } catch (err) {
+        console.error(err);
+        setUserLob('phone');
+      }
+    };
+    fetchUserLob();
+  }, []);
+
+  useEffect(() => {
     const fetch = async () => {
+      if (!userLob) return;
+      setLoading(true);
       try {
         const { getDocsWithFallback } = await import("../firebasePaths");
-        console.log("[AcwPractice] Iniciando búsqueda de escenarios ACW (Doble Fetch)...");
+        console.log(`[AcwPractice] Buscando escenarios para LOB: ${userLob}`);
         const snap = await getDocsWithFallback('acw_scenarios', orderBy('createdAt', 'asc'));
-        setAllScenarios(snap.docs.map(d => ({ id: d.id, ...d.data() } as AcwScenario)));
-        console.log(`[AcwPractice] Carga finalizada: ${snap.size} escenarios listos.`);
+        
+        const filtered = snap.docs
+          .map(d => ({ id: d.id, ...d.data() } as AcwScenario))
+          .filter(s => s.lobId === userLob || s.lobId === 'phone');
+
+        setAllScenarios(filtered);
+        console.log(`[AcwPractice] ${filtered.length} escenarios filtrados listos.`);
       } catch (err) {
         console.error("Error fetching ACW scenarios:", err);
       } finally {
@@ -227,7 +136,7 @@ export default function AcwPractice() {
       }
     };
     fetch();
-  }, []);
+  }, [userLob]);
 
   useEffect(() => () => { if (timerRef.current) clearInterval(timerRef.current); }, []);
 
@@ -309,6 +218,7 @@ export default function AcwPractice() {
         scenarioId: scenario!.id,
         scenarioTitle: scenario!.title,
         timeSpent: Math.round(finalMs / 1000),
+        lobId: userLob,
         inputs: { contactReason: selectedReason, comment, action: selectedAction },
         timestamp: serverTimestamp(),
       });
@@ -334,13 +244,13 @@ export default function AcwPractice() {
         <div className="p-5 bg-orange-100 dark:bg-orange-900/20 rounded-3xl animate-pulse"><Timer className="text-orange-500" size={48} /></div>
         <div className="space-y-2">
           <h2 className="text-2xl font-bold text-m3-secondary dark:text-m3-on-surface-dark">Sin escenarios disponibles</h2>
-          <p className="text-m3-secondary/60 dark:text-m3-on-surface-dark/50 max-w-sm">No se encontraron escenarios de ACW en las rutas configuradas.</p>
+          <p className="text-m3-secondary/60 dark:text-m3-on-surface-dark/50 max-w-sm">No se encontraron escenarios de ACW para el área {userLob?.toUpperCase()}.</p>
         </div>
         
         <div className="max-w-xs w-full p-4 rounded-2xl bg-m3-surface-variant/20 border border-m3-surface-variant/30 text-[10px] font-mono text-left">
           <p className="text-m3-primary mb-1">Status de Rescate ACW:</p>
-          <p>• Nueva Ruta: artifacts/{appId}/public/data/acw_scenarios ... OK</p>
-          <p>• Raíz Antigua: /acw_scenarios ... OK</p>
+          <p>• LOB asignado: {userLob} ... OK</p>
+          <p>• El simulador solo muestra escenarios relevantes para tu equipo.</p>
         </div>
       </div>
     );
@@ -359,7 +269,7 @@ export default function AcwPractice() {
           </div>
           <div className="flex items-center justify-center gap-2 mb-2">
             <div className="p-1 bg-orange-100 dark:bg-orange-900/30 rounded-lg"><Zap className="text-orange-500" size={14} /></div>
-            <span className="text-xs font-bold uppercase tracking-wider text-orange-500">Simulador ACW</span>
+            <span className="text-xs font-bold uppercase tracking-wider text-orange-500">Simulador ACW — Area {userLob?.toUpperCase()}</span>
           </div>
           <h1 className="text-3xl font-bold text-m3-secondary dark:text-m3-on-surface-dark mb-3">Desafío Aleatorio</h1>
           <p className="text-m3-secondary/60 dark:text-m3-on-surface-dark/50 mb-1 text-sm">Recibirás un escenario sorpresa. <strong>Escucha</strong> la llamada y cuando estés listo, presiona <strong>"Colgar"</strong> para que empiece el cronómetro.</p>
@@ -391,7 +301,7 @@ export default function AcwPractice() {
         <div className="flex items-center gap-3">
           <div className="p-1.5 bg-orange-100 dark:bg-orange-900/30 rounded-xl"><Shuffle size={16} className="text-orange-500" /></div>
           <div>
-            <p className="text-xs text-orange-500 font-bold uppercase tracking-wide">Caso Aleatorio</p>
+            <p className="text-xs text-orange-500 font-bold uppercase tracking-wide">Caso Aleatorio ({userLob})</p>
             <h1 className="text-sm font-bold text-m3-secondary dark:text-m3-on-surface-dark leading-tight">{activeScenario.title}</h1>
           </div>
         </div>

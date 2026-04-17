@@ -12,6 +12,7 @@ import ExecutivePlanPage from './pages/ExecutivePlanPage';
 import IdleTrackerRecord from './pages/IdleTrackerRecord';
 import AdminRoute from './components/AdminRoute';
 import ProtectedRoute from './components/ProtectedRoute';
+import AgentChats from './pages/AgentChats';
 import Navbar from './components/Navbar';
 import Header from './components/Header';
 import { PermissionsProvider, usePermissions } from './context/PermissionsContext';
@@ -24,7 +25,7 @@ import { auth, db } from './firebaseConfig';
 import { getUserDoc } from './firebasePaths';
 import { ADMIN_UID } from './constants';
 
-const PermissionGuard = ({ section, children }: { section: 'capacitaciones' | 'quizzes' | 'acw' | 'idle_tracker' | 'metrics', children: React.ReactElement }) => {
+const PermissionGuard = ({ section, children }: { section: 'canViewTraining' | 'canViewQuizzes' | 'canViewACW' | 'canViewIdle' | 'canViewMetrics' | 'canViewChats', children: React.ReactElement }) => {
   const { permissions, loading } = usePermissions();
   if (loading) return <div className="flex h-screen items-center justify-center bg-white dark:bg-[#121212]"><div className="animate-spin rounded-full h-12 w-12 border-4 border-m3-primary border-t-transparent"></div></div>;
   if (!permissions[section]) return <Navigate to="/home" replace />;
@@ -101,23 +102,28 @@ function Layout() {
           <Route element={<ProtectedRoute />}>
             <Route path="/home" element={<HomePage />} />
             <Route path="/procesos" element={
-              <PermissionGuard section="capacitaciones">
+              <PermissionGuard section="canViewTraining">
                 <ProcessPage />
               </PermissionGuard>
             } />
             <Route path="/quizzes" element={
-              <PermissionGuard section="quizzes">
+              <PermissionGuard section="canViewQuizzes">
                 <QuizPage />
               </PermissionGuard>
             } />
             <Route path="/acw" element={
-              <PermissionGuard section="acw">
+              <PermissionGuard section="canViewACW">
                 <AcwPractice />
               </PermissionGuard>
             } />
             <Route path="/idle-tracker" element={
-              <PermissionGuard section="idle_tracker">
+              <PermissionGuard section="canViewIdle">
                 <IdleTrackerRecord />
+              </PermissionGuard>
+            } />
+            <Route path="/mis-chats" element={
+              <PermissionGuard section="canViewChats">
+                <AgentChats />
               </PermissionGuard>
             } />
             <Route 

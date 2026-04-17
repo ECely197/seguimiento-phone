@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
-import { FileEdit, CheckCircle, AlertCircle, Loader2, Upload, Video, Mic } from 'lucide-react';
-import { auth, storage, db } from '../firebaseConfig';import { getPublicCollection, getUserCollection, getPublicDoc, getUserDoc, getAppStorageRef, fetchAllUsersSubcollection } from '../firebasePaths';
+import { FileEdit, CheckCircle, AlertCircle, Loader2, Upload, Video, Mic, Building2 } from 'lucide-react';
+import { auth, storage, db } from '../firebaseConfig';import { getPublicCollection, getPublicDoc, getAppStorageRef } from '../firebasePaths';
 
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { collection, addDoc, serverTimestamp, getDocs } from 'firebase/firestore';
 
-export default function AdminQuizEditor() {
+export default function AdminQuizEditor({ selectedLob: globalLobFilter }: { selectedLob?: string }) {
     // Quiz State
     const [quizSituation, setQuizSituation]   = useState('');
     const [quizQuestion,  setQuizQuestion]    = useState('');
@@ -16,7 +16,7 @@ export default function AdminQuizEditor() {
     const [explanation,   setExplanation]     = useState('');
     const [quizMedia, setQuizMedia] = useState<File | null>(null);
     const [lobs, setLobs] = useState<any[]>([]);
-    const [selectedLob, setSelectedLob] = useState('phone');
+    const [selectedLob, setSelectedLob] = useState('');
 
     useEffect(() => {
         const fetchLobs = async () => {
@@ -28,11 +28,17 @@ export default function AdminQuizEditor() {
         fetchLobs();
     }, []);
 
+    // Sync with global filter
+    useEffect(() => {
+        if (globalLobFilter && globalLobFilter !== 'all') {
+            setSelectedLob(globalLobFilter);
+        }
+    }, [globalLobFilter]);
+
     const [isUploading,   setIsUploading]     = useState(false);
     const [uploadSuccess, setUploadSuccess]   = useState(false);
     const [error,         setError]           = useState<string | null>(null);
 
-    // ── Derived: is this an open-audio quiz? ──────────────────────────────────
     const hasOptions   = optionA.trim() !== '' || optionB.trim() !== '';
     const quizType     = hasOptions ? 'multiple-choice' : 'open-audio';
     const isVideoFile  = quizMedia?.type?.startsWith('video') ?? false;
@@ -43,32 +49,25 @@ export default function AdminQuizEditor() {
 
     const handleQuizSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-
-        // Required: situation + question
         if (!quizSituation.trim() || !quizQuestion.trim()) {
             setError('Por favor completa la Situación y la Pregunta.');
             return;
         }
-        // If multiple-choice, must have at least A + B + correct
         if (hasOptions && (!optionA.trim() || !optionB.trim() || !correctOption)) {
             setError('Para un quiz de opción múltiple, completa al menos las opciones A y B.');
             return;
         }
 
-        setIsUploading(true);
-        setError(null);
-        setUploadSuccess(false);
+        setIsUploading(true); setError(null); setUploadSuccess(false);
 
         try {
             let mediaUrl  = '';
             let mediaType = '';
 
-            // 1. Upload media file if present
             if (quizMedia) {
                 const ext       = quizMedia.name.split('.').pop();
                 const storePath = `quizzes/media/${Date.now()}_${quizMedia.name}`;
                 const storageRef = getAppStorageRef(storePath);
-                // Pass contentType so browsers can stream video natively
                 const snapshot = await uploadBytes(storageRef, quizMedia, {
                     contentType: quizMedia.type || `video/${ext}`,
                 });
@@ -76,7 +75,6 @@ export default function AdminQuizEditor() {
                 mediaType = quizMedia.type;
             }
 
-            // 2. Build options array (empty for open-audio)
             const options = hasOptions
                 ? [
                     { id: 'A', text: optionA },
@@ -85,14 +83,12 @@ export default function AdminQuizEditor() {
                   ]
                 : [];
 
-            // 3. Save to Firestore
             await addDoc(getPublicCollection('quizzes'), {
                 situation:     quizSituation,
                 question:      quizQuestion,
                 lobId:         selectedLob,
                 mediaUrl,
                 mediaType,
-                // Backwards-compat field for old QuizPage code
                 audioUrl:      mediaUrl,
                 quizType,
                 options,
@@ -103,215 +99,152 @@ export default function AdminQuizEditor() {
             });
 
             setUploadSuccess(true);
-            // Reset
-            setQuizSituation('');
-            setQuizQuestion('');
-            setOptionA(''); setOptionB(''); setOptionC('');
-            setCorrectOption('A');
-            setExplanation('');
-            setQuizMedia(null);
-            setSelectedLob('phone');
+            setQuizSituation(''); setQuizQuestion(''); setOptionA(''); setOptionB(''); setOptionC('');
+            setCorrectOption('A'); setExplanation(''); setQuizMedia(null);
+            if (globalLobFilter && globalLobFilter !== 'all') setSelectedLob(globalLobFilter);
+            else setSelectedLob('');
             setTimeout(() => setUploadSuccess(false), 3500);
-
-        } catch (err) {
-            console.error('Quiz upload failed:', err);
-            setError('Error al crear el quiz. Inténtalo de nuevo.');
-        } finally {
-            setIsUploading(false);
-        }
+        } catch (err) { setError('Error al crear el quiz.'); } finally { setIsUploading(false); }
     };
 
     return (
-        <div className="max-w-2xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="flex items-center gap-3 mb-6">
-                <div className="p-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-full">
-                    <FileEdit className="text-emerald-600 dark:text-emerald-400" size={32} />
-                </div>
-                <div>
-                    <h3 className="text-xl font-bold text-m3-secondary dark:text-m3-on-surface-dark">Crear Nuevo Quiz</h3>
-                    <p className="text-sm text-gray-500">Configura evaluaciones o simulaciones de roleplay.</p>
+        <div className="max-w-3xl mx-auto animate-in fade-in slide-in-from-bottom-8 duration-600">
+            {/* Executive Header */}
+            <div className="bg-white dark:bg-[#1E1E1E] p-8 rounded-[40px] border border-m3-surface-variant/30 mb-8 shadow-sm flex items-center justify-between">
+                <div className="flex items-center gap-5">
+                    <div className="p-5 bg-m3-primary/10 rounded-[28px] ring-8 ring-m3-primary/5">
+                        <FileEdit className="text-m3-primary" size={36} />
+                    </div>
+                    <div>
+                        <h3 className="text-3xl font-black text-m3-secondary dark:text-white tracking-tight leading-none">Arquitecto de Quizzes</h3>
+                        <p className="text-[10px] font-black uppercase text-gray-400 tracking-[0.2em] mt-2">Nivel Supervisor · Módulo de Peritaje</p>
+                    </div>
                 </div>
             </div>
 
-            {/* Quiz-type badge */}
-            <div className={`mb-6 flex items-center gap-2 px-4 py-2 rounded-full w-fit text-xs font-bold uppercase tracking-wider ${
-                quizType === 'open-audio'
-                    ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300'
-                    : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
-            }`}>
-                {quizType === 'open-audio' ? <Mic size={13} /> : <CheckCircle size={13} />}
-                {quizType === 'open-audio' ? 'Modo Roleplay (respuesta abierta)' : 'Modo Opción Múltiple'}
-            </div>
-
-            <form onSubmit={handleQuizSubmit} className="space-y-6">
-                {/* Situation */}
-                <div>
-                    <label className="block text-sm font-medium text-m3-secondary dark:text-m3-on-surface-dark/80 mb-2">
-                        Situación Crítica *
-                    </label>
-                    <input
-                        type="text"
-                        value={quizSituation}
-                        onChange={(e) => setQuizSituation(e.target.value)}
-                        placeholder="Ej. Partner molesto por pedido incompleto"
-                        className="w-full px-4 py-3 rounded-xl bg-m3-surface dark:bg-[#2C2C2C] border border-m3-surface-variant dark:border-white/10 focus:border-m3-primary focus:ring-1 focus:ring-m3-primary outline-none transition-all text-m3-secondary dark:text-m3-on-surface-dark"
-                        required
-                    />
-                </div>
-
-                {/* LOB Selector */}
-                <div>
-                    <label className="block text-sm font-medium text-m3-secondary dark:text-m3-on-surface-dark/80 mb-2">
-                        Área (LOB) Destino *
-                    </label>
-                    <select
-                        value={selectedLob}
-                        onChange={(e) => setSelectedLob(e.target.value)}
-                        className="w-full px-4 py-3 rounded-xl bg-m3-surface dark:bg-[#2C2C2C] border border-m3-surface-variant dark:border-white/10 focus:border-m3-primary focus:ring-1 focus:ring-m3-primary outline-none transition-all text-m3-secondary dark:text-m3-on-surface-dark cursor-pointer"
-                        required
-                    >
-                        <option value="phone">Phone (General)</option>
-                        {lobs.map(lob => (
-                            <option key={lob.id} value={lob.id}>{lob.name}</option>
-                        ))}
-                    </select>
-                </div>
-
-                {/* Media upload */}
-                <div>
-                    <label className="block text-sm font-medium text-m3-secondary dark:text-m3-on-surface-dark/80 mb-2">
-                        Clip de Audio o Video (Contexto)
-                    </label>
-                    <div className="border-2 border-dashed border-m3-surface-variant dark:border-white/10 rounded-xl p-4 flex items-center gap-4 hover:bg-m3-surface-variant/10 transition-colors cursor-pointer relative group">
-                        <input
-                            type="file"
-                            accept="audio/*,video/mp4,video/webm,video/ogg,video/quicktime"
-                            onChange={handleMediaFileChange}
-                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                        />
-                        <div className="p-2 bg-m3-primary/10 rounded-full">
-                            {isVideoFile ? <Video size={20} className="text-m3-primary" /> : <Upload size={20} className="text-m3-primary" />}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-m3-secondary dark:text-m3-on-surface-dark truncate">
-                                {quizMedia ? quizMedia.name : 'Subir clip de llamada o video'}
-                            </p>
-                            <p className="text-xs text-gray-500">.mp3 · .wav · .mp4 · .webm (Opcional)</p>
-                        </div>
-                        {quizMedia && (
-                            <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${
-                                isVideoFile
-                                    ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300'
-                                    : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
-                            }`}>
-                                {isVideoFile ? 'Video' : 'Audio'}
-                            </span>
-                        )}
+            <div className="bg-white dark:bg-[#1E1E1E] p-10 rounded-[48px] border border-m3-surface-variant/30 shadow-2xl relative overflow-hidden">
+                <div className="absolute top-0 right-0 p-8">
+                    <div className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-sm ${
+                        quizType === 'open-audio'
+                            ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300'
+                            : 'bg-m3-primary/10 text-m3-primary dark:bg-m3-primary/20 dark:text-m3-primary-dark'
+                    }`}>
+                        {quizType === 'open-audio' ? <Mic size={14} /> : <CheckCircle size={14} />}
+                        {quizType === 'open-audio' ? 'Simulacro de Voz' : 'Peritaje de Selección'}
                     </div>
                 </div>
 
-                {/* Question */}
-                <div>
-                    <label className="block text-sm font-medium text-m3-secondary dark:text-m3-on-surface-dark/80 mb-2">
-                        Pregunta *
-                    </label>
-                    <input
-                        type="text"
-                        value={quizQuestion}
-                        onChange={(e) => setQuizQuestion(e.target.value)}
-                        placeholder="¿Cuál es la mejor respuesta empática?"
-                        className="w-full px-4 py-3 rounded-xl bg-m3-surface dark:bg-[#2C2C2C] border border-m3-surface-variant dark:border-white/10 focus:border-m3-primary focus:ring-1 focus:ring-m3-primary outline-none transition-all text-m3-secondary dark:text-m3-on-surface-dark"
-                        required
-                    />
-                </div>
-
-                {/* Options — optional */}
-                <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                        <label className="block text-sm font-medium text-m3-secondary dark:text-m3-on-surface-dark/80">
-                            Opciones de Respuesta
-                            <span className="ml-2 text-xs font-normal text-gray-400">(Opcional — dejar vacío para Roleplay)</span>
-                        </label>
-                    </div>
-                    {(['A', 'B', 'C'] as const).map((opt) => (
-                        <div key={opt} className="flex gap-3 items-center">
-                            <span className="font-bold text-m3-secondary dark:text-m3-on-surface-dark w-6 text-center">{opt}</span>
+                <form onSubmit={handleQuizSubmit} className="space-y-8">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div>
+                            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3 ml-2">Situación Operativa *</label>
                             <input
-                                type="text"
-                                value={opt === 'A' ? optionA : opt === 'B' ? optionB : optionC}
-                                onChange={(e) => {
-                                    if (opt === 'A') setOptionA(e.target.value);
-                                    if (opt === 'B') setOptionB(e.target.value);
-                                    if (opt === 'C') setOptionC(e.target.value);
-                                }}
-                                placeholder={`Opción ${opt}${opt === 'C' ? ' (opcional)' : ''}`}
-                                className="flex-1 px-4 py-3 rounded-xl bg-m3-surface dark:bg-[#2C2C2C] border border-m3-surface-variant dark:border-white/10 focus:border-m3-primary focus:ring-1 focus:ring-m3-primary outline-none transition-all text-m3-secondary dark:text-m3-on-surface-dark"
+                                type="text" value={quizSituation} onChange={(e) => setQuizSituation(e.target.value)}
+                                placeholder="Ej. Cliente molesto por demora"
+                                className="w-full px-6 py-4 rounded-3xl bg-m3-surface-variant/10 dark:bg-black/20 border border-m3-surface-variant/30 dark:border-white/5 font-bold text-sm focus:ring-4 focus:ring-m3-primary/10 outline-none transition-all dark:text-white"
+                                required
                             />
-                            {/* Only show radio if options exist */}
-                            {hasOptions && (
-                                <input
-                                    type="radio"
-                                    name="correctOption"
-                                    checked={correctOption === opt}
-                                    onChange={() => setCorrectOption(opt)}
-                                    className="w-5 h-5 accent-m3-primary cursor-pointer"
-                                    title="Marcar como correcta"
-                                />
-                            )}
                         </div>
-                    ))}
-                    <p className="text-xs text-gray-500 text-right pr-2">
-                        {hasOptions ? 'Selecciona la correcta con el radio button' : 'Modo Roleplay activo — el agente grabará su respuesta de voz'}
-                    </p>
-                </div>
 
-                {/* Explanation */}
-                <div>
-                    <label className="block text-sm font-medium text-m3-secondary dark:text-m3-on-surface-dark/80 mb-2">
-                        Explicación / Instrucciones{quizType === 'open-audio' ? ' (Qué esperas del agente)' : ' (Feedback)'}
-                    </label>
-                    <textarea
-                        value={explanation}
-                        onChange={(e) => setExplanation(e.target.value)}
-                        placeholder={quizType === 'open-audio'
-                            ? 'Ej. Graba cómo responderías a este cliente molesto de forma empática...'
-                            : 'Explica por qué esta es la respuesta correcta...'}
-                        rows={2}
-                        className="w-full px-4 py-3 rounded-xl bg-m3-surface dark:bg-[#2C2C2C] border border-m3-surface-variant dark:border-white/10 focus:border-m3-primary focus:ring-1 focus:ring-m3-primary outline-none transition-all text-m3-secondary dark:text-m3-on-surface-dark resize-none"
-                    />
-                </div>
-
-                {error && (
-                    <div className="flex items-center gap-2 p-4 bg-red-50 dark:bg-red-900/10 text-red-600 dark:text-red-400 rounded-xl text-sm">
-                        <AlertCircle size={20} />
-                        {error}
+                        <div>
+                            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3 ml-2">Área (LOB) de Despliegue *</label>
+                            <div className="relative">
+                                <Building2 className="absolute left-6 top-1/2 -translate-y-1/2 text-m3-primary" size={18} />
+                                <select
+                                    value={selectedLob} onChange={(e) => setSelectedLob(e.target.value)}
+                                    className="w-full pl-14 pr-6 py-4 rounded-3xl bg-indigo-50/50 dark:bg-black/20 border border-indigo-100 dark:border-white/5 font-black text-sm text-m3-secondary dark:text-white outline-none appearance-none cursor-pointer"
+                                    required
+                                >
+                                    {lobs.length === 0 ? (
+                                        <option value="">Cargando áreas...</option>
+                                    ) : (
+                                        <>
+                                            <option value="">Selecciona un Área...</option>
+                                            {lobs.map(lob => <option key={lob.id} value={lob.id}>{lob.name}</option>)}
+                                        </>
+                                    )}
+                                </select>
+                            </div>
+                        </div>
                     </div>
-                )}
 
-                {uploadSuccess && (
-                    <div className="flex items-center gap-2 p-4 bg-green-50 dark:bg-green-900/10 text-green-600 dark:text-green-400 rounded-xl text-sm animate-in fade-in slide-in-from-top-2">
-                        <CheckCircle size={20} />
-                        ¡Quiz creado exitosamente!
+                    <div>
+                        <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3 ml-2">Contexto Multimedia (Audio/Video)</label>
+                        <div className="border-4 border-dashed border-m3-surface-variant/30 dark:border-white/5 rounded-[40px] p-10 text-center hover:bg-m3-primary/5 transition-all cursor-pointer relative group overflow-hidden">
+                            <input type="file" accept="audio/*,video/*" onChange={handleMediaFileChange} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+                            <div className="flex flex-col items-center gap-4 text-gray-400 group-hover:text-m3-primary transition-all">
+                                <div className="p-4 bg-m3-surface-variant/20 rounded-full group-hover:scale-110 transition-transform">
+                                    {isVideoFile ? <Video size={48} /> : <Upload size={48} />}
+                                </div>
+                                <div className="space-y-1">
+                                    <p className="text-xs font-black uppercase tracking-widest">
+                                        {quizMedia ? quizMedia.name : "Subir Escenario de Audio o Video"}
+                                    </p>
+                                    <p className="text-[10px] opacity-50 font-bold">Máximo 20MB recomendado</p>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                )}
 
-                <button
-                    type="submit"
-                    disabled={isUploading}
-                    className={`w-full py-3.5 rounded-[28px] font-bold text-white flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg
-                        ${isUploading
-                            ? 'bg-gray-400 cursor-not-allowed'
-                            : 'bg-m3-primary hover:bg-blue-700 hover:-translate-y-0.5'
-                        }
-                    `}
-                >
-                    {isUploading ? (
-                        <><Loader2 size={20} className="animate-spin" /> Guardando...</>
-                    ) : (
-                        <><CheckCircle size={20} /> Guardar Quiz</>
-                    )}
-                </button>
-            </form>
+                    <div>
+                        <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3 ml-2">Pregunta Técnica *</label>
+                        <input
+                            type="text" value={quizQuestion} onChange={(e) => setQuizQuestion(e.target.value)}
+                            placeholder="¿Cuál es la acción correctiva inmediata?"
+                            className="w-full px-6 py-4 rounded-3xl bg-m3-surface-variant/10 dark:bg-black/20 border border-m3-surface-variant/30 dark:border-white/5 font-bold text-sm focus:ring-4 focus:ring-m3-primary/10 outline-none transition-all dark:text-white"
+                            required
+                        />
+                    </div>
+
+                    <div className="bg-gray-50/50 dark:bg-black/20 p-8 rounded-[40px] space-y-4 border border-m3-surface-variant/10">
+                        <div className="flex items-center justify-between mb-4">
+                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-2">Matriz de Opciones (Dejar vacío para Roleplay)</label>
+                        </div>
+                        {(['A', 'B', 'C'] as const).map((opt) => (
+                            <div key={opt} className="flex gap-4 items-center group/opt">
+                                <div className="w-12 h-12 rounded-2xl bg-white dark:bg-[#2C2C2C] flex items-center justify-center font-black text-m3-primary shadow-sm border border-m3-surface-variant/20">{opt}</div>
+                                <input
+                                    type="text" value={opt === 'A' ? optionA : opt === 'B' ? optionB : optionC}
+                                    onChange={(e) => {
+                                        if (opt === 'A') setOptionA(e.target.value);
+                                        if (opt === 'B') setOptionB(e.target.value);
+                                        if (opt === 'C') setOptionC(e.target.value);
+                                    }}
+                                    placeholder={`Opción estratégica ${opt}`}
+                                    className="flex-1 px-6 py-3.5 rounded-2xl bg-white dark:bg-[#2C2C2C] border border-m3-surface-variant/20 font-bold text-sm outline-none focus:ring-2 focus:ring-m3-primary/50 transition-all dark:text-white shadow-sm"
+                                />
+                                {hasOptions && (
+                                    <input type="radio" name="correctOption" checked={correctOption === opt} onChange={() => setCorrectOption(opt)} className="w-6 h-6 accent-m3-primary cursor-pointer shadow-sm" />
+                                )}
+                            </div>
+                        ))}
+                    </div>
+
+                    <div>
+                        <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3 ml-2">Retroalimentación / Expectativa *</label>
+                        <textarea
+                            value={explanation} onChange={(e) => setExplanation(e.target.value)}
+                            placeholder="Explica la lógica operativa detrás de la respuesta..."
+                            rows={3}
+                            className="w-full px-6 py-5 rounded-3xl bg-m3-surface-variant/10 dark:bg-black/20 border border-m3-surface-variant/30 dark:border-white/5 font-bold text-sm focus:ring-4 focus:ring-m3-primary/10 outline-none transition-all dark:text-white resize-none shadow-inner"
+                            required
+                        />
+                    </div>
+
+                    {error && <div className="p-5 bg-rose-50 dark:bg-rose-900/10 text-rose-600 font-bold rounded-2xl text-xs flex items-center gap-3"><AlertCircle size={20} /> {error}</div>}
+                    {uploadSuccess && <div className="p-5 bg-emerald-50 dark:bg-emerald-900/10 text-emerald-600 font-bold rounded-2xl text-xs flex items-center gap-3 animate-bounce"><CheckCircle size={20} /> Sincronizado en la Nube</div>}
+
+                    <button
+                        type="submit" disabled={isUploading}
+                        className={`w-full py-5 rounded-[32px] font-black text-[11px] uppercase tracking-[0.3em] text-white flex items-center justify-center gap-4 transition-all shadow-2xl
+                            ${isUploading ? 'bg-gray-400 shadow-none' : 'bg-m3-primary hover:bg-blue-700 hover:scale-[1.01] shadow-m3-primary/30'}
+                        `}
+                    >
+                        {isUploading ? <Loader2 size={24} className="animate-spin" /> : <FileEdit size={24} />}
+                        {isUploading ? 'Desplegando...' : 'Publicar Escenario'}
+                    </button>
+                </form>
+            </div>
         </div>
     );
 }

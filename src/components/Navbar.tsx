@@ -1,5 +1,5 @@
 import { NavLink } from "react-router-dom";
-import { Home, BookOpen, CheckCircle, Timer, Clock } from "lucide-react";
+import { Home, BookOpen, CheckCircle, Timer, Clock, MessageSquare } from "lucide-react";
 import { usePermissions } from "../context/PermissionsContext";
 
 export default function Navbar() {
@@ -7,10 +7,11 @@ export default function Navbar() {
 
   const navItems = [
     { name: "Inicio", path: "/home", icon: Home, show: true },
-    { name: "Explicaciones", path: "/procesos", icon: BookOpen, show: permissions.capacitaciones },
-    { name: "Práctica", path: "/quizzes", icon: CheckCircle, show: permissions.quizzes },
-    { name: "ACW", path: "/acw", icon: Timer, show: permissions.acw },
-    { name: "Idle", path: "/idle-tracker", icon: Clock, show: permissions.idle_tracker },
+    { name: "Explicaciones", path: "/procesos", icon: BookOpen, show: permissions.canViewTraining },
+    { name: "Práctica", path: "/quizzes", icon: CheckCircle, show: permissions.canViewQuizzes },
+    { name: "ACW", path: "/acw", icon: Timer, show: permissions.canViewACW },
+    { name: "Idle", path: "/idle-tracker", icon: Clock, show: permissions.canViewIdle },
+    { name: "Mis Chats", path: "/mis-chats", icon: MessageSquare, show: permissions.canViewChats },
   ].filter(item => item.show);
 
   if (loading) return null;

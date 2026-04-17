@@ -1,7 +1,9 @@
-import { useState } from 'react';
-import { Users, Library, FileEdit, Menu, LogOut, LayoutDashboard, CheckCircle, ListChecks, Zap, Eye, Clock, Shield, Building2, Globe, BarChart3 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Users, Library, FileEdit, Menu, LogOut, LayoutDashboard, CheckCircle, ListChecks, Zap, Eye, Clock, Shield, Building2, Globe, BarChart3, Filter } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { auth } from '../firebaseConfig';
+import { auth, db, appId } from '../firebaseConfig';
+import { getPublicCollection } from '../firebasePaths';
+import { getDocs } from 'firebase/firestore';
 
 import AdminAgents from './AdminAgents';
 import AdminQuizAssigner from './AdminQuizAssigner';
@@ -21,7 +23,22 @@ type AdminSection = 'agents' | 'processes' | 'quizzes' | 'manage-quizzes' | 'ass
 export default function AdminPage() {
   const [activeSection, setActiveSection] = useState<AdminSection>('agents');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [selectedLob, setSelectedLob] = useState<string>('all');
+  const [lobs, setLobs] = useState<{id: string, name: string}[]>([]);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const fetchLobs = async () => {
+      try {
+        const snap = await getDocs(getPublicCollection('lobs'));
+        const list = snap.docs.map(d => ({ id: d.id, name: d.data().name || d.id }));
+        setLobs(list);
+      } catch (e) {
+        console.error("Error fetching lobs for filter:", e);
+      }
+    };
+    fetchLobs();
+  }, []);
 
   const handleLogout = async () => {
     try {
@@ -33,18 +50,17 @@ export default function AdminPage() {
   };
 
   const navItems = [
-    { id: 'agents', label: 'Gestión de Agentes', icon: Users },
-    { id: 'users', label: 'Gestión de Usuarios', icon: Users },
+    { id: 'agents', label: 'Directorio de Agentes', icon: Users },
+    { id: 'users', label: 'Gestión de Accesos', icon: Shield },
     { id: 'processes', label: 'Carga de Contenido', icon: Library },
     { id: 'quizzes', label: 'Crear Quiz', icon: FileEdit },
     { id: 'manage-quizzes', label: 'Gestionar Quizzes', icon: ListChecks },
-    { id: 'assignments', label: 'Asignar Quizzes (Retos)', icon: CheckCircle },
+    { id: 'assignments', label: 'Asignar Quizzes', icon: CheckCircle },
     { id: 'acw', label: 'Simulador ACW', icon: Zap },
-    { id: 'acw-stats', label: 'Estadísticas ACW', icon: Zap },
-    { id: 'idle-report', label: 'Reporte de Disponibilidad', icon: Clock },
-    { id: 'daily-history', label: 'Reporte Histórico Daily', icon: BarChart3 },
-    { id: 'permissions', label: 'Matriz (Legacy)', icon: Shield },
-    { id: 'lob-manager', label: 'Gestión LOB', icon: Building2 },
+    { id: 'acw-stats', label: 'Métricas ACW', icon: BarChart3 },
+    { id: 'idle-report', label: 'Reporte Disponibilidad', icon: Clock },
+    { id: 'daily-history', label: 'Histórico Operativo', icon: BarChart3 },
+    { id: 'lob-manager', label: 'Gestión de Áreas (LOB)', icon: Building2 },
     { id: 'glob-stats', label: 'Consolidado Global', icon: Globe },
   ];
 
@@ -70,7 +86,7 @@ export default function AdminPage() {
             <div className="p-2 bg-m3-primary/10 dark:bg-m3-primary-dark/20 rounded-xl">
                <LayoutDashboard className="text-m3-primary dark:text-m3-primary-dark" size={28} />
             </div>
-            <h1 className="text-xl font-bold text-m3-secondary dark:text-m3-on-surface-dark tracking-tight">
+            <h1 className="text-xl font-bold text-m3-secondary dark:text-m3-on-surface-dark tracking-tight leading-tight">
               Supervisor<br/>Admin Panel
             </h1>
           </div>
@@ -103,28 +119,27 @@ export default function AdminPage() {
           </nav>
         </div>
 
-        <div className="space-y-3">
+        <div className="space-y-3 pt-4 border-t border-m3-surface-variant/30">
           <div className="px-4">
-            <p className="text-xs text-gray-400 mb-1">Usuario Activo</p>
-            <p className="text-sm font-medium text-m3-secondary dark:text-m3-on-surface-dark truncate">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1">Administrador</p>
+            <p className="text-xs font-semibold text-m3-secondary dark:text-m3-on-surface-dark truncate">
               {auth.currentUser?.email}
             </p>
           </div>
 
-          {/* Go to Agent View */}
           <button
             onClick={() => navigate('/home')}
-            className="w-full flex items-center gap-3 px-4 py-3.5 rounded-[28px] bg-m3-surface-variant/50 dark:bg-white/5 border border-m3-surface-variant dark:border-white/10 text-m3-secondary dark:text-m3-on-surface-dark/80 hover:bg-m3-primary/10 dark:hover:bg-m3-primary-dark/10 hover:text-m3-primary dark:hover:text-m3-primary-dark transition-all font-medium text-sm"
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl bg-m3-surface-variant/50 dark:bg-white/5 border border-m3-surface-variant/50 dark:border-white/10 text-m3-secondary dark:text-m3-on-surface-dark/80 hover:bg-m3-primary/10 dark:hover:bg-m3-primary-dark/10 hover:text-m3-primary hover:border-m3-primary transition-all font-bold text-xs"
           >
-            <Eye size={20} />
+            <Eye size={16} />
             Ir a Vista de Agente
           </button>
 
           <button
             onClick={handleLogout}
-            className="w-full flex items-center gap-3 px-4 py-3.5 rounded-[28px] text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors font-medium text-sm"
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors font-bold text-xs"
           >
-            <LogOut size={20} />
+            <LogOut size={16} />
             Cerrar Sesión
           </button>
         </div>
@@ -132,118 +147,92 @@ export default function AdminPage() {
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col h-full relative overflow-hidden">
-        {/* Mobile Header */}
-        <div className="md:hidden flex items-center justify-between p-4 border-b border-m3-surface-variant/50 dark:border-white/10 bg-m3-surface dark:bg-m3-surface-dark">
-            <div className="flex items-center gap-2">
-                <LayoutDashboard className="text-m3-primary dark:text-m3-primary-dark" size={24} />
-                <span className="font-bold text-m3-secondary dark:text-m3-on-surface-dark">Admin</span>
-            </div>
-            <button onClick={() => setIsMobileMenuOpen(true)} className="p-2">
-                <Menu className="text-m3-secondary dark:text-m3-on-surface-dark" />
+        
+        {/* Top bar with filter */}
+        <header className="sticky top-0 z-30 bg-white/80 dark:bg-m3-surface-dark/80 backdrop-blur-md border-b border-m3-surface-variant/50 dark:border-white/10 p-4 md:px-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <button onClick={() => setIsMobileMenuOpen(true)} className="md:hidden p-2 -ml-2">
+                <Menu size={20} className="text-m3-secondary dark:text-m3-on-surface-dark" />
             </button>
-        </div>
+            <div>
+              <h2 className="text-2xl font-black text-m3-secondary dark:text-m3-on-surface-dark">
+                  {navItems.find(i => i.id === activeSection)?.label}
+              </h2>
+              <p className="text-[10px] font-bold text-m3-primary uppercase tracking-widest">Edwin Admin Panel · Phase 2</p>
+            </div>
+          </div>
+
+          {/* GLOBAL LOB FILTER */}
+          <div className="flex items-center gap-3 bg-m3-surface-variant/30 dark:bg-white/5 px-4 py-2 rounded-2xl border border-m3-surface-variant/50 dark:border-white/10 shadow-sm">
+            <Filter size={16} className="text-m3-primary" />
+            <div className="flex flex-col">
+              <span className="text-[9px] font-bold uppercase text-gray-500 leading-none mb-1">Filtrar por Área</span>
+              <select 
+                value={selectedLob}
+                onChange={(e) => setSelectedLob(e.target.value)}
+                className="bg-transparent text-sm font-bold text-m3-secondary dark:text-white outline-none cursor-pointer min-w-[140px]"
+              >
+                <option value="all" className="bg-white dark:bg-[#1E1E1E]">Todos los LOBs</option>
+                {lobs.map(lob => (
+                  <option key={lob.id} value={lob.id} className="bg-white dark:bg-[#1E1E1E]">{lob.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </header>
 
         <div className="flex-1 overflow-y-auto p-4 md:p-8">
-            <header className="mb-8 flex flex-col md:flex-row md:items-start justify-between gap-4">
-                <div>
-                  <h2 className="text-3xl font-bold text-m3-secondary dark:text-m3-on-surface-dark mb-2">
-                      {navItems.find(i => i.id === activeSection)?.label}
-                  </h2>
-                  <p className="text-m3-secondary/70 dark:text-m3-on-surface-dark/60">
-                      Panel de control exclusivo para supervisores.
-                  </p>
-                </div>
-                
-                {/* Executive Report Access Button */}
-                <div className="flex flex-col items-end gap-2">
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => {
-                        navigator.clipboard.writeText(window.location.origin + '/pda-manual');
-                        alert('Enlace del Manual de Agentes copiado al portapapeles');
-                      }}
-                      className="flex items-center gap-2 px-4 py-2 bg-green-600 dark:bg-green-700 text-white font-bold rounded-[20px] shadow-sm hover:bg-green-700 dark:hover:bg-green-600 transition-colors text-sm"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
-                      Copiar Link para Agentes
-                    </button>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => {
-                        navigator.clipboard.writeText(window.location.origin + '/executive-plan');
-                        alert('Enlace del Plan Ejecutivo copiado al portapapeles');
-                      }}
-                      className="flex items-center gap-2 px-4 py-2 bg-indigo-600 dark:bg-indigo-700 text-white font-bold rounded-[20px] shadow-sm hover:bg-indigo-700 dark:hover:bg-indigo-600 transition-colors text-sm"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
-                      Copiar Link Plan Ejecutivo
-                    </button>
-                  </div>
-                  
-                  <div className="flex items-center gap-2">
-                    <a
-                      href="/executive-report/team-vitals"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-2 px-4 py-2 bg-m3-primary text-white font-bold rounded-[20px] shadow-sm hover:bg-m3-primary/90 transition-colors text-sm"
-                    >
-                      <LayoutDashboard size={18} /> Repo. Ejecutivo
-                    </a>
-                    <button
-                      onClick={() => {
-                        navigator.clipboard.writeText(window.location.origin + '/executive-report/team-vitals');
-                        alert('Enlace copiado al portapapeles');
-                      }}
-                      title="Copiar Link"
-                      className="p-2 bg-white dark:bg-[#2C2C2C] text-m3-secondary dark:text-white border border-m3-surface-variant dark:border-white/10 rounded-full shadow-sm hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-                    </button>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <a
-                      href="/executive-report/hourly-trends"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white font-bold rounded-[20px] shadow-sm hover:bg-purple-700 transition-colors text-sm"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
-                      Dashboard Evolutivo
-                    </a>
-                    <button
-                      onClick={() => {
-                        navigator.clipboard.writeText(window.location.origin + '/executive-report/hourly-trends');
-                        alert('Enlace del Dashboard Evolutivo copiado al portapapeles');
-                      }}
-                      title="Copiar Link"
-                      className="p-2 bg-white dark:bg-[#2C2C2C] text-m3-secondary dark:text-white border border-m3-surface-variant dark:border-white/10 rounded-full shadow-sm hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-                    </button>
-                  </div>
-                </div>
-            </header>
-
             {/* Content Area */}
-            <div className={`bg-white dark:bg-[#1E1E1E] rounded-[28px] min-h-[500px] shadow-sm border border-m3-surface-variant/50 dark:border-white/5 p-8 relative overflow-hidden transition-all duration-300 ${activeSection !== 'agents' ? 'ring-1 ring-m3-primary/10' : ''}`}>
+            <div className="bg-white dark:bg-[#1E1E1E] rounded-[32px] min-h-[600px] shadow-sm border border-m3-surface-variant/50 dark:border-white/5 p-6 md:p-8 relative overflow-hidden transition-all duration-300">
                 
-                {/* Content Rendering Switch */}
-                {activeSection === 'agents' && <AdminAgents />}
-                {activeSection === 'users' && <AdminUsers />}
-                {activeSection === 'processes' && <AdminProcessUpload />}
-                {activeSection === 'quizzes' && <AdminQuizEditor />}
-                {activeSection === 'manage-quizzes' && <AdminQuizManager />}
-                {activeSection === 'assignments' && <AdminQuizAssigner />}
-                { activeSection === 'acw' && <AdminAcwManager /> }
-                { activeSection === 'acw-stats' && <AdminAcwStats /> }
-                { activeSection === 'idle-report' && <AdminIdleReport /> }
-                { activeSection === 'permissions' && <AdminLobPermissions /> }
-                { activeSection === 'lob-manager' && <AdminLobManager /> }
-                { activeSection === 'daily-history' && <AdminHistoryReport /> }
-                { activeSection === 'glob-stats'  && <div className="p-12 text-center text-gray-500">Próximamente: Dashboard Consolidado Global</div> }
+                {/* Content Rendering Switch with selectedLob filter */}
+                {activeSection === 'agents' && <AdminAgents selectedLob={selectedLob} />}
+                {activeSection === 'users' && <AdminUsers selectedLob={selectedLob} />}
+                {activeSection === 'processes' && <AdminProcessUpload selectedLob={selectedLob} />}
+                {activeSection === 'quizzes' && <AdminQuizEditor selectedLob={selectedLob} />}
+                {activeSection === 'manage-quizzes' && <AdminQuizManager selectedLob={selectedLob} />}
+                {activeSection === 'assignments' && <AdminQuizAssigner selectedLob={selectedLob} />}
+                {activeSection === 'acw' && <AdminAcwManager selectedLob={selectedLob} /> }
+                {activeSection === 'acw-stats' && <AdminAcwStats selectedLob={selectedLob} /> }
+                {activeSection === 'idle-report' && <AdminIdleReport selectedLob={selectedLob} /> }
+                {activeSection === 'lob-manager' && <AdminLobManager /> }
+                {activeSection === 'daily-history' && <AdminHistoryReport selectedLob={selectedLob} /> }
+                {activeSection === 'glob-stats'  && (
+                  <div className="flex flex-col items-center justify-center py-24 text-center">
+                    <div className="p-6 bg-blue-50 dark:bg-blue-900/20 rounded-full mb-6">
+                      <Globe size={64} className="text-blue-500" />
+                    </div>
+                    <h3 className="text-2xl font-bold text-m3-secondary dark:text-white">Consolidado Global</h3>
+                    <p className="text-gray-500 max-w-sm mt-2">Próximamente: Panel de control unificado con métricas comparativas entre áreas.</p>
+                  </div>
+                )}
 
+            </div>
+            
+            {/* Utility Quick Links - Redesigned */}
+            <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+               {[
+                 { label: 'Manual Agentes', url: '/pda-manual', color: 'bg-emerald-500' },
+                 { label: 'Plan Ejecutivo', url: '/executive-plan', color: 'bg-indigo-500' },
+                 { label: 'Repo. Vitals', url: '/executive-report/team-vitals', color: 'bg-m3-primary' },
+                 { label: 'Evolutivo Dash', url: '/executive-report/hourly-trends', color: 'bg-purple-500' }
+               ].map(link => (
+                 <div key={link.label} className="bg-white dark:bg-[#1E1E1E] p-4 rounded-2xl border border-m3-surface-variant/40 dark:border-white/10 shadow-sm flex items-center justify-between gap-3">
+                   <div className="flex items-center gap-3">
+                    <div className={`w-2 h-2 rounded-full ${link.color}`} />
+                    <span className="text-xs font-bold text-m3-secondary dark:text-gray-300">{link.label}</span>
+                   </div>
+                   <button 
+                    onClick={() => {
+                        navigator.clipboard.writeText(window.location.origin + link.url);
+                        alert(`Enlace de ${link.label} copiado`);
+                    }}
+                    className="p-1.5 hover:bg-m3-surface-variant/50 dark:hover:bg-white/5 rounded-lg transition-colors text-gray-400"
+                   >
+                     <ListChecks size={14} />
+                   </button>
+                 </div>
+               ))}
             </div>
         </div>
       </main>
