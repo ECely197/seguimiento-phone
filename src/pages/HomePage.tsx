@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { auth, db } from '../firebaseConfig';
-import { getPublicDoc, getUserDoc } from '../firebasePaths';
-import { getDoc, setDoc } from 'firebase/firestore';
+import { getPublicDoc, getUserDoc, getPublicCollection } from '../firebasePaths';
+import { getDoc, setDoc, getDocs } from 'firebase/firestore';
 import { ADMIN_UID } from '../constants';
 import { getAgentData, getAgentHistory } from '../api/sheetService';
 import type { AgentResponse, AgentHistory } from '../api/sheetService';
@@ -105,6 +105,7 @@ function MonthlyImpactCard({ label, value, unit, icon: Icon, colorClass, status 
 export default function HomePage() {
   const [agentData, setAgentData] = useState<AgentResponse | null>(null);
   const [historyData, setHistoryData] = useState<AgentHistory | null>(null);
+  const [dynamicMetrics, setDynamicMetrics] = useState<Record<string, any> | null | undefined>(undefined);
   const [loading,   setLoading]   = useState(true);
   const [error,     setError]     = useState('');
   const [isAdmin,   setIsAdmin]   = useState(false);
@@ -112,8 +113,8 @@ export default function HomePage() {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [chartMetric, setChartMetric] = useState<'aht' | 'frt' | 'acw' | 'psat'>('aht');
   const [lobConfig, setLobConfig] = useState<any | null>(null);
-  const [metricsPending, setMetricsPending] = useState(false);
   const [isUnassigned, setIsUnassigned] = useState(false);
+  const [isScanning, setIsScanning] = useState(false);
 
   const now = new Date();
   const today = now.toISOString().split('T')[0];
@@ -140,41 +141,165 @@ export default function HomePage() {
           const uSnap = await getDoc(getUserDoc(user.uid));
           const uData = uSnap.data();
           
-          if (!uData?.lob) {
-            setIsUnassigned(true);
-            setLoading(false);
-            return;
+          let lobId = uData?.lob || uData?.lobId;
+          let lobConf = null;
+          let activeMetricsObj = null;
+
+          if (lobId) {
+             const lSnap = await getDoc(getPublicDoc('lobs', lobId));
+             if (lSnap.exists()) {
+                 lobConf = lSnap.data();
+                 if (lobConf.currentMetricsUrl) {
+                     try {
+                         const res = await fetch(lobConf.currentMetricsUrl, { redirect: 'follow' });
+                         const rawData = await res.json();
+                         
+                         let finalMetrics: Record<string, any> = {};
+                         const userKey = user?.email?.toLowerCase().trim() || '';
+
+                         // FORMATO 1: API de Recupero/Phone (Lista global de agentes en rawData.data)
+                         if (rawData.status === 'success' && Array.isArray(rawData.data) && rawData.headers) {
+                           const agentObj = rawData.data.find((a: any) => 
+                             (a.correo && a.correo.toLowerCase().trim() === userKey) || 
+                             (a.email && a.email.toLowerCase().trim() === userKey)
+                           );
+                           
+                           if (agentObj && Array.isArray(agentObj.metrics)) {
+                             const headerOffset = rawData.headers[0].toLowerCase() === 'correo' ? 1 : 0;
+                             agentObj.metrics.forEach((metricVal: any, index: number) => {
+                               const headerName = String(rawData.headers[index + headerOffset] || `Métrica ${index}`);
+                               if (headerName.toLowerCase() !== 'correo') finalMetrics[headerName] = metricVal;
+                             });
+                           }
+                         } 
+                         // FORMATO 2: API de Recupero/Phone (Respuesta directa individual con rawData.metrics)
+                         else if (rawData.status === 'success' && rawData.headers && rawData.metrics) {
+                           const headersArray = Array.isArray(rawData.headers) ? rawData.headers : Object.values(rawData.headers);
+                           const metricsArray = Array.isArray(rawData.metrics) ? rawData.metrics : Object.values(rawData.metrics);
+                           
+                           headersArray.forEach((header: any, index: number) => {
+                             const headerStr = String(header);
+                             if (headerStr.toLowerCase() !== 'correo' && headerStr.toLowerCase() !== 'email') {
+                               finalMetrics[headerStr] = metricsArray[index];
+                             }
+                           });
+                         } 
+                         // FORMATO 3: API de Claims/B2X (Diccionario directo por correo)
+                         else {
+                           finalMetrics = rawData[userKey] || {};
+                         }
+
+                         // 3. Asignar al estado que dibuja las tarjetas
+                         activeMetricsObj = Object.keys(finalMetrics).length > 0 ? finalMetrics : null;
+
+                     } catch(err) {
+                         console.error("Error fetching current LOB metrics:", err);
+                     }
+                 }
+             }
           }
-          const lobId = uData.lob;
+
+          if (!lobId || !activeMetricsObj) {
+              setIsScanning(true);
+              let foundLobId = null;
+              try {
+                  const lobsSnap = await getDocs(getPublicCollection('lobs'));
+                  const targetEmail = user.email.toLowerCase().trim();
+                  for (const docSnap of lobsSnap.docs) {
+                     const scanLobConf = docSnap.data();
+                     // Evitar volver a buscar en la URL que ya falló
+                     if (scanLobConf.currentMetricsUrl && scanLobConf.currentMetricsUrl !== lobConf?.currentMetricsUrl) {
+                        try {
+                           const res = await fetch(scanLobConf.currentMetricsUrl, { redirect: 'follow' });
+                           const rawData = await res.json();
+                           
+                           let finalMetrics: Record<string, any> = {};
+                           const userKey = user?.email?.toLowerCase().trim() || '';
+
+                           // FORMATO 1: API de Recupero/Phone (Lista global de agentes en rawData.data)
+                           if (rawData.status === 'success' && Array.isArray(rawData.data) && rawData.headers) {
+                             const agentObj = rawData.data.find((a: any) => 
+                               (a.correo && a.correo.toLowerCase().trim() === userKey) || 
+                               (a.email && a.email.toLowerCase().trim() === userKey)
+                             );
+                             
+                             if (agentObj && Array.isArray(agentObj.metrics)) {
+                               const headerOffset = rawData.headers[0].toLowerCase() === 'correo' ? 1 : 0;
+                               agentObj.metrics.forEach((metricVal: any, index: number) => {
+                                 const headerName = String(rawData.headers[index + headerOffset] || `Métrica ${index}`);
+                                 if (headerName.toLowerCase() !== 'correo') finalMetrics[headerName] = metricVal;
+                               });
+                             }
+                           } 
+                           // FORMATO 2: API de Recupero/Phone (Respuesta directa individual con rawData.metrics)
+                           else if (rawData.status === 'success' && rawData.headers && rawData.metrics) {
+                             const headersArray = Array.isArray(rawData.headers) ? rawData.headers : Object.values(rawData.headers);
+                             const metricsArray = Array.isArray(rawData.metrics) ? rawData.metrics : Object.values(rawData.metrics);
+                             
+                             headersArray.forEach((header: any, index: number) => {
+                               const headerStr = String(header);
+                               if (headerStr.toLowerCase() !== 'correo' && headerStr.toLowerCase() !== 'email') {
+                                 finalMetrics[headerStr] = metricsArray[index];
+                               }
+                             });
+                           } 
+                           // FORMATO 3: API de Claims/B2X (Diccionario directo por correo)
+                           else {
+                             finalMetrics = rawData[userKey] || {};
+                           }
+                           
+                           let found = Object.keys(finalMetrics).length > 0 ? finalMetrics : null;
+                           
+                           if (found) {
+                              foundLobId = docSnap.id;
+                              await setDoc(getUserDoc(user.uid), { lob: foundLobId, lobId: foundLobId }, { merge: true });
+                              lobId = foundLobId;
+                              lobConf = scanLobConf;
+                              activeMetricsObj = found;
+                              break;
+                           }
+                        } catch(e) {
+                           console.error("Scan error for lob", docSnap.id, e);
+                        }
+                     }
+                  }
+              } catch(e) {}
+              setIsScanning(false);
+          }
+
+          if (!lobId) {
+             setIsUnassigned(true);
+             setLoading(false);
+             return;
+          }
+
           setIsUnassigned(false);
-
-          // 2. Get LOB Config (URLs)
-          const lSnap = await getDoc(getPublicDoc('lobs', lobId));
-          const lData = lSnap.data();
-          setLobConfig(lData || null);
-
-          const currentUrl = lData?.currentMetricsUrl;
-          const historyUrl = lData?.historicalMetricsUrl;
-
-          if (!currentUrl && !historyUrl) {
-            setMetricsPending(true);
-            setLoading(false);
-            return;
-          }
-
-          // 3. Fetch from Dynamic URLs
-          const [result, history] = await Promise.all([
-            getAgentData(user.email, currentUrl),
-            historyUrl ? getAgentHistory(user.email, historyUrl) : Promise.resolve(null)
-          ]);
-
-          if (result) {
-            setAgentData({ ...result, lob: result.lob === 'dynamic' ? (lData?.name || lobId) : result.lob });
-            setHistoryData(history);
-            setError('');
+          setLobConfig(lobConf || null);
+          
+          let extractedName = user.email.split('@')[0];
+          if (activeMetricsObj) {
+              if (activeMetricsObj.nombre || activeMetricsObj.agente || activeMetricsObj.name || activeMetricsObj.Agente) {
+                  extractedName = activeMetricsObj.nombre || activeMetricsObj.agente || activeMetricsObj.name || activeMetricsObj.Agente;
+              }
+              setDynamicMetrics(activeMetricsObj);
           } else {
-            setError('Agente no encontrado en el origen de datos de tu área.');
+              setDynamicMetrics(lobConf?.currentMetricsUrl ? {} : null);
           }
+
+          if (lobConf?.historicalMetricsUrl) {
+             try {
+                const history = await getAgentHistory(user.email, lobConf.historicalMetricsUrl);
+                setHistoryData(history);
+             } catch(e) {}
+          }
+
+          setAgentData({ 
+            name: extractedName, 
+            lob: lobConf?.name || lobId, 
+            rawMetrics: {} 
+          } as any);
+          setError('');
+
         } catch (err: any) {
           console.error('[HomePage] error:', err);
           setError('Error de conexión con la base de datos operativa.');
@@ -246,7 +371,9 @@ export default function HomePage() {
       {loading && (
         <div className="flex flex-col items-center justify-center py-24 gap-4">
           <Loader2 className="animate-spin text-m3-primary dark:text-m3-primary-dark" size={44} />
-          <p className="text-sm text-m3-secondary/60 dark:text-m3-on-surface-dark/50">Cargando tus métricas...</p>
+          <p className="text-sm text-m3-secondary/60 dark:text-m3-on-surface-dark/50">
+            {isScanning ? 'Escaneando bases de datos para asignarte a tu equipo...' : 'Cargando tus métricas...'}
+          </p>
         </div>
       )}
 
@@ -273,24 +400,7 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* ── Pending Metrics Message ─────────────────────────────────────────── */}
-      {!loading && metricsPending && (
-        <div className="flex flex-col items-center justify-center py-24 gap-6 px-8 text-center bg-white/50 dark:bg-white/5 rounded-[40px] border border-dashed border-m3-surface-variant/40">
-          <div className="p-8 bg-blue-50 dark:bg-blue-900/20 rounded-full animate-pulse">
-            <BarChart3 className="text-blue-500" size={64} />
-          </div>
-          <div>
-            <h3 className="text-2xl font-black text-m3-secondary dark:text-white">Panel en Configuración</h3>
-            <p className="text-sm text-gray-500 leading-relaxed mt-2 max-w-sm">
-                Las métricas para tu área (**{agentData?.lob || 'asignada'}**) aún no han sido sincronizadas.
-                <br/><br/>
-                Consulta con tu supervisor para vincular el reporte de Google Sheets correspondiente.
-            </p>
-          </div>
-        </div>
-      )}
 
-      {/* ── Disabled Module Message ─────────────────────────────────────────── */}
 
       {/* ── Monthly Impact Section (Source A: Real-time B2X/Main Sheet) ───── */}
       {!loading && !error && agentData && permissions.canViewMetrics && (
@@ -300,66 +410,46 @@ export default function HomePage() {
             Tu Impacto este Mes (Acumulado Real)
           </h2>
           
-          {(() => {
-            const m = agentData.rawMetrics || {};
-            const parseStat = (v: any) => {
-              const val = parseFloat(String(v || '0').replace(/[^0-9.\-]/g, ''));
-              return isNaN(val) ? 0 : (val > 0 && val <= 1 && !String(v).includes('%') ? val * 100 : val);
-            };
+          {/* Contenedor Lógico de Tarjetas Dinámicas */}
+          {dynamicMetrics === undefined ? (
+            <div className="flex flex-col items-center justify-center p-8">
+               <Loader2 className="animate-spin text-m3-primary" size={32} />
+               <p className="mt-4 text-m3-on-surface-variant font-medium dark:text-gray-400">Sincronizando tus métricas...</p>
+            </div>
+          ) : dynamicMetrics === null ? (
+            <div className="bg-m3-surface p-8 rounded-2xl text-center border border-gray-200 mb-8 dark:bg-[#1E1E1E] dark:border-white/10">
+              <h3 className="text-lg font-bold text-m3-on-surface dark:text-white">Panel en Configuración</h3>
+              <p className="text-m3-on-surface-variant mt-2 dark:text-gray-400">Las métricas para tu área aún no han sido vinculadas por el supervisor.</p>
+            </div>
+          ) : Object.keys(dynamicMetrics).length > 0 ? (
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4 mb-8">
+              {Object.entries(dynamicMetrics).map(([key, value]) => {
+                const lowerKey = key.toLowerCase();
+                if (['agente', 'nombre', 'name', 'correo', 'email', 'lob'].includes(lowerKey)) return null;
 
-            const stats = {
-              aht:  parseStat(m.aht || m.AHT || m['AHT Real']),
-              frt:  parseStat(m.frt || m.FRT),
-              acw:  parseStat(m.acw || m.ACW),
-              psat: parseStat(m.sat || m.SAT || m.psat || m.PSAT || m.RES),
-              kpi5: parseStat(m.kpi5 || m.KPI5)
-            };
-
-            return (
-              <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-                <MonthlyImpactCard 
-                  label="AHT Mes" 
-                  value={stats.aht.toFixed(1)} 
-                  unit="seg" 
-                  icon={Clock} 
-                  status={stats.aht < 280 ? 'green' : stats.aht < 320 ? 'yellow' : 'red'}
-                  colorClass={{ bg: 'bg-blue-50 dark:bg-blue-900/20', text: 'text-blue-600 dark:text-blue-400' }} 
-                />
-                <MonthlyImpactCard 
-                  label="FRT Mes" 
-                  value={stats.frt.toFixed(1)} 
-                  unit="seg" 
-                  icon={Zap} 
-                  status={stats.frt < 60 ? 'green' : stats.frt < 90 ? 'yellow' : 'red'}
-                  colorClass={{ bg: 'bg-orange-50 dark:bg-orange-900/20', text: 'text-orange-600 dark:text-orange-400' }} 
-                />
-                <MonthlyImpactCard 
-                  label="ACW Mes" 
-                  value={stats.acw.toFixed(1)} 
-                  unit="seg" 
-                  icon={Edit3} 
-                  status={stats.acw < 20 ? 'green' : stats.acw < 40 ? 'yellow' : 'red'}
-                  colorClass={{ bg: 'bg-purple-50 dark:bg-purple-900/20', text: 'text-purple-600 dark:text-purple-400' }} 
-                />
-                <MonthlyImpactCard 
-                  label="PSAT Mes" 
-                  value={stats.psat.toFixed(1)} 
-                  unit="%" 
-                  icon={Smile} 
-                  status={stats.psat > 85 ? 'green' : stats.psat > 75 ? 'yellow' : 'red'}
-                  colorClass={{ bg: 'bg-emerald-50 dark:bg-emerald-900/20', text: 'text-emerald-600 dark:text-emerald-400' }} 
-                />
-                <MonthlyImpactCard 
-                  label="Calidad (KPI 5)" 
-                  value={stats.kpi5.toFixed(1)} 
-                  unit="%" 
-                  icon={CheckSquare} 
-                  status={stats.kpi5 > 90 ? 'green' : stats.kpi5 > 80 ? 'yellow' : 'red'}
-                  colorClass={{ bg: 'bg-indigo-50 dark:bg-indigo-900/20', text: 'text-indigo-600 dark:text-indigo-400' }} 
-                />
-              </div>
-            );
-          })()}
+                // Formateo de números: máximo 1 decimal, y si es entero no poner .0
+                const formattedValue = typeof value === 'number' 
+                  ? (Number.isInteger(value) ? value : value.toFixed(1)) 
+                  : (!isNaN(Number(value)) && String(value).includes('.'))
+                    ? Number(value).toFixed(1)
+                    : value;
+                
+                return (
+                  <div key={key} className="bg-m3-surface p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-center dark:bg-[#1E1E1E] dark:border-white/10">
+                    <span className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
+                       {key.replace(/_/g, ' ')}
+                    </span>
+                    <span className="text-3xl font-black text-m3-primary">{formattedValue}</span>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="bg-yellow-50 text-yellow-800 p-6 rounded-2xl mb-8 border border-yellow-200 text-center dark:bg-yellow-900/10 dark:text-yellow-500 dark:border-yellow-900/30">
+              <h3 className="font-bold text-lg mb-1">No hay datos para tu usuario</h3>
+              <p>Tu correo <b>{auth.currentUser?.email}</b> no fue encontrado en ningún equipo. Verifica con tu supervisor.</p>
+            </div>
+          )}
         </section>
       )}
 

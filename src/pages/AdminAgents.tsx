@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { collection, getDocs, getDoc, query, where, deleteDoc, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, getDocs, getDoc, query, where, deleteDoc, doc, updateDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db, auth, appId as firebaseAppId } from '../firebaseConfig';
 // @ts-ignore
 const appId = typeof __app_id !== 'undefined' ? __app_id : firebaseAppId;
@@ -185,7 +185,7 @@ export default function AdminAgents({ selectedLob: globalLobFilter }: { selected
     try {
       const snap = await getDocs(getPublicCollection('lobs'));
       const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      setLobs(list.map(l => ({ id: l.id, name: l.name })));
+      setLobs(list.map((l: any) => ({ id: l.id, name: l.name })));
 
       const newGroups: Record<string, AgentGroup> = {};
 
@@ -193,21 +193,42 @@ export default function AdminAgents({ selectedLob: globalLobFilter }: { selected
           if (lob.currentMetricsUrl) {
               try {
                   const res = await fetch(lob.currentMetricsUrl, { redirect: 'follow' });
-                  const json = await res.json();
+                  const rawData = await res.json();
                   
                   let agentsArr: any[] = [];
-                  if (Array.isArray(json)) {
-                      agentsArr = json;
-                  } else if (json.data && Array.isArray(json.data)) {
-                      agentsArr = json.data;
-                  } else if (typeof json === 'object' && json !== null) {
-                      // Handing case where API returns `{ "email@...": { aht: 100 } }`
-                      agentsArr = Object.entries(json).map(([key, val]: [string, any]) => {
-                          if (typeof val === 'object') {
-                              return { correo: key, ...val };
+
+                  // Formato A: API de Recupero (Devuelve rawData.data como array de objetos {correo, metrics})
+                  if (rawData.status === 'success' && rawData.data && rawData.headers) {
+                    agentsArr = rawData.data.map((agent: any) => {
+                      let obj: Record<string, any> = { correo: agent.correo || agent.email || 'Sin correo' };
+                      
+                      // El offset asegura que no sobreescribamos el email si el primer header es "Correo"
+                      const headerOffset = rawData.headers[0]?.toLowerCase() === 'correo' ? 1 : 0;
+                      
+                      // Convertir el array de metrics en propiedades del objeto usando los headers
+                      if (Array.isArray(agent.metrics)) {
+                        agent.metrics.forEach((val: any, idx: number) => {
+                          const headerName = rawData.headers[idx + headerOffset];
+                          if (headerName) obj[headerName] = val;
+                        });
+                      }
+                      return obj;
+                    });
+                  } 
+                  // Formato B: API de Claims / B2X (Devuelve un Diccionario u otras estructuras)
+                  else if (typeof rawData === 'object' && rawData !== null) {
+                    if (Array.isArray(rawData)) {
+                        agentsArr = rawData;
+                    } else if (rawData.data && Array.isArray(rawData.data)) {
+                        agentsArr = rawData.data;
+                    } else {
+                        agentsArr = Object.entries(rawData).map(([email, metrics]) => {
+                          if (typeof metrics === 'object' && metrics !== null) {
+                             return { correo: email, ...metrics };
                           }
-                          return val;
-                      }).filter(val => typeof val === 'object');
+                          return { correo: email, value: metrics };
+                        });
+                    }
                   }
 
                   newGroups[lob.id] = { 
@@ -282,12 +303,16 @@ export default function AdminAgents({ selectedLob: globalLobFilter }: { selected
       const q = query(usersRef, where('email', '==', email));
       const snap = await getDocs(q);
       
-      if (!snap.empty) {
-        await updateDoc(doc(db, 'artifacts', appId, 'users', snap.docs[0].id), {
-          lob: agentLob,
-          updatedAt: serverTimestamp()
-        });
-      }
+      const targetUid = snap.empty ? email : snap.docs[0].id;
+      const userRef = doc(db, 'artifacts', appId, 'users', targetUid);
+      
+      // Aseguramos que se use setDoc con merge para no arrojar "not found"
+      await setDoc(userRef, {
+        lob: agentLob,
+        lobId: agentLob,
+        email: email,
+        updatedAt: serverTimestamp()
+      }, { merge: true });
 
       const patch = { ...dynamicGroups };
       if (patch[selectedSrc]) {
