@@ -9,11 +9,11 @@ import {
   ChevronRight, Search, X, Loader2, TrendingUp,
   CheckCircle, XCircle, RefreshCw, User, Edit3, Save, Clock, Building2
 } from 'lucide-react';
-import { updateAgentSuggestion, getMainAgents, getRecuperoAgents, getB2xAgents } from '../api/sheetService';
+import { updateAgentSuggestion } from '../api/sheetService';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 interface Agent { [key: string]: any; }
-interface AgentGroup { agents: Agent[]; columns: string[]; }
+interface AgentGroup { name: string; agents: Agent[]; columns: string[]; }
 interface LobConfig { id: string; name: string; }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -24,9 +24,9 @@ const getEmail = (a: Agent) => a.correo ?? a.Correo ?? a.email ?? a.Email ?? '';
 const getName  = (a: Agent) => a.agente ?? a.Agente ?? a.nombre ?? a.name ?? '';
 const initials = (a: Agent) => getName(a).substring(0, 2).toUpperCase() || '??';
 
-const NUM_COLS = new Set(['AHT Real', 'ATT', 'ACW', 'HS Gestionadas', 'Prod. Tot. Llamadas', 'Prod. Tot. Efectivas', 'AHT', 'FRT']);
-const PCT_COLS = new Set(['RES', 'PSAT', 'No contestada', 'SAT']);
-const INT_COLS = new Set(['Efectiva', 'Tot. Llamadas']);
+const NUM_COLS = new Set(['total_casos', 'AHT Real', 'ATT', 'ACW', 'HS Gestionadas', 'Prod. Tot. Llamadas', 'Prod. Tot. Efectivas', 'AHT', 'FRT', 'aht', 'frt', 'acw', 'sat', 'hs', 'prod']);
+const PCT_COLS = new Set(['RES', 'PSAT', 'No contestada', 'SAT', 'sat', 'psat']);
+const INT_COLS = new Set(['Efectiva', 'Tot. Llamadas', 'total_casos']);
 
 const fmtNum = (v: any): string => {
   const n = parseFloat(String(v ?? '').replace(/[^0-9.\-]/g, ''));
@@ -48,9 +48,9 @@ const fmtInt = (v: any): string => {
 
 const fmtCell = (col: string, v: any): string => {
   if (v === null || v === undefined || v === '') return '—';
-  if (INT_COLS.has(col)) return fmtInt(v);
-  if (NUM_COLS.has(col)) return fmtNum(v);
-  if (PCT_COLS.has(col)) return fmtPct(v);
+  if (INT_COLS.has(col) || INT_COLS.has(col.toLowerCase())) return fmtInt(v);
+  if (NUM_COLS.has(col) || NUM_COLS.has(col.toLowerCase())) return fmtNum(v);
+  if (PCT_COLS.has(col) || PCT_COLS.has(col.toLowerCase())) return fmtPct(v);
   return String(v);
 };
 
@@ -64,7 +64,7 @@ function AgentTable({
   agents: Agent[]; columns: string[];
   selected: Agent | null; onSelect: (a: Agent) => void;
 }) {
-  const metricCols = columns.filter(c => !EMAIL_COLS.has(c));
+  const metricCols = columns.filter(c => !EMAIL_COLS.has(c) && c.toLowerCase() !== 'agente' && c.toLowerCase() !== 'nombre' && c.toLowerCase() !== 'name');
 
   return (
     <div className="mb-8 animate-in fade-in duration-500">
@@ -134,17 +134,14 @@ function AgentTable({
 // ── Main component ─────────────────────────────────────────────────────────────
 export default function AdminAgents({ selectedLob: globalLobFilter }: { selectedLob?: string }) {
   // Data
-  const [mainGroup,     setMainGroup]     = useState<AgentGroup>({ agents: [], columns: [] });
-  const [recuperoGroup, setRecuperoGroup] = useState<AgentGroup>({ agents: [], columns: [] });
-  const [b2xGroup,      setB2xGroup]      = useState<AgentGroup>({ agents: [], columns: [] });
+  const [dynamicGroups, setDynamicGroups] = useState<Record<string, AgentGroup>>({});
   const [loading,       setLoading]       = useState(true);
   const [loadError,     setLoadError]     = useState<string | null>(null);
-  const [dynamicGroup,  setDynamicGroup]   = useState<AgentGroup>({ agents: [], columns: [] });
 
   // UI
   const [searchTerm,    setSearchTerm]    = useState('');
   const [selected,      setSelected]      = useState<Agent | null>(null);
-  const [selectedSrc,   setSelectedSrc]   = useState<'main' | 'recupero' | 'b2x'>('main');
+  const [selectedSrc,   setSelectedSrc]   = useState<string>('');
   const [suggestion,    setSuggestion]    = useState('');
   const [agentLob,      setAgentLob]      = useState('phone');
   const [lobs,          setLobs]          = useState<LobConfig[]>([]);
@@ -157,7 +154,7 @@ export default function AdminAgents({ selectedLob: globalLobFilter }: { selected
   const [quizMap,        setQuizMap]        = useState<Record<string, string>>({});
   const [resultsLoading, setResultsLoading] = useState(false);
 
-  useEffect(() => { loadAll(); fetchQuizzes(); fetchLobs(); }, [globalLobFilter]);
+  useEffect(() => { loadAll(); fetchQuizzes(); }, []);
 
   useEffect(() => {
     if (selected) {
@@ -168,14 +165,6 @@ export default function AdminAgents({ selectedLob: globalLobFilter }: { selected
       }
     }
   }, [selected]);
-
-  const fetchLobs = async () => {
-    try {
-      const snap = await getDocs(getPublicCollection('lobs'));
-      const list = snap.docs.map(d => ({ id: d.id, name: d.data().name }));
-      setLobs(list);
-    } catch (err) { console.error('[AdminAgents] fetchLobs:', err); }
-  };
 
   const fetchAgentRecord = async (email: string) => {
     try {
@@ -194,32 +183,46 @@ export default function AdminAgents({ selectedLob: globalLobFilter }: { selected
     setLoading(true);
     setLoadError(null);
     try {
-      // 1. Fetch Legacy 
-      const [mainRaw, recuperoRaw, b2xRaw] = await Promise.all([
-        getMainAgents(),
-        getRecuperoAgents(),
-        getB2xAgents(),
-      ]);
-      const m = Array.isArray(mainRaw)     ? mainRaw     : [];
-      const r = Array.isArray(recuperoRaw) ? recuperoRaw : [];
-      const b = Array.isArray(b2xRaw)      ? b2xRaw      : [];
-      setMainGroup({     agents: m, columns: deriveColumns(m) });
-      setRecuperoGroup({ agents: r, columns: deriveColumns(r) });
-      setB2xGroup({      agents: b, columns: deriveColumns(b) });
+      const snap = await getDocs(getPublicCollection('lobs'));
+      const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      setLobs(list.map(l => ({ id: l.id, name: l.name })));
 
-      // 2. Fetch Dynamic if explicitly selected
-      if (globalLobFilter && !['all', 'phone', 'recupero', 'b2x'].includes(globalLobFilter)) {
-          const lSnap = await getDoc(getPublicDoc('lobs', globalLobFilter));
-          const lData = lSnap.data();
-          if (lData?.currentMetricsUrl) {
-              const res = await fetch(lData.currentMetricsUrl, { redirect: 'follow' });
-              const json = await res.json();
-              const agents = Array.isArray(json) ? json : json.data || [];
-              setDynamicGroup({ agents, columns: deriveColumns(agents) });
-          } else {
-              setDynamicGroup({ agents: [], columns: [] });
+      const newGroups: Record<string, AgentGroup> = {};
+
+      await Promise.all(list.map(async (lob: any) => {
+          if (lob.currentMetricsUrl) {
+              try {
+                  const res = await fetch(lob.currentMetricsUrl, { redirect: 'follow' });
+                  const json = await res.json();
+                  
+                  let agentsArr: any[] = [];
+                  if (Array.isArray(json)) {
+                      agentsArr = json;
+                  } else if (json.data && Array.isArray(json.data)) {
+                      agentsArr = json.data;
+                  } else if (typeof json === 'object' && json !== null) {
+                      // Handing case where API returns `{ "email@...": { aht: 100 } }`
+                      agentsArr = Object.entries(json).map(([key, val]: [string, any]) => {
+                          if (typeof val === 'object') {
+                              return { correo: key, ...val };
+                          }
+                          return val;
+                      }).filter(val => typeof val === 'object');
+                  }
+
+                  newGroups[lob.id] = { 
+                      name: lob.name || lob.id,
+                      agents: agentsArr, 
+                      columns: deriveColumns(agentsArr) 
+                  };
+              } catch (e) {
+                  console.error(`Error fetching metrics for LOB ${lob.id}:`, e);
+                  newGroups[lob.id] = { name: lob.name || lob.id, agents: [], columns: [] };
+              }
           }
-      }
+      }));
+
+      setDynamicGroups(newGroups);
     } catch (err) {
       console.error('[AdminAgents] loadAll:', err);
       setLoadError('No se pudieron cargar los datos de las planillas.');
@@ -286,13 +289,16 @@ export default function AdminAgents({ selectedLob: globalLobFilter }: { selected
         });
       }
 
-      const patch = (prev: AgentGroup): AgentGroup => ({
-        ...prev,
-        agents: prev.agents.map(a =>
-          getEmail(a) === getEmail(selected!) ? { ...a, sugerencia: suggestion } : a
-        ),
-      });
-      if (selectedSrc === 'main') setMainGroup(patch); else if (selectedSrc === 'recupero') setRecuperoGroup(patch); else setB2xGroup(patch);
+      const patch = { ...dynamicGroups };
+      if (patch[selectedSrc]) {
+          patch[selectedSrc] = {
+              ...patch[selectedSrc],
+              agents: patch[selectedSrc].agents.map(a =>
+                  getEmail(a) === getEmail(selected) ? { ...a, sugerencia: suggestion } : a
+              )
+          };
+      }
+      setDynamicGroups(patch);
       setSelected(null);
       alert('Cambios guardados correctamente.');
     } catch (err) { 
@@ -304,21 +310,11 @@ export default function AdminAgents({ selectedLob: globalLobFilter }: { selected
 
   // Filter Logic: Selected Search Term + Global LOB Filter
   const t = searchTerm.toLowerCase();
-  const applyFilters = (agents: Agent[], sourceLob: string) => {
-    // 1. Filter by Global LOB Selector
-    if (globalLobFilter && globalLobFilter !== 'all' && globalLobFilter !== sourceLob) {
-        return [];
-    }
-
-    // 2. Filter by Search Term
+  const applyFilters = (agents: Agent[]) => {
     return !t ? agents : agents.filter(a =>
       getName(a).toLowerCase().includes(t) || getEmail(a).toLowerCase().includes(t)
     );
   };
-
-  const fMain     = applyFilters(mainGroup.agents, 'phone');
-  const fRecupero = applyFilters(recuperoGroup.agents, 'recupero');
-  const fB2x      = applyFilters(b2xGroup.agents, 'b2x');
 
   const accuracy = () => {
     if (!agentResults.length) return 0;
@@ -360,60 +356,49 @@ export default function AdminAgents({ selectedLob: globalLobFilter }: { selected
         )}
 
         {/* Dynamic Table Rendering based on filters */}
-        {(globalLobFilter === 'all' || globalLobFilter === 'phone') && (
-            <AgentTable
-                title="Phone / General"
-                badgeClass="bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300"
-                count={fMain.length}
-                agents={fMain}
-                columns={mainGroup.columns}
-                selected={selected}
-                onSelect={a => { setSelected(a); setSelectedSrc('main'); }}
-            />
-        )}
+        {Object.entries(dynamicGroups).map(([lobId, group], index) => {
+            if (globalLobFilter && globalLobFilter !== 'all' && globalLobFilter !== lobId) {
+                return null;
+            }
 
-        {(globalLobFilter === 'all' || globalLobFilter === 'recupero') && (
-            <AgentTable
-                title="Recupero"
-                badgeClass="bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300"
-                count={fRecupero.length}
-                agents={fRecupero}
-                columns={recuperoGroup.columns}
-                selected={selected}
-                onSelect={a => { setSelected(a); setSelectedSrc('recupero'); }}
-            />
-        )}
+            const filteredAgents = applyFilters(group.agents);
+            const colors = [
+                'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300',
+                'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300',
+                'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300',
+                'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300',
+                'bg-pink-100 text-pink-800 dark:bg-pink-900/40 dark:text-pink-300'
+            ];
+            const badgeColor = colors[index % colors.length];
 
-        {(globalLobFilter === 'all' || globalLobFilter === 'b2x') && (
-            <AgentTable
-                title="B2X Metrics"
-                badgeClass="bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300"
-                count={fB2x.length}
-                agents={fB2x}
-                columns={b2xGroup.columns}
-                selected={selected}
-                onSelect={a => { setSelected(a); setSelectedSrc('b2x'); }}
-            />
-        )}
+            return (
+                <AgentTable
+                    key={lobId}
+                    title={group.name}
+                    badgeClass={badgeColor}
+                    count={filteredAgents.length}
+                    agents={filteredAgents}
+                    columns={group.columns}
+                    selected={selected}
+                    onSelect={a => { setSelected(a); setSelectedSrc(lobId); }}
+                />
+            );
+        })}
 
-        {/* Dynamic LOB Table */}
-        {globalLobFilter !== 'all' && !['phone', 'recupero', 'b2x'].includes(globalLobFilter!) && (
-            <AgentTable
-                title={lobs.find(l => l.id === globalLobFilter)?.name || globalLobFilter!}
-                badgeClass="bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300"
-                count={dynamicGroup.agents.length}
-                agents={dynamicGroup.agents.filter(a => !t || getName(a).toLowerCase().includes(t) || getEmail(a).toLowerCase().includes(t))}
-                columns={dynamicGroup.columns}
-                selected={null} // Keep it simple for now or implement full sync
-                onSelect={a => { setSelected(a); }}
-            />
-        )}
-        
-        {globalLobFilter !== 'all' && globalLobFilter !== 'phone' && globalLobFilter !== 'recupero' && globalLobFilter !== 'b2x' && (
+        {/* Empty States */}
+        {globalLobFilter && globalLobFilter !== 'all' && !dynamicGroups[globalLobFilter] && (
            <div className="flex flex-col items-center justify-center py-20 text-center bg-gray-50 dark:bg-white/5 rounded-[32px] border-2 border-dashed border-gray-200 dark:border-white/10">
               <Building2 size={48} className="text-gray-300 mb-4" />
-              <p className="text-sm font-bold text-gray-400 uppercase tracking-widest">Sin datos de planilla para {globalLobFilter}</p>
-              <p className="text-xs text-gray-500 mt-2 max-w-xs">Este LOB dinámico aún no tiene una fuente de datos (Google Sheet) vinculada al directorio.</p>
+              <p className="text-sm font-bold text-gray-400 uppercase tracking-widest">Sin datos de planilla para {lobs.find(l=>l.id === globalLobFilter)?.name || globalLobFilter}</p>
+              <p className="text-xs text-gray-500 mt-2 max-w-xs">Esta área aún no tiene una fuente de datos (Google Sheet) vinculada al directorio.</p>
+           </div>
+        )}
+        
+        {Object.keys(dynamicGroups).length === 0 && !loading && (
+           <div className="flex flex-col items-center justify-center py-20 text-center bg-gray-50 dark:bg-white/5 rounded-[32px] border-2 border-dashed border-gray-200 dark:border-white/10">
+              <Building2 size={48} className="text-gray-300 mb-4" />
+              <p className="text-sm font-bold text-gray-400 uppercase tracking-widest">Sin áreas configuradas</p>
+              <p className="text-xs text-gray-500 mt-2 max-w-xs">Aún no se han añadido áreas con URLs de métricas válidas.</p>
            </div>
         )}
       </div>
@@ -440,10 +425,8 @@ export default function AdminAgents({ selectedLob: globalLobFilter }: { selected
               <div className="flex-1">
                 <h3 className="text-xl font-bold text-m3-secondary dark:text-white leading-tight">{getName(selected) || '—'}</h3>
                 <p className="text-sm text-gray-500 font-medium mb-2">{getEmail(selected)}</p>
-                <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full shadow-sm
-                  ${selectedSrc === 'recupero' ? 'bg-orange-100 text-orange-800' : 
-                    selectedSrc === 'b2x' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}`}>
-                  Planilla: {selectedSrc.toUpperCase()}
+                <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full shadow-sm bg-blue-100 text-blue-800`}>
+                  Planilla: {dynamicGroups[selectedSrc]?.name || selectedSrc.toUpperCase()}
                 </span>
               </div>
             </div>
@@ -552,3 +535,4 @@ export default function AdminAgents({ selectedLob: globalLobFilter }: { selected
     </div>
   );
 }
+
