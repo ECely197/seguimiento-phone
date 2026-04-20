@@ -110,8 +110,8 @@ export default function HomePage() {
   const [error,     setError]     = useState('');
   const [isAdmin,   setIsAdmin]   = useState(false);
   const [isGuest,   setIsGuest]   = useState(false);
-  const [historyLoading, setHistoryLoading] = useState(false);
-  const [chartMetric, setChartMetric] = useState<'aht' | 'frt' | 'acw' | 'psat'>('aht');
+  const [historicalKpis, setHistoricalKpis] = useState<string[]>([]);
+  const [activeGraphKpi, setActiveGraphKpi] = useState<string>('');
   const [lobConfig, setLobConfig] = useState<any | null>(null);
   const [isUnassigned, setIsUnassigned] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
@@ -290,6 +290,11 @@ export default function HomePage() {
              try {
                 const history = await getAgentHistory(user.email, lobConf.historicalMetricsUrl);
                 setHistoryData(history);
+                const agentHistory = history?.history || {};
+                const firstValidDate = Object.keys(agentHistory).find(date => Object.keys(agentHistory[date]).length > 0);
+                const detectedKpis = firstValidDate ? Object.keys(agentHistory[firstValidDate]).filter(k => k.toLowerCase() !== 'fecha' && k.toLowerCase() !== 'date') : [];
+                setHistoricalKpis(detectedKpis);
+                if (detectedKpis.length > 0) setActiveGraphKpi(detectedKpis[0]);
              } catch(e) {}
           }
 
@@ -486,18 +491,6 @@ export default function HomePage() {
                 </h3>
                 <p className="text-xs text-m3-secondary/60 dark:text-m3-on-surface-dark/50 italic">Evolución completa del mes actual (1 al 31)</p>
               </div>
-              
-              <div className="flex p-1 bg-m3-surface-variant/20 dark:bg-white/5 rounded-xl w-fit">
-                {['aht', 'frt', 'acw', 'psat'].map((m) => (
-                  <button 
-                    key={m}
-                    onClick={() => setChartMetric(m as any)}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all uppercase ${chartMetric === m ? 'bg-white dark:bg-m3-primary text-m3-primary dark:text-white shadow-sm' : 'text-m3-secondary/60 dark:text-m3-on-surface-dark/40'}`}
-                  >
-                    {m}
-                  </button>
-                ))}
-              </div>
             </div>
 
             {(() => {
@@ -511,16 +504,12 @@ export default function HomePage() {
                 const day = i + 1;
                 const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
                 
-                const dayData = history[dateStr] || { aht: null, frt: null, acw: null, psat: null, kpi5: null };
+                const dayData = history[dateStr] || {};
                 return {
                   day: day,
                   date: `${day}/${month + 1}`,
                   fullDate: dateStr,
-                  aht: dayData.aht,
-                  frt: dayData.frt,
-                  acw: dayData.acw,
-                  psat: dayData.psat,
-                  kpi5: (dayData as any).kpi5
+                  ...dayData
                 };
               });
 
@@ -532,6 +521,24 @@ export default function HomePage() {
 
               return (
                 <>
+                  {historicalKpis.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mb-6">
+                      {historicalKpis.map(kpi => (
+                        <button
+                          key={`btn-${kpi}`}
+                          onClick={() => setActiveGraphKpi(kpi)}
+                          className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase transition-colors ${
+                            activeGraphKpi === kpi 
+                              ? 'bg-m3-primary text-white shadow-md' 
+                              : 'bg-m3-surface-variant text-m3-on-surface-variant hover:bg-m3-primary hover:text-white opacity-70 dark:bg-white/5 dark:text-gray-400 dark:hover:bg-m3-primary dark:hover:text-white'
+                          }`}
+                        >
+                          {kpi.replace(/_/g, ' ')}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
                   <div className="h-72 w-full mb-12">
                     <ResponsiveContainer width="100%" height="100%">
                       <LineChart data={monthArray}>
@@ -539,16 +546,20 @@ export default function HomePage() {
                         <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#888888'}} interval={0} />
                         <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#888888'}} />
                         <Tooltip contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)', fontSize: '12px' }} />
-                        <Line 
-                          type="monotone" 
-                          dataKey={chartMetric} 
-                          stroke={chartMetric === 'aht' ? '#3B82F6' : chartMetric === 'frt' ? '#EAB308' : chartMetric === 'acw' ? '#A855F7' : '#10B981'} 
-                          strokeWidth={3} 
-                          dot={{ r: 3, strokeWidth: 2, fill: '#fff' }} 
-                          activeDot={{ r: 5 }} 
-                          connectNulls={true}
-                          animationDuration={1000} 
-                        />
+                        
+                        {activeGraphKpi && (
+                          <Line 
+                            type="monotone" 
+                            dataKey={activeGraphKpi} 
+                            name={activeGraphKpi.toUpperCase().replace(/_/g, ' ')} 
+                            stroke="#3b82f6" 
+                            strokeWidth={3} 
+                            dot={{ r: 4, strokeWidth: 2, fill: '#1e293b' }} 
+                            activeDot={{ r: 6, fill: '#3b82f6' }} 
+                            connectNulls 
+                            animationDuration={500}
+                          />
+                        )}
                       </LineChart>
                     </ResponsiveContainer>
                   </div>
@@ -564,11 +575,9 @@ export default function HomePage() {
                           <thead className="bg-m3-surface-variant/20 dark:bg-white/5 text-gray-500 font-bold uppercase tracking-wider">
                             <tr>
                               <th className="px-4 py-3">Día</th>
-                              <th className="px-4 py-3 text-center">AHT</th>
-                              <th className="px-4 py-3 text-center">FRT</th>
-                              <th className="px-4 py-3 text-center">ACW</th>
-                              <th className="px-4 py-3 text-center">PSAT</th>
-                              <th className="px-4 py-3 text-center">KPI 5</th>
+                              {historicalKpis.map(kpi => (
+                                <th key={kpi} className="px-4 py-3 text-center">{kpi.replace(/_/g, ' ')}</th>
+                              ))}
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-m3-surface-variant/10 dark:divide-white/5">
@@ -597,11 +606,18 @@ export default function HomePage() {
                                       )}
                                     </div>
                                   </td>
-                                  <td className="px-4 py-2.5 text-center">{row.aht ? fmtNum(row.aht) : '—'}</td>
-                                  <td className="px-4 py-2.5 text-center">{row.frt ? fmtNum(row.frt) : '—'}</td>
-                                  <td className="px-4 py-2.5 text-center">{row.acw ? fmtNum(row.acw) : '—'}</td>
-                                  <td className="px-4 py-2.5 text-center">{row.psat ? fmtPct(row.psat) : '—'}</td>
-                                  <td className="px-4 py-2.5 text-center">{row.kpi5 ? fmtPct(row.kpi5) : '—'}</td>
+                                  {historicalKpis.map(kpi => {
+                                    const val = (row as any)[kpi];
+                                    const formattedVal = (val !== undefined && val !== null && val !== '') 
+                                        ? (typeof val === 'number' ? (Number.isInteger(val) ? val : val.toFixed(1)) : (!isNaN(Number(val)) && String(val).includes('.') ? Number(val).toFixed(1) : val))
+                                        : '—';
+                                        
+                                    return (
+                                      <td key={`${row.fullDate}-${kpi}`} className="px-4 py-2.5 text-center">
+                                        {formattedVal}
+                                      </td>
+                                    );
+                                  })}
                                 </tr>
                               );
                             })}

@@ -53,7 +53,8 @@ export default function AgentChats() {
                 lobConfig.chatsSpreadsheetId,
                 lobConfig.chatsSheetName,
                 userEmail,
-                weekToSearch
+                weekToSearch,
+                lobConfig.name || ''
             );
             setChats(results);
             if (results.length === 0) {
@@ -69,6 +70,8 @@ export default function AgentChats() {
     const handleSearchAuto = (selectedWeek: string) => {
         handleSearch(undefined, selectedWeek);
     };
+
+    const isClaims = (lobConfig?.name || '').toLowerCase() === 'claims';
 
     if (initialLoading) return (
         <div className="flex flex-col items-center justify-center p-20 gap-4">
@@ -134,13 +137,26 @@ export default function AgentChats() {
                     <table className="w-full text-left border-collapse">
                         <thead>
                             <tr className="bg-m3-surface-variant/10 dark:bg-white/5 border-b border-m3-surface-variant/20">
-                                <th className="px-8 py-6 text-[10px] font-black uppercase tracking-widest text-m3-secondary/60 dark:text-gray-400">INTERACCIÓN</th>
-                                <th className="px-8 py-6 text-[10px] font-black uppercase tracking-widest text-m3-secondary/60 dark:text-gray-400">CRONOLOGÍA</th>
-                                <th className="px-8 py-6 text-[10px] font-black uppercase tracking-widest text-m3-secondary/60 dark:text-gray-400 text-center">AHT</th>
-                                <th className="px-8 py-6 text-[10px] font-black uppercase tracking-widest text-m3-secondary/60 dark:text-gray-400 text-center">WUT</th>
-                                <th className="px-8 py-6 text-[10px] font-black uppercase tracking-widest text-m3-secondary/60 dark:text-gray-400 text-center">FRT</th>
-                                <th className="px-8 py-6 text-[10px] font-black uppercase tracking-widest text-m3-secondary/60 dark:text-gray-400 text-center">PSAT</th>
-                                <th className="px-6 py-6 border-transparent"></th>
+                                {isClaims ? (
+                                    <>
+                                        <th className="px-8 py-6 text-[10px] font-black uppercase tracking-widest text-m3-secondary/60 dark:text-gray-400">FECHA</th>
+                                        <th className="px-8 py-6 text-[10px] font-black uppercase tracking-widest text-m3-secondary/60 dark:text-gray-400">MOTIVO DE CONTACTO (CCR3)</th>
+                                        <th className="px-8 py-6 text-[10px] font-black uppercase tracking-widest text-m3-secondary/60 dark:text-gray-400 text-center">PARTNER ID</th>
+                                        <th className="px-8 py-6 text-[10px] font-black uppercase tracking-widest text-m3-secondary/60 dark:text-gray-400 text-center">TICKET</th>
+                                        <th className="px-8 py-6 text-[10px] font-black uppercase tracking-widest text-m3-secondary/60 dark:text-gray-400 text-center">PSAT</th>
+                                        <th className="px-8 py-6 text-[10px] font-black uppercase tracking-widest text-m3-secondary/60 dark:text-gray-400 text-center">AHT</th>
+                                    </>
+                                ) : (
+                                    <>
+                                        <th className="px-8 py-6 text-[10px] font-black uppercase tracking-widest text-m3-secondary/60 dark:text-gray-400">INTERACCIÓN</th>
+                                        <th className="px-8 py-6 text-[10px] font-black uppercase tracking-widest text-m3-secondary/60 dark:text-gray-400">CRONOLOGÍA</th>
+                                        <th className="px-8 py-6 text-[10px] font-black uppercase tracking-widest text-m3-secondary/60 dark:text-gray-400 text-center">AHT</th>
+                                        <th className="px-8 py-6 text-[10px] font-black uppercase tracking-widest text-m3-secondary/60 dark:text-gray-400 text-center">WUT</th>
+                                        <th className="px-8 py-6 text-[10px] font-black uppercase tracking-widest text-m3-secondary/60 dark:text-gray-400 text-center">FRT</th>
+                                        <th className="px-8 py-6 text-[10px] font-black uppercase tracking-widest text-m3-secondary/60 dark:text-gray-400 text-center">PSAT</th>
+                                        <th className="px-6 py-6 border-transparent"></th>
+                                    </>
+                                )}
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-m3-surface-variant/10">
@@ -158,47 +174,72 @@ export default function AgentChats() {
                             )}
                             {chats.map((chat, idx) => (
                                 <tr key={idx} className="group hover:bg-m3-primary/[0.02] dark:hover:bg-m3-primary/5 transition-colors duration-200">
-                                    <td className="px-8 py-6">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 rounded-xl bg-orange-50 dark:bg-orange-900/10 flex items-center justify-center text-orange-600 dark:text-orange-400 border border-orange-100 dark:border-orange-900/30">
-                                                <Hash size={16} />
-                                            </div>
-                                            <span className="font-black text-m3-secondary dark:text-white dark:text-opacity-90">{chat.ticket}</span>
-                                        </div>
-                                    </td>
-                                    <td className="px-8 py-6">
-                                        <div className="flex flex-col">
-                                            <span className="text-xs font-black text-m3-secondary dark:text-white uppercase leading-none mb-1">{chat.fecha}</span>
-                                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">Sincronizado vía GViz</span>
-                                        </div>
-                                    </td>
-                                    <td className="px-8 py-6 text-center">
-                                        <div className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-blue-50 dark:bg-blue-900/10 text-blue-600 dark:text-blue-400 font-black text-[10px]">
-                                            <Clock size={12} /> {chat.aht}s
-                                        </div>
-                                    </td>
-                                    <td className="px-8 py-6 text-center">
-                                        <div className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-purple-50 dark:bg-purple-900/10 text-purple-600 dark:text-purple-400 font-black text-[10px]">
-                                            <Clock size={12} /> {chat.wut}s
-                                        </div>
-                                    </td>
-                                    <td className="px-8 py-6 text-center">
-                                        <div className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-orange-50 dark:bg-orange-900/10 text-orange-600 dark:text-orange-400 font-black text-[10px]">
-                                            <Zap size={12} /> {chat.frt}s
-                                        </div>
-                                    </td>
-                                    <td className="px-8 py-6 text-center">
-                                        <div className={`inline-flex items-center gap-1 px-4 py-2 rounded-xl font-black text-xs shadow-sm
-                                            ${chat.psat.includes('100%') ? 'bg-emerald-500 text-white' : 
-                                              chat.psat.includes('0%') ? 'bg-rose-500 text-white' : 
-                                              'bg-amber-100 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400'}
-                                        `}>
-                                            <Smile size={14} /> {chat.psat}
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-6 text-right">
-                                        <ChevronRight size={18} className="text-gray-300 group-hover:text-m3-primary transition-colors" />
-                                    </td>
+                                    {isClaims ? (
+                                        <>
+                                            <td className="px-8 py-6 text-sm text-m3-secondary dark:text-gray-300 font-bold">{chat.fecha}</td>
+                                            <td className="px-8 py-6 text-sm text-m3-secondary dark:text-gray-300">{chat.contactReason}</td>
+                                            <td className="px-8 py-6 text-sm text-m3-secondary dark:text-gray-300 text-center">{chat.partnerId}</td>
+                                            <td className="px-8 py-6 text-sm text-m3-secondary dark:text-gray-300 text-center">{chat.ticket}</td>
+                                            <td className="px-8 py-6 text-center">
+                                                <div className={`inline-flex items-center gap-1 px-4 py-2 rounded-xl font-black text-xs shadow-sm
+                                                    ${chat.psat?.includes('100%') ? 'bg-emerald-500 text-white' : 
+                                                      chat.psat?.includes('0%') ? 'bg-rose-500 text-white' : 
+                                                      'bg-amber-100 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400'}
+                                                `}>
+                                                    <Smile size={14} /> {chat.psat}
+                                                </div>
+                                            </td>
+                                            <td className="px-8 py-6 text-center">
+                                                <div className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-blue-50 dark:bg-blue-900/10 text-blue-600 dark:text-blue-400 font-black text-[10px]">
+                                                    <Clock size={12} /> {chat.aht}
+                                                </div>
+                                            </td>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <td className="px-8 py-6">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-10 h-10 rounded-xl bg-orange-50 dark:bg-orange-900/10 flex items-center justify-center text-orange-600 dark:text-orange-400 border border-orange-100 dark:border-orange-900/30">
+                                                        <Hash size={16} />
+                                                    </div>
+                                                    <span className="font-black text-m3-secondary dark:text-white dark:text-opacity-90">{chat.ticket}</span>
+                                                </div>
+                                            </td>
+                                            <td className="px-8 py-6">
+                                                <div className="flex flex-col">
+                                                    <span className="text-xs font-black text-m3-secondary dark:text-white uppercase leading-none mb-1">{chat.fecha}</span>
+                                                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">Sincronizado vía GViz</span>
+                                                </div>
+                                            </td>
+                                            <td className="px-8 py-6 text-center">
+                                                <div className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-blue-50 dark:bg-blue-900/10 text-blue-600 dark:text-blue-400 font-black text-[10px]">
+                                                    <Clock size={12} /> {chat.aht}s
+                                                </div>
+                                            </td>
+                                            <td className="px-8 py-6 text-center">
+                                                <div className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-purple-50 dark:bg-purple-900/10 text-purple-600 dark:text-purple-400 font-black text-[10px]">
+                                                    <Clock size={12} /> {chat.wut}s
+                                                </div>
+                                            </td>
+                                            <td className="px-8 py-6 text-center">
+                                                <div className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-orange-50 dark:bg-orange-900/10 text-orange-600 dark:text-orange-400 font-black text-[10px]">
+                                                    <Zap size={12} /> {chat.frt}s
+                                                </div>
+                                            </td>
+                                            <td className="px-8 py-6 text-center">
+                                                <div className={`inline-flex items-center gap-1 px-4 py-2 rounded-xl font-black text-xs shadow-sm
+                                                    ${chat.psat?.includes('100%') ? 'bg-emerald-500 text-white' : 
+                                                      chat.psat?.includes('0%') ? 'bg-rose-500 text-white' : 
+                                                      'bg-amber-100 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400'}
+                                                `}>
+                                                    <Smile size={14} /> {chat.psat}
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-6 text-right">
+                                                <ChevronRight size={18} className="text-gray-300 group-hover:text-m3-primary transition-colors" />
+                                            </td>
+                                        </>
+                                    )}
                                 </tr>
                             ))}
                         </tbody>
