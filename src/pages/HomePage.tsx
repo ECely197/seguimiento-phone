@@ -11,7 +11,7 @@ import { usePermissions } from '../context/PermissionsContext';
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend 
 } from 'recharts';
-import { Clock, Zap, Edit3, Smile, Info, BarChart3, Lightbulb, Loader2, ClipboardList, CheckSquare, TrendingUp, User } from 'lucide-react';
+import { Clock, Zap, Edit3, Smile, Info, BarChart3, Lightbulb, Loader2, ClipboardList, CheckSquare, TrendingUp, User, ShieldAlert } from 'lucide-react';
 
 // ── LOB badge colours ──────────────────────────────────────────────────────────
 const LOB_BADGE: Record<string, string> = {
@@ -129,17 +129,15 @@ export default function HomePage() {
         return; 
       }
 
-      if (user.uid === ADMIN_UID) {
-        setIsAdmin(true);
-        setLoading(false);
-        return;
-      }
-
       if (user.email) {
         try {
           // 1. Get User LOB from Firestore
           const uSnap = await getDoc(getUserDoc(user.uid));
           const uData = uSnap.data();
+
+          if (user.uid === ADMIN_UID || uData?.isAdmin === true || uData?.role === 'admin') {
+            setIsAdmin(true);
+          }
           
           let lobId = uData?.lob || uData?.lobId;
           let lobConf = null;
@@ -317,25 +315,6 @@ export default function HomePage() {
     });
     return () => unsubscribe();
   }, [navigate]);
-
-  // ── Admin redirect screen ──────────────────────────────────────────────────
-  if (!loading && isAdmin) {
-    return (
-      <div className="min-h-screen bg-m3-surface dark:bg-m3-surface-dark p-4 pb-24 flex flex-col items-center justify-center">
-        <div className="bg-m3-primary/10 dark:bg-m3-primary-dark/20 p-6 rounded-full mb-6">
-          <ClipboardList className="text-m3-primary dark:text-m3-primary-dark" size={64} />
-        </div>
-        <h2 className="text-3xl font-bold text-m3-primary dark:text-m3-primary-dark mb-6">Bienvenido Supervisor</h2>
-        <button
-          onClick={() => navigate('/admin')}
-          className="px-8 py-4 bg-m3-primary dark:bg-m3-primary-dark text-white font-bold text-lg rounded-[28px] shadow-lg hover:shadow-xl transition-all"
-        >
-          Ir al Panel de Supervisor
-        </button>
-      </div>
-    );
-  }
-
   // ── Derived values ─────────────────────────────────────────────────────────
   const agentName  = agentData?.name || 'Agente';
   const lobKey     = (agentData?.lob ?? '').toLowerCase();
@@ -345,20 +324,32 @@ export default function HomePage() {
     <div className="min-h-screen bg-m3-surface dark:bg-m3-surface-dark p-4 pb-24 transition-colors duration-300">
 
       {/* ── Header ──────────────────────────────────────────────────────────── */}
-      <header className="mb-6 mt-2">
-        <div className="flex items-center gap-3 flex-wrap">
-          <h1 className="text-3xl font-bold text-m3-primary dark:text-m3-primary-dark">
-            Hello, {loading ? '...' : isGuest ? 'Invitado' : agentName.split(' ')[0]}
-          </h1>
-          {agentData?.lob && !loading && !isGuest && (
-            <span className={`text-xs font-bold uppercase tracking-widest px-3 py-1.5 rounded-full ${badgeClass}`}>
-              Área: {agentData.lob.toUpperCase()}
-            </span>
-          )}
+      <header className="mb-6 mt-2 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-3 flex-wrap">
+            <h1 className="text-3xl font-bold text-m3-primary dark:text-m3-primary-dark">
+              Hello, {loading ? '...' : isGuest ? 'Invitado' : agentName.split(' ')[0]}
+            </h1>
+            {agentData?.lob && !loading && !isGuest && (
+              <span className={`text-xs font-bold uppercase tracking-widest px-3 py-1.5 rounded-full ${badgeClass}`}>
+                Área: {agentData.lob.toUpperCase()}
+              </span>
+            )}
+          </div>
+          <p className="text-m3-secondary dark:text-m3-on-surface-dark/70 text-sm mt-1">
+            {isGuest ? 'Bienvenido al modo de prueba del simulador.' : 'Aquí están tus métricas de hoy.'}
+          </p>
         </div>
-        <p className="text-m3-secondary dark:text-m3-on-surface-dark/70 text-sm mt-1">
-          {isGuest ? 'Bienvenido al modo de prueba del simulador.' : 'Aquí están tus métricas de hoy.'}
-        </p>
+
+        {isAdmin && !loading && (
+          <button 
+            onClick={() => navigate('/admin')}
+            className="flex items-center gap-2 px-5 py-2.5 bg-m3-surface-variant text-m3-primary font-black rounded-2xl shadow-sm hover:scale-105 active:scale-95 transition-all dark:bg-white/5 dark:text-gray-300 dark:hover:bg-m3-primary dark:hover:text-white hover:shadow-lg hover:shadow-m3-primary/20"
+          >
+            <ShieldAlert size={18} />
+            <span>Panel Admin</span>
+          </button>
+        )}
       </header>
 
       {/* ── Guest Banner ──────────────────────────────────────────────────────── */}
