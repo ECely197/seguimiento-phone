@@ -14,7 +14,7 @@ interface VideoModule {
   mediaType?: string;
 }
 
-const VideoItem = ({ video, isActive, onCommentClick }: { video: VideoModule, isActive: boolean, onCommentClick: (id: string) => void }) => {
+const VideoItem = ({ video, isActive, onCommentClick, hideActions }: { video: VideoModule, isActive: boolean, onCommentClick: (id: string) => void, hideActions: boolean }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   
   useEffect(() => {
@@ -26,7 +26,7 @@ const VideoItem = ({ video, isActive, onCommentClick }: { video: VideoModule, is
   }, [isActive]);
 
   return (
-     <div data-id={video.id} className="video-snap-item snap-start h-full w-full relative bg-[#0A0A0A] flex items-center justify-center shrink-0">
+     <div data-id={video.id} className="video-snap-item snap-start h-screen w-full relative bg-[#0A0A0A] flex items-center justify-center shrink-0">
         {video.mediaType === 'image' || video.videoUrl.match(/\.(jpeg|jpg|gif|png|webp)$/i) ? (
           <img src={video.videoUrl} alt={video.title} className="h-full w-full object-contain" />
         ) : (
@@ -45,22 +45,27 @@ const VideoItem = ({ video, isActive, onCommentClick }: { video: VideoModule, is
         
         {/* Información del Video */}
         <div className="absolute bottom-28 left-4 right-16 z-10 text-white">
-          <h2 className="text-xl md:text-2xl font-bold mb-1 drop-shadow-md">{video.title}</h2>
-          <p className="text-sm text-gray-300 line-clamp-2 drop-shadow-sm">{video.description}</p>
-          <div className="mt-3 inline-block px-3 py-1 bg-white/10 backdrop-blur-md border border-white/20 rounded-full text-[10px] font-bold uppercase tracking-widest text-white">
+          <h2 className="text-xl md:text-2xl font-black mb-1 drop-shadow-[0_0_10px_rgba(0,0,0,0.5)]">{video.title}</h2>
+          <p className="text-sm text-gray-300 line-clamp-2 drop-shadow-sm font-medium">{video.description}</p>
+          <div className="mt-3 inline-block px-3 py-1 bg-white/5 backdrop-blur-md border border-white/10 rounded-full text-[10px] font-bold uppercase tracking-widest text-blue-400">
             {video.lobId || 'General'}
           </div>
         </div>
         
-        {/* Botones de Acción Flotantes */}
-        <div className="absolute bottom-28 right-3 flex flex-col items-center gap-4 z-20">
-          <button 
-            onClick={() => onCommentClick(video.id)}
-            className="p-3 bg-white/10 backdrop-blur-xl rounded-full border border-white/20 text-white hover:bg-white/20 transition-all active:scale-90 shadow-lg flex flex-col items-center group"
-          >
-            <MessageCircle size={24} className="group-hover:scale-110 transition-transform" />
-          </button>
-        </div>
+        {/* Botones de Acción Flotantes - Ocultar si la caja de comentarios está abierta */}
+        {!hideActions && (
+          <div className="absolute bottom-6 left-6 flex flex-col items-center gap-4 z-[50] pointer-events-auto">
+            <button 
+              onClick={(e) => {
+                e.stopPropagation();
+                onCommentClick(video.id);
+              }}
+              className="p-4 bg-white/10 backdrop-blur-2xl rounded-full border border-white/20 text-white hover:bg-white/20 transition-all active:scale-90 shadow-[0_8px_32px_rgba(0,0,0,0.4)] flex flex-col items-center group"
+            >
+              <MessageCircle size={24} className="group-hover:scale-110 transition-transform" />
+            </button>
+          </div>
+        )}
      </div>
   );
 }
@@ -177,7 +182,7 @@ const CommentsDrawer = ({ videoId, onClose }: { videoId: string, onClose: () => 
   );
 
   return (
-    <div className="absolute inset-x-0 bottom-0 h-3/4 max-h-[600px] bg-[#0A0A0A]/95 backdrop-blur-2xl rounded-t-3xl border-t border-white/10 z-50 flex flex-col shadow-[0_-10px_40px_rgba(0,0,0,0.5)] text-white animate-in slide-in-from-bottom duration-300">
+    <div className="absolute inset-x-0 bottom-0 h-3/4 max-h-[600px] bg-[#0A0A0A]/95 backdrop-blur-3xl rounded-t-[3rem] border-t border-white/10 z-50 flex flex-col shadow-[0_-20px_100px_rgba(0,0,0,0.8)] text-white animate-in slide-in-from-bottom-[100%] fade-in duration-700 ease-[cubic-bezier(0.23,1,0.32,1)]">
       <div className="flex justify-between items-center p-4 border-b border-white/10 shrink-0">
         <h3 className="font-bold flex items-center gap-2 text-white">
             <MessageCircle size={18} className="text-blue-500"/> Consultas y Feedback
@@ -225,12 +230,18 @@ const CommentsDrawer = ({ videoId, onClose }: { videoId: string, onClose: () => 
 
 export default function ProcessPage() {
   const user = auth.currentUser;
+  const { setHideFloatingNav } = usePermissions();
   const [materiales, setMateriales] = useState<VideoModule[]>([]);
   const [loading, setLoading] = useState(true);
   const [userLob, setUserLob] = useState<string | null>(null);
 
   const [activeVideoId, setActiveVideoId] = useState<string | null>(null);
   const [visibleId, setVisibleId] = useState<string | null>(null);
+
+  useEffect(() => {
+    setHideFloatingNav(!!activeVideoId);
+    return () => setHideFloatingNav(false);
+  }, [activeVideoId, setHideFloatingNav]);
 
   useEffect(() => {
     const fetchUserLob = async () => {
@@ -323,10 +334,10 @@ export default function ProcessPage() {
   }
 
   return (
-    <div className="min-h-screen h-[100dvh] bg-[#050505] flex flex-col items-center justify-center transition-colors duration-300 relative overflow-hidden">
+    <div className="min-h-screen h-screen bg-[#050505] flex flex-col items-center justify-center transition-colors duration-300 relative overflow-hidden">
       
       {/* Contenedor Principal (The Feed) estilo TikTok */}
-      <div className="h-[100dvh] w-full max-w-md mx-auto bg-[#0A0A0A] overflow-y-scroll snap-y snap-mandatory relative hide-scrollbar [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
+      <div className="h-screen w-full max-w-md mx-auto bg-[#0A0A0A] overflow-y-scroll snap-y snap-mandatory relative hide-scrollbar">
           
           {materiales.map((video) => (
              <VideoItem 
@@ -334,14 +345,15 @@ export default function ProcessPage() {
                 video={video} 
                 isActive={visibleId === video.id}
                 onCommentClick={(id) => setActiveVideoId(id)}
+                hideActions={!!activeVideoId}
              />
           ))}
 
       </div>
 
       {activeVideoId && (
-        <div className="absolute inset-0 z-50 pointer-events-none flex flex-col items-center justify-end md:justify-center">
-            <div className="pointer-events-auto w-full h-[100dvh] md:h-[calc(100dvh-80px)] max-w-md mx-auto relative overflow-hidden md:rounded-3xl">
+        <div className="absolute inset-0 z-[60] pointer-events-none flex flex-col items-center justify-end md:justify-center">
+            <div className="pointer-events-auto w-full h-screen md:h-[calc(100vh-80px)] max-w-md mx-auto relative overflow-hidden md:rounded-3xl border border-white/10 shadow-[0_0_100px_rgba(0,0,0,0.8)]">
                <CommentsDrawer 
                   videoId={activeVideoId} 
                   onClose={() => setActiveVideoId(null)} 

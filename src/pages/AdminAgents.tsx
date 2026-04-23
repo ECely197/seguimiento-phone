@@ -7,7 +7,7 @@ import { getPublicCollection, getPublicDoc, getUserDoc, fetchAllUsersSubcollecti
 
 import {
   ChevronRight, Search, X, Loader2, TrendingUp,
-  CheckCircle, XCircle, RefreshCw, User, Edit3, Save, Clock, Building2, Play
+  CheckCircle, XCircle, RefreshCw, User, Edit3, Save, Clock, Building2, Play, Video as VideoIcon
 } from 'lucide-react';
 import { updateAgentSuggestion } from '../api/sheetService';
 
@@ -100,7 +100,12 @@ function AgentTable({
         <span className="text-xs font-bold text-gray-400">{count} agente{count !== 1 ? 's' : ''}</span>
       </div>
       <div className="rounded-3xl border border-white/5 bg-[#0A0A0A]/80 backdrop-blur-2xl shadow-lg mt-4 w-full overflow-auto max-h-[420px] p-2 hide-scrollbar">
-        <table className="w-full min-w-max text-left border-collapse">
+        <table className="w-full table-fixed text-left border-collapse">
+          <colgroup>
+            <col style={{ width: '35%' }} />
+            {metricCols.map(col => <col key={col} />)}
+            <col style={{ width: '32px' }} />
+          </colgroup>
           <thead className="bg-[#111]/80 sticky top-0 backdrop-blur-md z-10 border-b border-white/10">
             <tr>
               <th className="px-4 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest">
@@ -128,12 +133,12 @@ function AgentTable({
                 className={`group hover:bg-white/5 transition-all cursor-pointer
                   ${selected && getEmail(selected) === getEmail(agent) ? 'bg-white/10' : ''}`}
               >
-                <td className="px-4 py-4 max-w-[150px] sm:max-w-[200px] md:max-w-[300px]">
-                  <div className="flex items-center gap-3">
+                <td className="px-4 py-4">
+                  <div className="flex items-center gap-3 min-w-0">
                     <div className="w-8 h-8 rounded-xl bg-blue-900/30 border border-blue-500/20 flex items-center justify-center text-blue-400 font-black text-xs flex-shrink-0 transition-transform group-hover:scale-110">
                       {initials(agent)}
                     </div>
-                    <div className="overflow-hidden">
+                    <div className="min-w-0 overflow-hidden">
                         <p className="text-xs font-bold text-gray-200 leading-tight truncate" title={getName(agent)}>{getName(agent)}</p>
                         <p className="text-[10px] text-gray-500 font-medium truncate" title={getEmail(agent)}>{getEmail(agent)}</p>
                     </div>
@@ -456,169 +461,186 @@ export default function AdminAgents({ selectedLob: globalLobFilter }: { selected
         )}
       </div>
 
-      {/* ── Perfil 360° Drawer ──────────────────────────────────────────────────── */}
+      {/* ── Perfil 360° Modal (Floating Island) ────────────────────────────────────────────────── */}
       {selected && (
         <div className="fixed inset-0 z-[300] bg-black/60 backdrop-blur-md flex items-center justify-center p-4 transition-opacity duration-300 animate-in fade-in">
-          <div className="bg-[#0A0A0A]/90 border border-white/10 shadow-[0_20px_60px_rgba(0,0,0,0.6)] w-full max-w-[600px] h-fit max-h-[85vh] rounded-[2.5rem] flex flex-col overflow-hidden backdrop-blur-3xl animate-in zoom-in-95 duration-300 relative">
+          <div className="bg-[#0A0A0A]/90 border border-white/10 shadow-[0_20px_60px_rgba(0,0,0,0.8)] w-full max-w-[650px] h-[85vh] rounded-[3rem] flex flex-col overflow-hidden backdrop-blur-3xl animate-in zoom-in-95 duration-300 relative border-gradient-to-b from-white/10 to-transparent">
           
-          {/* Header */}
-          <div className="p-8 border-b border-white/10 relative overflow-hidden shrink-0 text-center">
-            <button onClick={() => setSelected(null)} className="absolute top-6 right-6 p-2 bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white rounded-full transition-all border border-white/5 z-50">
+          {/* Header Island */}
+          <div className="p-10 border-b border-white/5 relative overflow-hidden shrink-0 text-center flex flex-col items-center">
+            <button onClick={() => setSelected(null)} className="absolute top-8 right-8 p-3 bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white rounded-full transition-all border border-white/10 z-50 active:scale-90">
               <X size={20} />
             </button>
-            <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/10 rounded-full blur-[80px] -z-10 pointer-events-none" />
-            <div className="z-10 w-full flex flex-col items-center">
-              <div className="w-16 h-16 rounded-full bg-blue-600/20 text-blue-500 flex items-center justify-center text-2xl font-black border border-blue-500/30 shadow-[0_0_15px_rgba(59,130,246,0.1)] mb-3 mx-auto shrink-0">
+            <div className="absolute top-0 right-0 w-80 h-80 bg-blue-500/10 rounded-full blur-[100px] -z-10 pointer-events-none" />
+            
+            <div className="relative group mb-4">
+              <div className="absolute inset-0 bg-blue-500 rounded-full blur-2xl opacity-20 group-hover:opacity-40 transition-opacity" />
+              <div className="relative w-24 h-24 rounded-full bg-gradient-to-br from-blue-600/30 to-indigo-600/30 text-blue-400 flex items-center justify-center text-3xl font-black border border-blue-500/30 shadow-2xl shrink-0">
                 {initials(selected)}
               </div>
-              <h2 className="text-2xl font-black text-white leading-tight">{getName(selected) || 'Desconocido'}</h2>
-              <p className="text-xs text-gray-400 font-medium mt-1">{getEmail(selected)}</p>
-              <div className="mt-3">
-                <span className="text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full shadow-sm bg-blue-600/20 text-blue-400 border border-blue-500/30">
-                  Planilla: {dynamicGroups[selectedSrc]?.name || selectedSrc.toUpperCase() || 'Sin ÁREA'}
-                </span>
-              </div>
+            </div>
+
+            <h2 className="text-3xl font-black text-white leading-tight tracking-tight">{getName(selected) || 'Desconocido'}</h2>
+            <p className="text-sm text-gray-500 font-medium px-4 py-1 bg-white/5 rounded-full border border-white/5 mt-2">{getEmail(selected)}</p>
+            
+            <div className="mt-4 flex gap-2">
+              <span className="text-[10px] font-black uppercase tracking-[0.2em] px-4 py-2 rounded-full shadow-lg bg-blue-600/10 text-blue-400 border border-blue-500/20">
+                Operaciones: {dynamicGroups[selectedSrc]?.name || selectedSrc.toUpperCase() || 'Sin ÁREA'}
+              </span>
+              <span className="text-[10px] font-black uppercase tracking-[0.2em] px-4 py-2 rounded-full shadow-lg bg-green-600/10 text-green-400 border border-green-500/20">
+                Score: {accuracy()}%
+              </span>
             </div>
           </div>
 
-          {/* Segmented Control */}
-          <div className="flex gap-1 p-1 bg-white/5 border border-white/5 rounded-2xl mx-auto mt-6 mb-6 w-fit shrink-0 relative z-20">
-            {[
-              { id: 'gestion', label: 'Gestión' },
-              { id: 'academy', label: 'Academy' },
-              { id: 'quizzes', label: 'Quizzes' },
-              { id: 'acw', label: 'ACW' }
-            ].map(tab => (
-               <button 
-                 key={tab.id}
-                 onClick={() => setActiveTab(tab.id as any)}
-                 className={`px-4 py-1.5 text-[11px] whitespace-nowrap transition-all rounded-xl ${activeTab === tab.id ? 'bg-blue-600 text-white font-bold shadow-lg scale-105' : 'text-gray-500 hover:text-white font-medium'}`}
-               >
-                 {tab.label}
-               </button>
-            ))}
+          {/* iOS Style Segmented Control */}
+          <div className="px-10 py-6 shrink-0 z-20">
+            <div className="flex bg-[#111] p-1.5 rounded-[2rem] border border-white/5 shadow-inner">
+              {[
+                { id: 'gestion', label: 'Dashboard' },
+                { id: 'academy', label: 'Formación' },
+                { id: 'quizzes', label: 'Quizzes' },
+                { id: 'acw', label: 'ACW Lab' }
+              ].map(tab => (
+                <button 
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id as any)}
+                  className={`flex-1 py-3 text-[11px] font-black uppercase tracking-widest transition-all rounded-[1.5rem] ${activeTab === tab.id ? 'bg-blue-600 text-white shadow-[0_5px_15px_rgba(37,99,235,0.3)] scale-100' : 'text-gray-500 hover:text-white'}`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
           </div>
 
-          {/* Content Area */}
-          <div className="flex-1 overflow-y-auto px-8 pb-8 hide-scrollbar relative z-10">
+          {/* Content Area (Glass Container) */}
+          <div className="flex-1 overflow-y-auto px-10 pb-10 hide-scrollbar relative z-10">
              {activeTab === 'gestion' && (
-                <div className="space-y-6 animate-in fade-in duration-300">
-                   <div className="p-6 bg-white/5 rounded-3xl border border-white/10 shadow-sm">
-                      <label className="block text-xs font-black text-gray-300 mb-4 uppercase tracking-widest flex items-center gap-2">
-                        <Building2 size={16} className="text-blue-500" /> Asignación de Área (LOB)
+                <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                   <div className="p-8 bg-white/[0.03] rounded-[2.5rem] border border-white/5 shadow-inner group">
+                      <label className="block text-[10px] font-black text-gray-500 mb-4 uppercase tracking-[0.3em] group-hover:text-blue-500 transition-colors">
+                        Sincronización Operativa (LOB)
                       </label>
                       <select 
                         value={agentLob}
                         onChange={e => setAgentLob(e.target.value)}
-                        className="w-full px-4 py-3 rounded-2xl border border-white/10 bg-white/5 p-4 text-sm font-bold text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all cursor-pointer backdrop-blur-md"
+                        className="w-full px-6 py-5 rounded-2xl border border-white/10 bg-black/40 text-sm font-bold text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all cursor-pointer backdrop-blur-md shadow-lg appearance-none"
                       >
                         {lobs.length === 0 ? <option value="">Cargando áreas...</option> : <><option value="">Selecciona un Área...</option>{lobs.map(lob => <option key={lob.id} value={lob.id}>{lob.name}</option>)}</>}
                       </select>
                    </div>
                    
-                   <div className="p-6 bg-white/5 rounded-3xl border border-white/10 shadow-sm relative overflow-hidden">
-                      <div className="absolute -right-10 -top-10 w-40 h-40 bg-purple-500/10 rounded-full blur-[50px] pointer-events-none" />
-                      <label className="block text-xs font-black text-gray-300 mb-4 uppercase tracking-widest flex items-center gap-2">
-                        <Edit3 size={16} className="text-purple-400" /> Feedback Comercial
+                   <div className="p-8 bg-white/[0.03] rounded-[2.5rem] border border-white/5 shadow-inner relative overflow-hidden group">
+                      <label className="block text-[10px] font-black text-gray-500 mb-4 uppercase tracking-[0.3em] group-hover:text-purple-400 transition-colors">
+                        Estrategia de Mejora (Feedback)
                       </label>
                       <textarea
                         value={suggestion} onChange={e => setSuggestion(e.target.value)}
-                        className="w-full h-32 p-4 rounded-2xl border border-white/10 bg-white/5 text-white focus:ring-1 focus:ring-purple-500 focus:border-purple-500 outline-none resize-none text-sm transition-all shadow-inner placeholder:text-gray-600 backdrop-blur-md"
-                        placeholder="Ingresa sugerencias comerciales personalizadas de este agente..."
+                        className="w-full h-40 p-6 rounded-3xl border border-white/5 bg-black/40 text-white focus:ring-2 focus:ring-purple-500 outline-none resize-none text-sm transition-all shadow-inner placeholder:text-gray-700 font-medium"
+                        placeholder="Define los puntos de dolor y oportunidades comerciales detectadas..."
                       />
                       <button onClick={handleSave} disabled={saving}
-                        className="mt-6 w-full py-4 rounded-2xl font-black bg-white/10 text-white border border-white/20 hover:bg-blue-600 hover:border-transparent transition-all shadow-lg flex items-center justify-center gap-2">
-                        {saving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
-                        Guardar Perfil
+                        className="mt-8 w-full py-5 rounded-[1.5rem] font-black uppercase tracking-[0.2em] text-xs bg-white text-black hover:bg-gray-200 transition-all shadow-[0_15px_30px_rgba(255,255,255,0.05)] flex items-center justify-center gap-3 active:scale-95">
+                        {saving ? <Loader2 size={18} className="animate-spin" /> : <Save size={20} />}
+                        Confirmar Cambios del Perfil
                       </button>
-                      {saveError && <p className="mt-3 text-xs text-red-500 font-bold text-center">⚠️ {saveError}</p>}
+                      {saveError && <p className="mt-4 text-xs text-red-500 font-black text-center animate-pulse">⚠️ {saveError}</p>}
                    </div>
                 </div>
              )}
 
              {activeTab === 'academy' && (
-                <div className="space-y-4 animate-in fade-in duration-300">
-                   <h3 className="text-xs font-black text-gray-500 uppercase tracking-widest flex items-center gap-2 mb-4">Progreso de Capacitaciones Vistas</h3>
+                <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                   <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-[0.3em] mb-6">Progresión de Aprendizaje</h3>
                    {agentAcademy.length === 0 ? (
-                      <div className="p-10 text-center bg-white/5 rounded-3xl border border-white/10 border-dashed">
-                          <CheckCircle size={32} className="mx-auto mb-3 text-gray-600" />
-                          <p className="text-sm font-bold text-gray-400 uppercase tracking-widest">Sin Actividad</p>
-                          <p className="text-xs text-gray-500 mt-2">El agente aún no ha completado material multimedia en la academia.</p>
-                      </div>
+                       <div className="p-16 text-center bg-white/[0.02] rounded-[2.5rem] border-2 border-dashed border-white/5">
+                           <Play size={48} className="mx-auto mb-6 text-gray-800 opacity-50" />
+                           <p className="text-sm font-black text-gray-500 uppercase tracking-widest">Sin Actividad Academy</p>
+                       </div>
                    ) : (
-                      agentAcademy.map((acad, idx) => (
-                          <div key={idx} className="p-5 rounded-3xl bg-white/5 border border-white/10 flex items-center justify-between hover:bg-white/10 transition-colors cursor-default">
-                              <div>
-                                  <p className="text-sm font-bold text-white">{acad.videoTitle || 'Material Interactivo'}</p>
-                                  <p className="text-[10px] text-gray-400 uppercase tracking-widest mt-1">Completado el {acad.timestamp?.toDate().toLocaleDateString()}</p>
-                              </div>
-                              <div className="p-2.5 rounded-full bg-green-500/20 text-green-400 shadow-[0_0_15px_rgba(34,197,94,0.2)]">
-                                  <CheckCircle size={20} />
-                              </div>
-                          </div>
-                      ))
+                       agentAcademy.map((acad, idx) => (
+                           <div key={idx} className="p-6 rounded-[2rem] bg-white/[0.03] border border-white/5 flex items-center justify-between hover:bg-white/5 transition-all shadow-sm group">
+                               <div className="flex gap-4 items-center">
+                                   <div className="p-4 rounded-2xl bg-indigo-500/10 text-indigo-400 group-hover:scale-110 transition-transform">
+                                       <VideoIcon size={20} />
+                                   </div>
+                                   <div>
+                                       <p className="text-base font-bold text-white leading-tight">{acad.videoTitle || 'Material de Formación'}</p>
+                                       <p className="text-[9px] text-gray-500 uppercase tracking-widest mt-1.5 font-black">{acad.timestamp?.toDate().toLocaleDateString()} — COMPLETADO</p>
+                                   </div>
+                               </div>
+                               <div className="p-3 rounded-full bg-green-500/10 text-green-500 border border-green-500/20 shadow-[0_0_15px_rgba(34,197,94,0.1)]">
+                                   <CheckCircle size={20} />
+                               </div>
+                           </div>
+                       ))
                    )}
                 </div>
              )}
 
              {activeTab === 'quizzes' && (
-                <div className="space-y-4 animate-in fade-in duration-300">
-                   <h3 className="text-xs font-black text-gray-500 uppercase tracking-widest flex items-center gap-2 mb-4">Evaluaciones y Roleplays</h3>
+                <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                   <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-[0.3em] mb-6">Logros y Evaluaciones</h3>
                    {resultsLoading ? <Loader2 className="animate-spin mx-auto text-blue-500 my-10" /> : agentResults.length === 0 ? (
-                      <div className="p-10 text-center bg-white/5 rounded-3xl border border-white/10 border-dashed">
-                          <CheckCircle size={32} className="mx-auto mb-3 text-gray-600" />
-                          <p className="text-sm font-bold text-gray-400 uppercase tracking-widest">Aún no hay quizzes</p>
-                      </div>
+                       <div className="p-16 text-center bg-white/[0.02] rounded-[2.5rem] border-2 border-dashed border-white/5">
+                           <TrendingUp size={48} className="mx-auto mb-6 text-gray-800 opacity-50" />
+                           <p className="text-sm font-black text-gray-500 uppercase tracking-widest">Aún no evaluado</p>
+                       </div>
                    ) : (
-                      agentResults.map((r, idx) => (
-                          <div key={r.id || idx} className="p-6 rounded-3xl bg-white/5 border border-white/10 flex flex-col gap-4 relative overflow-hidden group">
-                              <div className="flex justify-between items-start">
-                                  <div>
-                                      <p className="text-base font-bold text-white">{quizMap[r.quizId] || r.quizTitle || 'Evaluación Operativa'}</p>
-                                      <span className="text-[10px] text-gray-400 uppercase tracking-widest">{r.timestamp?.toDate().toLocaleDateString()}</span>
-                                  </div>
-                                  <div className="text-right">
-                                      <span className={`text-2xl font-black drop-shadow-md ${r.score !== undefined ? (r.score >= 80 ? 'text-green-400' : 'text-red-400') : (r.isCorrect ? 'text-green-400' : 'text-red-400')}`}>
-                                         {r.score !== undefined ? `${r.score}%` : (r.isCorrect ? 'ÉXITO' : 'FALLO')}
-                                      </span>
-                                  </div>
-                              </div>
-                              
-                              {r.audioUrl && (
-                                  <button onClick={() => window.open(r.audioUrl, '_blank')} className="w-full mt-2 p-4 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl font-bold flex items-center justify-center gap-3 shadow-lg hover:shadow-blue-500/30 transition-all text-white">
-                                      <Play size={20} className="fill-white" /> Escuchar Audio del Roleplay
-                                  </button>
-                              )}
-                          </div>
-                      ))
+                       agentResults.map((r, idx) => (
+                           <div key={r.id || idx} className="p-8 rounded-[2.5rem] bg-white/[0.03] border border-white/5 flex flex-col gap-6 relative overflow-hidden group hover:bg-white/5 transition-all shadow-inner">
+                               <div className={`absolute top-0 bottom-0 left-0 w-2 ${r.isCorrect ? 'bg-green-500' : 'bg-red-500'}`} />
+                               <div className="flex justify-between items-start">
+                                   <div>
+                                       <h4 className="text-xl font-black text-white">{quizMap[r.quizId] || r.quizTitle || 'Evaluación'}</h4>
+                                       <span className="text-[10px] text-gray-500 uppercase tracking-[0.2em] font-black mt-2 inline-block bg-white/5 px-3 py-1 rounded-full">{r.timestamp?.toDate().toLocaleDateString()}</span>
+                                   </div>
+                                   <div className={`text-4xl font-black shadow-text ${r.isCorrect ? 'text-green-400' : 'text-red-400'}`}>
+                                      {r.isCorrect ? 'OK' : 'FAIL'}
+                                   </div>
+                               </div>
+                               
+                               {r.audioUrl && (
+                                   <button onClick={() => window.open(r.audioUrl, '_blank')} className="w-full p-5 bg-white text-black rounded-[1.5rem] font-black uppercase tracking-[0.2em] text-[10px] flex items-center justify-center gap-3 shadow-2xl hover:bg-gray-100 transition-all active:scale-95">
+                                       <Play size={18} fill="currentColor" /> Reproducir Roleplay
+                                   </button>
+                               )}
+                           </div>
+                       ))
                    )}
                 </div>
              )}
 
              {activeTab === 'acw' && (
-                <div className="space-y-4 animate-in fade-in duration-300">
-                   <h3 className="text-xs font-black text-gray-500 uppercase tracking-widest flex items-center gap-2 mb-4">Simulaciones Intensivas (ACW Lab)</h3>
+                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                   <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-[0.3em] mb-6">Métricas de Velocidad (ACW Lab)</h3>
                    {agentAcw.length === 0 ? (
-                      <div className="p-10 text-center bg-white/5 rounded-3xl border border-white/10 border-dashed">
-                          <Clock size={32} className="mx-auto mb-3 text-gray-600" />
-                          <p className="text-sm font-bold text-gray-400 uppercase tracking-widest">Sin Prácticas ACW</p>
-                      </div>
+                       <div className="p-16 text-center bg-white/[0.02] rounded-[2.5rem] border-2 border-dashed border-white/5">
+                           <Clock size={48} className="mx-auto mb-6 text-gray-800 opacity-50" />
+                           <p className="text-sm font-black text-gray-500 uppercase tracking-widest">Sin Pruebas de Velocidad</p>
+                       </div>
                    ) : (
-                      agentAcw.map((acw, idx) => (
-                          <div key={acw.id || idx} className="p-5 rounded-3xl bg-white/5 border border-white/10 flex flex-col relative overflow-hidden group">
-                              <div className={`absolute left-0 top-0 bottom-0 w-2 ${acw.timeSpent <= 30 ? 'bg-green-500' : 'bg-red-500'}`} />
-                              <div className="flex justify-between items-center pl-3 mb-2">
-                                  <p className="text-base font-bold text-white max-w-[200px] truncate">{acw.scenarioTitle || 'Simulación de Caso'}</p>
-                                  <span className={`text-sm font-black px-4 py-1.5 rounded-xl border ${acw.timeSpent <= 30 ? 'bg-green-500/20 text-green-400 border-green-500/30 shadow-[0_0_15px_rgba(34,197,94,0.2)]' : 'bg-red-500/20 text-red-400 border-red-500/30'}`}>
-                                    {acw.timeSpent}s
-                                  </span>
-                              </div>
-                              <div className="pl-3 mt-1 bg-black/20 p-3 rounded-2xl border border-white/5 mx-3 mb-2">
-                                 <p className="text-xs text-gray-300 italic">"{acw.comments || acw.notes || 'Tipificación vacía'}"</p>
-                              </div>
-                              <span className="text-[10px] text-gray-500 pl-3 uppercase tracking-widest">{acw.timestamp?.toDate().toLocaleDateString()}</span>
-                          </div>
-                      ))
+                       agentAcw.sort((a: any, b: any) => (b.timestamp?.toDate()?.getTime() || 0) - (a.timestamp?.toDate()?.getTime() || 0)).map((acw, idx) => (
+                           <div key={acw.id || idx} className="p-8 rounded-[2.5rem] bg-white/[0.03] border border-white/5 flex flex-col relative overflow-hidden group shadow-inner">
+                               <div className="flex justify-between items-center mb-6">
+                                   <div className="flex items-center gap-4">
+                                       <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-xl shadow-lg ${acw.timeSpent <= 30 ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}`}>
+                                         {acw.timeSpent}s
+                                       </div>
+                                       <div>
+                                           <p className="text-base font-bold text-white truncate max-w-[200px]">{acw.scenarioTitle || 'Simulación Cascada'}</p>
+                                           <p className="text-[10px] text-gray-500 uppercase tracking-widest font-black mt-1">{acw.timestamp?.toDate().toLocaleDateString()}</p>
+                                       </div>
+                                   </div>
+                                   <span className={`text-[10px] font-black px-4 py-2 rounded-full border tracking-widest uppercase ${acw.timeSpent <= 30 ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20'}`}>
+                                     {acw.timeSpent <= 30 ? 'FAST' : 'OUTSIDE SLA'}
+                                   </span>
+                               </div>
+                               <div className="bg-black/20 p-5 rounded-[1.5rem] border border-white/5 italic">
+                                  <p className="text-xs text-gray-400 leading-relaxed">"{acw.comments || acw.inputs?.comment || 'Evidencia de tipificación vacía'}"</p>
+                               </div>
+                           </div>
+                       ))
                    )}
                 </div>
              )}

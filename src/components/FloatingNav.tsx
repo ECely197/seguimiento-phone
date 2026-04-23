@@ -6,7 +6,7 @@ import { auth } from "../firebaseConfig";
 import { signOut } from "firebase/auth";
 
 export default function FloatingNav() {
-  const { permissions, loading } = usePermissions();
+  const { permissions, loading, hideFloatingNav } = usePermissions();
   const [isOpen, setIsOpen] = useState(false);
   const navigate = useNavigate();
 
@@ -29,7 +29,7 @@ export default function FloatingNav() {
     { name: "Mis Chats", path: "/mis-chats", icon: MessageSquare, show: permissions.canViewChats, delay: "1s" },
   ].filter(item => item.show);
 
-  if (loading) return null;
+  if (loading || hideFloatingNav) return null;
 
   return (
     <>

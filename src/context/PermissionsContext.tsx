@@ -17,6 +17,8 @@ interface PermissionsContextType {
   permissions: Permissions;
   lobApiUrl: string | null;
   loading: boolean;
+  hideFloatingNav: boolean;
+  setHideFloatingNav: (hide: boolean) => void;
 }
 
 const PermissionsContext = createContext<PermissionsContextType | undefined>(undefined);
@@ -35,6 +37,7 @@ export const PermissionsProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const [permissions, setPermissions] = useState<Permissions>(DEFAULT_PERMISSIONS);
   const [lobApiUrl, setLobApiUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [hideFloatingNav, setHideFloatingNav] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -87,7 +90,7 @@ export const PermissionsProvider: React.FC<{ children: React.ReactNode }> = ({ c
   }, []);
 
   return (
-    <PermissionsContext.Provider value={{ userLOB, permissions, lobApiUrl, loading }}>
+    <PermissionsContext.Provider value={{ userLOB, permissions, lobApiUrl, loading, hideFloatingNav, setHideFloatingNav }}>
       {children}
     </PermissionsContext.Provider>
   );

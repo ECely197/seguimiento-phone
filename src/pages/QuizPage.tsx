@@ -639,37 +639,39 @@ export default function QuizPage() {
             const done      = completedQuizzes.has(quiz.id);
             const roleplay  = isOpenAudio(quiz);
             return (
-              <div key={quiz.id} className={`bg-[#0A0A0A]/80 backdrop-blur-xl border border-white/5 rounded-3xl p-6 transition-all duration-500 relative overflow-hidden flex flex-col h-full group text-gray-300 shadow-2xl ${
+              <div key={quiz.id} className={`bg-[#0A0A0A]/80 backdrop-blur-xl border border-white/5 rounded-[2.5rem] p-8 transition-all duration-500 relative overflow-hidden flex flex-col h-full group text-gray-300 shadow-[0_20px_50px_rgba(0,0,0,0.5)] ${
                 done
-                  ? 'opacity-80 grayscale-[0.3]'
-                  : 'hover:-translate-y-3 hover:border-blue-500/50 hover:shadow-[0_10px_40px_-10px_rgba(59,130,246,0.3)]'
+                  ? 'opacity-60 grayscale-[0.5]'
+                  : 'hover:-translate-y-4 hover:border-blue-500/50 hover:shadow-[0_20px_80px_-20px_rgba(59,130,246,0.4)]'
               }`}>
+                {/* Aura Neon interna */}
                 <div className="absolute inset-0 bg-gradient-to-br from-blue-600/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
-
-                {/* Type badge */}
-                <div className={`mb-4 inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full w-max relative z-10 ${
+                
+                {/* Type badge premium */}
+                <div className={`mb-6 inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] px-4 py-2 rounded-full w-max relative z-10 ${
                   roleplay
-                    ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30 shadow-[0_0_8px_rgba(168,85,247,0.4)]'
-                    : 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                    ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20 shadow-[0_0_15px_rgba(168,85,247,0.2)]'
+                    : 'bg-blue-500/10 text-blue-400 border border-blue-500/20 shadow-[0_0_15px_rgba(59,130,246,0.2)]'
                 }`}>
-                  {roleplay ? <Mic size={11} className={!done ? "animate-pulse" : ""} /> : <CheckCircle size={11} />}
-                  {roleplay ? 'MISIÓN: ROLEPLAY CINEMÁTICO' : 'MISIÓN: RESOLUCIÓN LÓGICA'}
+                  {roleplay ? <Mic size={12} className={!done ? "animate-pulse" : ""} /> : <CheckCircle size={12} />}
+                  {roleplay ? 'Misión: Roleplay Pro' : 'Misión: Lógica Crítica'}
                 </div>
-                <h3 className="text-xl font-bold text-white mb-2 line-clamp-2 leading-snug relative z-10 drop-shadow-md">{quiz.title}</h3>
-                <p className="text-gray-400 text-sm mb-6 line-clamp-3 flex-grow relative z-10 font-medium">{quiz.description}</p>
 
-                <div className="mt-auto relative z-10 w-full pt-4 border-t border-white/10">
+                <h3 className="text-2xl font-black text-white mb-3 line-clamp-2 leading-tight relative z-10 drop-shadow-md group-hover:text-blue-400 transition-colors">{quiz.title}</h3>
+                <p className="text-gray-400 text-sm mb-8 line-clamp-3 flex-grow relative z-10 font-medium leading-relaxed">{quiz.description}</p>
+
+                <div className="mt-auto relative z-10 w-full pt-6 border-t border-white/5">
                 {done ? (
-                  <button disabled className="w-full py-3 bg-green-900/30 text-green-400 border border-green-500/30 font-bold rounded-2xl cursor-not-allowed flex items-center justify-center gap-2 shadow-sm">
-                    <CheckCircle size={18} /> Misión Cumplida
-                  </button>
+                  <div className="w-full py-4 bg-green-500/5 text-green-500 border border-green-500/20 font-black text-center rounded-2xl flex items-center justify-center gap-2 tracking-widest text-[11px] uppercase">
+                    <CheckCircle size={16} /> Completada con éxito
+                  </div>
                 ) : (
                   <button
                     onClick={() => { setActiveQuiz(quiz); resetQuizState(); }}
-                    className="w-full py-3 px-4 bg-white/10 hover:bg-blue-600 text-white font-bold rounded-2xl transition-all duration-300 flex items-center justify-center gap-2 active:scale-95 shadow-lg shadow-blue-900/20"
+                    className="w-full py-4 px-6 bg-white/5 hover:bg-blue-600 text-white font-black rounded-2xl transition-all duration-500 flex items-center justify-center gap-3 active:scale-95 shadow-xl border border-white/10 group-hover:border-blue-400/50 uppercase tracking-widest text-xs"
                   >
                     <Play size={18} fill="currentColor" />
-                    {roleplay ? 'INICIAR GRABACIÓN' : 'INICIAR RESOLUCIÓN'}
+                    {roleplay ? 'Iniciar Desafío' : 'Resolver Misión'}
                   </button>
                 )}
                 </div>

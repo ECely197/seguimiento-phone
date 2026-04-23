@@ -165,39 +165,42 @@ export default function IdleTrackerRecord() {
         <p className="text-sm text-gray-400 font-medium">Mide tu tiempo de espera sin casos asignados.</p>
       </div>
 
-      {/* Timer Card */}
-      <div className="bg-[#0A0A0A]/80 backdrop-blur-2xl border border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.5)] rounded-[2rem] p-10 flex flex-col items-center max-w-md w-full text-white relative overflow-hidden">
+      {/* Timer Card (Isla Central) */}
+      <div className="bg-[#0A0A0A]/60 backdrop-blur-3xl border border-white/5 shadow-[0_30px_100px_rgba(0,0,0,0.8)] rounded-[3rem] p-12 flex flex-col items-center max-w-lg w-full text-white relative overflow-hidden group">
         
-        {/* Decorative background element */}
-        <div className={`absolute top-0 right-0 w-32 h-32 blur-3xl opacity-20 rounded-full -mr-10 -mt-10 transition-colors pointer-events-none ${isTracking ? 'bg-red-500' : 'bg-blue-600'}`} />
+        {/* Glow dinámico */}
+        <div className={`absolute -top-24 -right-24 w-64 h-64 blur-[120px] opacity-20 rounded-full transition-colors duration-1000 ${isTracking ? 'bg-blue-500' : 'bg-orange-500/30'}`} />
 
-        <div className={`font-mono text-6xl md:text-7xl font-black drop-shadow-[0_0_15px_currentColor] tracking-tight mb-8 transition-colors duration-500 ${isTracking ? 'text-blue-400' : 'text-gray-500'}`}>
+        <span className="text-[10px] font-black text-gray-500 uppercase tracking-[0.4em] mb-10 opacity-60">Session Chronometer</span>
+
+        <div className={`font-mono text-7xl md:text-8xl font-black drop-shadow-[0_0_30px_rgba(255,255,255,0.1)] tracking-tighter mb-12 transition-all duration-700 ${isTracking ? 'text-white scale-110' : 'text-gray-600'}`}>
           {formatElapsedTime(elapsed)}
         </div>
 
-        <div className="flex w-full justify-center">
+        <div className="flex w-full gap-4">
           {!isTracking ? (
             <button 
               onClick={handleStart}
-              className="w-full bg-blue-600 text-white rounded-2xl py-4 px-8 text-xl font-bold hover:bg-blue-500 transition-colors shadow-[0_10px_30px_rgba(59,130,246,0.3)] hover:-translate-y-1 hover:shadow-[0_10px_40px_rgba(59,130,246,0.5)] flex items-center justify-center gap-3 active:scale-95"
+              className="flex-1 bg-white text-black rounded-[2rem] py-5 px-8 text-sm font-black uppercase tracking-widest hover:bg-gray-200 transition-all shadow-xl active:scale-95 flex items-center justify-center gap-3"
             >
-              <Play size={24} fill="currentColor" /> INICIAR TIEMPO
+              <Play size={20} fill="currentColor" /> Iniciar
             </button>
           ) : (
             <button 
               onClick={handleStop}
-              className="w-full bg-red-500/20 text-red-500 border border-red-500/50 rounded-2xl py-4 px-8 text-xl font-bold hover:bg-red-500 hover:text-white transition-all shadow-[0_0_20px_rgba(239,68,68,0.3)] hover:shadow-[0_0_40px_rgba(239,68,68,0.6)] animate-pulse flex items-center justify-center gap-3 active:scale-95"
+              className="flex-1 bg-red-500 text-white rounded-[2rem] py-5 px-8 text-sm font-black uppercase tracking-widest hover:bg-red-600 transition-all shadow-[0_0_40px_rgba(239,68,68,0.4)] animate-pulse flex items-center justify-center gap-3 active:scale-95"
             >
-              <Square size={24} fill="currentColor" /> DETENER CRONO
+              <Square size={20} fill="currentColor" /> Detener
             </button>
           )}
         </div>
 
-        <p className="text-xs text-gray-500 text-center mt-6 font-medium max-w-xs mx-auto">
-          {isTracking 
-            ? "El cronómetro está activo. Se guardará localmente si cierras la ventana."
-            : "Presiona el botón para empezar a medir tu tiempo en espera."}
-        </p>
+        <div className="mt-10 flex items-center gap-4 text-gray-500 bg-white/5 px-6 py-3 rounded-full border border-white/5 backdrop-blur-md">
+           <div className={`w-2 h-2 rounded-full ${isTracking ? 'bg-blue-500 animate-pulse' : 'bg-gray-700'}`} />
+           <p className="text-[10px] font-black uppercase tracking-widest">
+             {isTracking ? "Registrando Actividad" : "Estado: En Espera"}
+           </p>
+        </div>
       </div>
 
       {/* Comment Modal */}
