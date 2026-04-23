@@ -321,22 +321,21 @@ export default function HomePage() {
   const badgeClass = LOB_BADGE[lobKey] ?? 'bg-gray-100 text-gray-700 dark:bg-gray-700/40 dark:text-gray-300';
 
   return (
-    <div className="min-h-screen bg-m3-surface dark:bg-m3-surface-dark p-4 pb-24 transition-colors duration-300">
+    <div className="min-h-screen bg-transparent p-4 md:p-8 pb-48 transition-colors duration-300">
 
-      {/* ── Header ──────────────────────────────────────────────────────────── */}
-      <header className="mb-6 mt-2 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <header className="mb-10 mt-2 flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
+          <h1 className="text-4xl md:text-5xl font-black bg-clip-text text-transparent bg-gradient-to-r from-white via-gray-200 to-gray-500 mb-2 tracking-tight">
+            Hola, {loading ? '...' : isGuest ? 'Invitado' : agentName.split(' ')[0]}
+          </h1>
           <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="text-3xl font-bold text-m3-primary dark:text-m3-primary-dark">
-              Hello, {loading ? '...' : isGuest ? 'Invitado' : agentName.split(' ')[0]}
-            </h1>
             {agentData?.lob && !loading && !isGuest && (
-              <span className={`text-xs font-bold uppercase tracking-widest px-3 py-1.5 rounded-full ${badgeClass}`}>
+              <span className="bg-blue-500/10 text-blue-400 border border-blue-500/20 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest">
                 Área: {agentData.lob.toUpperCase()}
               </span>
             )}
           </div>
-          <p className="text-m3-secondary dark:text-m3-on-surface-dark/70 text-sm mt-1">
+          <p className="text-gray-400 text-sm mt-3 font-medium">
             {isGuest ? 'Bienvenido al modo de prueba del simulador.' : 'Aquí están tus métricas de hoy.'}
           </p>
         </div>
@@ -344,31 +343,31 @@ export default function HomePage() {
         {isAdmin && !loading && (
           <button 
             onClick={() => navigate('/admin')}
-            className="flex items-center gap-2 px-5 py-2.5 bg-m3-surface-variant text-m3-primary font-black rounded-2xl shadow-sm hover:scale-105 active:scale-95 transition-all dark:bg-white/5 dark:text-gray-300 dark:hover:bg-m3-primary dark:hover:text-white hover:shadow-lg hover:shadow-m3-primary/20"
+            className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold rounded-full shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 hover:-translate-y-0.5 active:scale-95 transition-all duration-300"
           >
             <ShieldAlert size={18} />
-            <span>Panel Admin</span>
+            <span className="hidden sm:inline">Panel Admin</span>
           </button>
         )}
       </header>
 
       {/* ── Guest Banner ──────────────────────────────────────────────────────── */}
       {!loading && isGuest && (
-        <div className="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800/30 text-purple-800 dark:text-purple-300 px-5 py-4 rounded-2xl mb-6 shadow-sm flex gap-3 items-start">
-          <Info className="flex-shrink-0 mt-0.5" size={20} />
+        <div className="bg-white/[0.02] backdrop-blur-2xl border border-white/[0.05] rounded-3xl p-6 mb-8 shadow-sm flex gap-4 items-start text-indigo-400">
+          <Info className="flex-shrink-0 mt-0.5" size={24} />
           <div>
-            <h3 className="font-bold mb-1">Modo Visitante Activo</h3>
-            <p className="text-sm">No te has registrado aún. Puedes ver la información y probar los módulos (Quizzes, Simulador ACW) en modo de visitante. Tu actividad quedará registrada temporalmente como invitado.</p>
+            <h3 className="font-bold mb-1 text-white text-lg">Modo Visitante Activo</h3>
+            <p className="text-sm text-gray-400 font-medium">No te has registrado aún. Puedes ver la información y probar los módulos en modo de visitante.</p>
           </div>
         </div>
       )}
 
       {/* ── Loading ─────────────────────────────────────────────────────────── */}
       {loading && (
-        <div className="flex flex-col items-center justify-center py-24 gap-4">
-          <Loader2 className="animate-spin text-m3-primary dark:text-m3-primary-dark" size={44} />
-          <p className="text-sm text-m3-secondary/60 dark:text-m3-on-surface-dark/50">
-            {isScanning ? 'Escaneando bases de datos para asignarte a tu equipo...' : 'Cargando tus métricas...'}
+        <div className="flex flex-col items-center justify-center py-32 gap-6">
+          <Loader2 className="animate-spin text-blue-500" size={48} />
+          <p className="text-[10px] uppercase tracking-[0.2em] font-bold text-gray-500">
+            {isScanning ? 'Sincronizando Área...' : 'Cargando Métricas...'}
           </p>
         </div>
       )}
@@ -400,25 +399,24 @@ export default function HomePage() {
 
       {/* ── Monthly Impact Section (Source A: Real-time B2X/Main Sheet) ───── */}
       {!loading && !error && agentData && permissions.canViewMetrics && (
-        <section className="mb-10">
-          <h2 className="text-xl font-bold text-m3-secondary dark:text-m3-on-surface-dark mb-5 flex items-center gap-2">
-            <TrendingUp size={22} className="text-m3-primary" />
-            Tu Impacto este Mes (Acumulado Real)
+        <section className="mb-12">
+          <h2 className="text-2xl font-black text-white mb-6 flex items-center gap-3 tracking-tight">
+            <TrendingUp size={28} className="text-blue-500" />
+            Tu Impacto este Mes
           </h2>
           
           {/* Contenedor Lógico de Tarjetas Dinámicas */}
           {dynamicMetrics === undefined ? (
-            <div className="flex flex-col items-center justify-center p-8">
-               <Loader2 className="animate-spin text-m3-primary" size={32} />
-               <p className="mt-4 text-m3-on-surface-variant font-medium dark:text-gray-400">Sincronizando tus métricas...</p>
+            <div className="flex flex-col items-center justify-center p-12 bg-white/[0.02] backdrop-blur-2xl border border-white/[0.05] rounded-3xl">
+               <Loader2 className="animate-spin text-blue-500" size={32} />
             </div>
           ) : dynamicMetrics === null ? (
-            <div className="bg-m3-surface p-8 rounded-2xl text-center border border-gray-200 mb-8 dark:bg-[#1E1E1E] dark:border-white/10">
-              <h3 className="text-lg font-bold text-m3-on-surface dark:text-white">Panel en Configuración</h3>
-              <p className="text-m3-on-surface-variant mt-2 dark:text-gray-400">Las métricas para tu área aún no han sido vinculadas por el supervisor.</p>
+            <div className="bg-white/[0.02] backdrop-blur-2xl border border-white/[0.05] rounded-3xl p-8 text-center mb-8">
+              <h3 className="text-xl font-bold text-white">Panel en Configuración</h3>
+              <p className="text-gray-400 mt-2 font-medium">Las métricas para tu área aún no han sido vinculadas.</p>
             </div>
           ) : Object.keys(dynamicMetrics).length > 0 ? (
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4 mb-8">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 md:gap-6 mb-8">
               {Object.entries(dynamicMetrics).map(([key, value]) => {
                 const lowerKey = key.toLowerCase();
                 if (['agente', 'nombre', 'name', 'correo', 'email', 'lob'].includes(lowerKey)) return null;
@@ -431,11 +429,11 @@ export default function HomePage() {
                     : value;
                 
                 return (
-                  <div key={key} className="bg-m3-surface p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-center dark:bg-[#1E1E1E] dark:border-white/10">
-                    <span className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
+                  <div key={key} className="bg-white/5 backdrop-blur-2xl border border-white/10 rounded-3xl p-6 flex flex-col justify-center shadow-lg transition-all duration-500 hover:bg-white/10 hover:-translate-y-1 hover:shadow-[0_10px_40px_-10px_rgba(59,130,246,0.2)] group">
+                    <span className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 group-hover:text-blue-400 transition-colors">
                        {key.replace(/_/g, ' ')}
                     </span>
-                    <span className="text-3xl font-black text-m3-primary">{formattedValue}</span>
+                    <span className="text-4xl md:text-5xl font-black text-white">{formattedValue}</span>
                   </div>
                 );
               })}
@@ -449,23 +447,18 @@ export default function HomePage() {
         </section>
       )}
 
-      {/* ── Supervisor Suggestions ────────────────────────────────────────── */}
-      {!loading && !error && agentData && (
-        <section className="mb-10 p-7 bg-m3-surface-variant/20 dark:bg-white/5 rounded-[32px] border border-m3-surface-variant/30 dark:border-white/10 shadow-sm transition-all duration-300">
-          <div className="flex items-center gap-3 mb-5">
-            <div className="p-2.5 bg-yellow-100 dark:bg-yellow-900/30 rounded-full shadow-inner">
-              <Lightbulb className="text-yellow-600 dark:text-yellow-300" size={24} />
-            </div>
-            <h2 className="text-xl font-bold text-m3-secondary dark:text-m3-on-surface-dark">
-              Sugerencia Comercial
-            </h2>
+      {/* ── Supervisor Suggestions (Smart Insight) ────────────────────────────────────────── */}
+      {!loading && !error && agentData && permissions.canViewMetrics && (
+        <div className="mt-8 bg-gradient-to-br from-blue-900/20 to-purple-900/20 backdrop-blur-xl border border-white/10 rounded-3xl p-6 md:p-8 flex items-center gap-4 relative overflow-hidden shadow-2xl mb-12">
+          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-purple-500 opacity-50"></div>
+          <div className="bg-white/10 p-3 rounded-full shrink-0 flex items-center justify-center">
+            <Lightbulb className="text-yellow-400 animate-pulse" size={28} />
           </div>
-          <div className="bg-white dark:bg-[#1E1E1E] p-6 rounded-2xl border border-m3-surface-variant/20 shadow-sm">
-            <p className="text-m3-secondary/80 dark:text-m3-on-surface-dark/90 text-base italic leading-relaxed font-medium">
-              "{lobConfig?.supervisorSuggestion || 'Sigue dando lo mejor de ti en cada contacto. ¡Excelente turno!'}"
-            </p>
+          <div>
+            <h3 className="text-sm font-bold text-white mb-1 uppercase tracking-wider">Insight del Supervisor</h3>
+            <p className="text-gray-300 text-base md:text-lg italic">"{lobConfig?.supervisorSuggestion || 'Sigue dando lo mejor de ti en cada contacto. ¡Excelente turno!'}"</p>
           </div>
-        </section>
+        </div>
       )}
 
       {/* ── Performance Details Module ─────────────────────────────────────── */}
@@ -473,14 +466,14 @@ export default function HomePage() {
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
           
           {/* Section: Tendencia Mensual */}
-          <section className="bg-white dark:bg-[#1E1E1E] rounded-3xl p-6 border border-m3-surface-variant/40 dark:border-white/10 shadow-sm">
+          <section className="bg-[#0A0A0A]/80 backdrop-blur-2xl border border-white/5 rounded-[2.5rem] p-6 md:p-10 mt-10 shadow-[0_0_50px_rgba(0,0,0,0.5)]">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
               <div>
-                <h3 className="text-xl font-bold text-m3-secondary dark:text-m3-on-surface-dark flex items-center gap-2">
-                  <BarChart3 size={24} className="text-m3-primary" />
+                <h3 className="text-2xl font-black text-white flex items-center gap-3 tracking-tight">
+                  <BarChart3 size={28} className="text-blue-500" />
                   Rendimiento Mensual
                 </h3>
-                <p className="text-xs text-m3-secondary/60 dark:text-m3-on-surface-dark/50 italic">Evolución completa del mes actual (1 al 31)</p>
+                <p className="text-[10px] uppercase tracking-[0.2em] font-bold text-gray-500 mt-2">Evolución completa del mes actual (1 al 31)</p>
               </div>
             </div>
 
@@ -513,16 +506,16 @@ export default function HomePage() {
               return (
                 <>
                   {historicalKpis.length > 0 && (
-                    <div className="flex flex-wrap gap-2 mb-6">
+                    <div className="flex flex-wrap bg-[#111] p-1 rounded-full border border-white/10 mb-8 max-w-fit gap-1">
                       {historicalKpis.map(kpi => (
                         <button
                           key={`btn-${kpi}`}
                           onClick={() => setActiveGraphKpi(kpi)}
-                          className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase transition-colors ${
-                            activeGraphKpi === kpi 
-                              ? 'bg-m3-primary text-white shadow-md' 
-                              : 'bg-m3-surface-variant text-m3-on-surface-variant hover:bg-m3-primary hover:text-white opacity-70 dark:bg-white/5 dark:text-gray-400 dark:hover:bg-m3-primary dark:hover:text-white'
-                          }`}
+                          className={`
+                            ${activeGraphKpi === kpi 
+                              ? 'px-5 py-2 text-xs font-bold text-white bg-white/10 shadow-md uppercase transition-all rounded-full border border-white/5' 
+                              : 'px-5 py-2 text-xs font-bold text-gray-500 uppercase hover:text-white transition-all rounded-full border border-transparent'}
+                          `}
                         >
                           {kpi.replace(/_/g, ' ')}
                         </button>
@@ -530,13 +523,13 @@ export default function HomePage() {
                     </div>
                   )}
 
-                  <div className="h-72 w-full mb-12">
-                    <ResponsiveContainer width="100%" height="100%">
+                  <div className="min-h-[350px] w-full mb-12">
+                    <ResponsiveContainer width="100%" height={350}>
                       <LineChart data={monthArray}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#88888820" />
                         <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#888888'}} interval={0} />
                         <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#888888'}} />
-                        <Tooltip contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)', fontSize: '12px' }} />
+                        <Tooltip contentStyle={{ backgroundColor: '#0A0A0A', borderColor: 'rgba(255,255,255,0.1)', borderRadius: '16px', color: '#fff', fontSize: '12px', boxShadow: '0 8px 30px rgba(0,0,0,0.2)' }} />
                         
                         {activeGraphKpi && (
                           <Line 
@@ -545,8 +538,8 @@ export default function HomePage() {
                             name={activeGraphKpi.toUpperCase().replace(/_/g, ' ')} 
                             stroke="#3b82f6" 
                             strokeWidth={3} 
-                            dot={{ r: 4, strokeWidth: 2, fill: '#1e293b' }} 
-                            activeDot={{ r: 6, fill: '#3b82f6' }} 
+                            dot={{ r: 4, strokeWidth: 2, fill: '#0A0A0A', stroke: '#3b82f6' }} 
+                            activeDot={{ r: 6, fill: '#3b82f6', stroke: '#ffffff' }} 
                             connectNulls 
                             animationDuration={500}
                           />
@@ -555,66 +548,62 @@ export default function HomePage() {
                     </ResponsiveContainer>
                   </div>
 
-                  {/* Monthly Metrics Table */}
-                  <div className="mt-8">
-                    <h4 className="text-sm font-bold text-m3-secondary dark:text-m3-on-surface-dark mb-4 flex items-center gap-2 px-1">
-                      <ClipboardList size={16} /> Detalle Diario del Mes
+                  {/* Monthly Metrics Table Ultra-Minimalist */}
+                  <div className="mt-12">
+                    <h4 className="text-lg font-bold text-white mb-6 flex items-center gap-2 px-2">
+                      <ClipboardList size={20} className="text-blue-500" /> Detalle Diario del Mes
                     </h4>
-                    <div className="rounded-2xl border border-m3-surface-variant/30 bg-m3-surface/50 dark:bg-black/10 overflow-hidden shadow-sm">
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-left text-xs">
-                          <thead className="bg-m3-surface-variant/20 dark:bg-white/5 text-gray-500 font-bold uppercase tracking-wider">
-                            <tr>
-                              <th className="px-4 py-3">Día</th>
-                              {historicalKpis.map(kpi => (
-                                <th key={kpi} className="px-4 py-3 text-center">{kpi.replace(/_/g, ' ')}</th>
-                              ))}
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-m3-surface-variant/10 dark:divide-white/5">
-                            {monthArray.map((row) => {
-                              const isTodayRow = row.fullDate === today;
-                              const isLastDataRow = !history[today] && row.fullDate === lastDayWithData;
-                              const hasRowData = !!history[row.fullDate];
+                    <div className="overflow-x-auto w-full">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr>
+                            <th className="text-[10px] text-gray-500 uppercase tracking-[0.2em] pb-4 font-bold border-b border-white/5 w-16">Día</th>
+                            {historicalKpis.map(kpi => (
+                              <th key={kpi} className="text-[10px] text-gray-500 uppercase tracking-[0.2em] pb-4 font-bold text-center border-b border-white/5">{kpi.replace(/_/g, ' ')}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {monthArray.map((row) => {
+                            const isTodayRow = row.fullDate === today;
+                            const isLastDataRow = !history[today] && row.fullDate === lastDayWithData;
+                            const hasRowData = !!history[row.fullDate];
 
-                              return (
-                                <tr 
-                                  key={row.fullDate}
-                                  className={`transition-colors 
-                                    ${isTodayRow ? 'bg-m3-primary/10 dark:bg-m3-primary/20 font-bold' : ''}
-                                    ${isLastDataRow ? 'bg-yellow-50 dark:bg-yellow-900/10 ring-1 ring-yellow-400/20' : ''}
-                                    ${!hasRowData ? 'opacity-30' : 'hover:bg-m3-surface-variant/10 dark:hover:bg-white/5'}
-                                  `}
-                                >
-                                  <td className="px-4 py-2.5 font-medium">
-                                    <div className="flex items-center gap-2">
-                                      {row.day}
-                                      {(isTodayRow || isLastDataRow) && (
-                                        <span className={`text-[8px] px-1.5 py-0.5 rounded-full uppercase leading-none font-black
-                                          ${isTodayRow ? 'bg-m3-primary text-white' : 'bg-yellow-500 text-white'}`}>
-                                          {isTodayRow ? 'Hoy' : 'Cierre'}
-                                        </span>
-                                      )}
-                                    </div>
-                                  </td>
-                                  {historicalKpis.map(kpi => {
-                                    const val = (row as any)[kpi];
-                                    const formattedVal = (val !== undefined && val !== null && val !== '') 
-                                        ? (typeof val === 'number' ? (Number.isInteger(val) ? val : val.toFixed(1)) : (!isNaN(Number(val)) && String(val).includes('.') ? Number(val).toFixed(1) : val))
-                                        : '—';
-                                        
-                                    return (
-                                      <td key={`${row.fullDate}-${kpi}`} className="px-4 py-2.5 text-center">
-                                        {formattedVal}
-                                      </td>
-                                    );
-                                  })}
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
+                            return (
+                              <tr 
+                                key={row.fullDate}
+                                className={`transition-colors duration-200 cursor-default border-b border-white/5
+                                  ${isTodayRow ? 'bg-blue-900/10' : ''}
+                                  ${isLastDataRow && !isTodayRow ? 'bg-yellow-900/10' : ''}
+                                  ${!hasRowData ? 'opacity-40' : 'hover:bg-white/[0.02]'}
+                                `}
+                              >
+                                <td className="text-sm text-gray-300 py-4 font-medium flex items-center gap-3">
+                                  <span>{row.day}</span>
+                                  {(isTodayRow || isLastDataRow) && (
+                                    <span className={`text-[9px] px-2 py-0.5 rounded-full uppercase tracking-wider font-black
+                                      ${isTodayRow ? 'bg-blue-500/20 text-blue-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
+                                      {isTodayRow ? 'Hoy' : 'Cierre'}
+                                    </span>
+                                  )}
+                                </td>
+                                {historicalKpis.map(kpi => {
+                                  const val = (row as any)[kpi];
+                                  const formattedVal = (val !== undefined && val !== null && val !== '') 
+                                      ? (typeof val === 'number' ? (Number.isInteger(val) ? val : val.toFixed(1)) : (!isNaN(Number(val)) && String(val).includes('.') ? Number(val).toFixed(1) : val))
+                                      : '—';
+                                      
+                                  return (
+                                    <td key={`${row.fullDate}-${kpi}`} className="text-sm text-gray-300 py-4 text-center font-medium">
+                                      {formattedVal}
+                                    </td>
+                                  );
+                                })}
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
                     </div>
                   </div>
                 </>

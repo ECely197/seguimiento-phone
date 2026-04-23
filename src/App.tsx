@@ -13,12 +13,11 @@ import IdleTrackerRecord from './pages/IdleTrackerRecord';
 import AdminRoute from './components/AdminRoute';
 import ProtectedRoute from './components/ProtectedRoute';
 import AgentChats from './pages/AgentChats';
-import Navbar from './components/Navbar';
-import Header from './components/Header';
+import FloatingNav from './components/FloatingNav';
 import { PermissionsProvider, usePermissions } from './context/PermissionsContext';
 import './App.css';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore'; 
 import { auth, db } from './firebaseConfig';
@@ -35,6 +34,7 @@ const PermissionGuard = ({ section, children }: { section: 'canViewTraining' | '
 function Layout() {
   const location = useLocation();
   const navigate = useNavigate();
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   
   // Hide navbar on login page AND admin dashboard
   const PUBLIC_NO_NAV = ['/login', '/admin', '/', '/executive-report/team-vitals', '/executive-report/hourly-trends', '/pda-manual', '/executive-plan'];
@@ -87,9 +87,9 @@ function Layout() {
 
   return (
     <>
-      {showNavbar && <Header />}
-      <div className={`${showNavbar ? "pb-20 pt-16" : ""} transition-all duration-300`}>
-        <Routes>
+      <div className={`transition-all duration-300 min-h-screen bg-[#0A0A0A] text-gray-200 overflow-hidden`}>
+        <div key={location.pathname} className="animate-[fadeInUp_0.4s_ease-out_forwards] w-full min-h-screen origin-top">
+          <Routes>
           {/* Public Routes */}
           <Route path="/login" element={<LoginPage />} />
           <Route path="/" element={<Navigate to="/home" replace />} />
@@ -139,8 +139,9 @@ function Layout() {
           {/* Fallback */}
           <Route path="*" element={<Navigate to="/home" replace />} />
         </Routes>
+        </div>
       </div>
-      {showNavbar && <Navbar />}
+      {showNavbar && <FloatingNav />}
     </>
   );
 }

@@ -2,9 +2,13 @@ import { useTheme } from "../context/ThemeContext";
 import { auth } from "../firebaseConfig";
 import { signOut } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
-import { Sun, Moon, LogOut, LayoutDashboard } from "lucide-react";
+import { Sun, Moon, LogOut, LayoutDashboard, Menu } from "lucide-react";
 
-export default function Header() {
+interface HeaderProps {
+  onMenuClick?: () => void;
+}
+
+export default function Header({ onMenuClick }: HeaderProps) {
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
 
@@ -19,28 +23,36 @@ export default function Header() {
   };
 
   return (
-    <header className="fixed top-0 left-0 right-0 h-16 bg-white dark:bg-[#1E1E1E] border-b border-gray-200 dark:border-white/10 flex items-center justify-between px-6 z-50 transition-colors duration-300">
-      <div className="flex items-center gap-2">
-        <div className="p-1.5 bg-m3-primary/10 rounded-lg">
-          <LayoutDashboard className="text-m3-primary" size={20} />
+    <header className="fixed top-0 left-0 right-0 h-16 bg-[#0A0A0A]/80 backdrop-blur-xl border-b border-white/10 flex items-center justify-between px-4 sm:px-6 z-40 transition-colors duration-300 md:pl-[17rem]">
+      <div className="flex items-center gap-3">
+        {onMenuClick && (
+          <button 
+            onClick={onMenuClick}
+            className="p-2 -ml-2 rounded-xl text-gray-400 hover:bg-white/5 hover:text-white md:hidden transition-all"
+          >
+            <Menu size={24} />
+          </button>
+        )}
+        <div className="p-1.5 bg-blue-600/10 rounded-lg hidden sm:block border border-blue-500/20">
+          <LayoutDashboard className="text-blue-500" size={20} />
         </div>
-        <span className="font-bold text-m3-secondary dark:text-m3-on-surface-dark tracking-tight">Gestión Team</span>
+        <span className="font-bold text-white tracking-tight text-lg">PedidosYa Admin</span>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1 sm:gap-2">
         <button
           onClick={toggleTheme}
-          className="p-2 rounded-full text-m3-secondary dark:text-m3-on-surface-dark hover:bg-m3-primary/5 transition-colors"
+          className="p-2 rounded-full text-gray-400 hover:bg-white/5 hover:text-white transition-all"
           title="Cambiar Tema"
         >
           {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
         </button>
         
-        <div className="h-6 w-px bg-gray-200 dark:bg-white/10 mx-1" />
+        <div className="h-6 w-px bg-white/10 mx-1 hidden sm:block" />
 
         <button
           onClick={handleLogout}
-          className="p-2 rounded-full text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+          className="p-2 rounded-full text-red-500 hover:bg-red-500/10 transition-colors"
           title="Cerrar Sesión"
         >
           <LogOut size={20} />

@@ -1,9 +1,8 @@
-import { useState, useEffect } from 'react';
-import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
-import { db, auth, appId } from '../firebaseConfig';import { getPublicCollection, getUserCollection, getPublicDoc, getUserDoc, getAppStorageRef, fetchAllUsersSubcollection } from '../firebasePaths';
-
-import { Loader2, Library, Video as VideoIcon } from 'lucide-react';
-import ProcessCard from '../components/ProcessCard';
+import { useState, useEffect, useRef } from 'react';
+import { collection, doc, getDoc, addDoc, serverTimestamp, query, orderBy, onSnapshot, updateDoc, deleteDoc } from 'firebase/firestore';
+import { db, auth, appId } from '../firebaseConfig';
+import { Loader2, MessageCircle, X, Send, Video as VideoIcon, User } from 'lucide-react';
+import { usePermissions } from '../context/PermissionsContext';
 
 interface VideoModule {
   id: string;
@@ -11,9 +10,217 @@ interface VideoModule {
   description: string;
   videoUrl: string;
   category: string;
-  viewedBy: string[];
-  thumbnailUrl?: string;
   lobId?: string;
+  mediaType?: string;
+}
+
+const VideoItem = ({ video, isActive, onCommentClick }: { video: VideoModule, isActive: boolean, onCommentClick: (id: string) => void }) => {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  
+  useEffect(() => {
+    if (isActive) {
+      videoRef.current?.play().catch(() => {});
+    } else {
+      videoRef.current?.pause();
+    }
+  }, [isActive]);
+
+  return (
+     <div data-id={video.id} className="video-snap-item snap-start h-full w-full relative bg-[#0A0A0A] flex items-center justify-center shrink-0">
+        {video.mediaType === 'image' || video.videoUrl.match(/\.(jpeg|jpg|gif|png|webp)$/i) ? (
+          <img src={video.videoUrl} alt={video.title} className="h-full w-full object-contain" />
+        ) : (
+          <video 
+            ref={videoRef}
+            src={video.videoUrl} 
+            className="h-full w-full object-cover"
+            controls={false}
+            loop
+            playsInline
+          />
+        )}
+        
+        {/* Overlay Glassmorphism - Degradado inferior para legibilidad */}
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/80 pointer-events-none" />
+        
+        {/* Información del Video */}
+        <div className="absolute bottom-28 left-4 right-16 z-10 text-white">
+          <h2 className="text-xl md:text-2xl font-bold mb-1 drop-shadow-md">{video.title}</h2>
+          <p className="text-sm text-gray-300 line-clamp-2 drop-shadow-sm">{video.description}</p>
+          <div className="mt-3 inline-block px-3 py-1 bg-white/10 backdrop-blur-md border border-white/20 rounded-full text-[10px] font-bold uppercase tracking-widest text-white">
+            {video.lobId || 'General'}
+          </div>
+        </div>
+        
+        {/* Botones de Acción Flotantes */}
+        <div className="absolute bottom-28 right-3 flex flex-col items-center gap-4 z-20">
+          <button 
+            onClick={() => onCommentClick(video.id)}
+            className="p-3 bg-white/10 backdrop-blur-xl rounded-full border border-white/20 text-white hover:bg-white/20 transition-all active:scale-90 shadow-lg flex flex-col items-center group"
+          >
+            <MessageCircle size={24} className="group-hover:scale-110 transition-transform" />
+          </button>
+        </div>
+     </div>
+  );
+}
+
+const CommentsDrawer = ({ videoId, onClose }: { videoId: string, onClose: () => void }) => {
+  const user = auth.currentUser;
+  const { permissions } = usePermissions();
+  const [comments, setComments] = useState<any[]>([]);
+  const [newComment, setNewComment] = useState("");
+  const [replyingTo, setReplyingTo] = useState<string | null>(null);
+  const [editingComment, setEditingComment] = useState<string | null>(null);
+  const endOfMessagesRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+     if (!videoId) return;
+     const commentsRef = collection(db, 'artifacts', appId, 'public', 'data', 'capacitaciones', videoId, 'comments');
+     const q = query(commentsRef, orderBy('createdAt', 'asc'));
+     const unsub = onSnapshot(q, (snap) => {
+        setComments(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+        setTimeout(() => endOfMessagesRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
+     });
+     return () => unsub();
+  }, [videoId]);
+
+  const handleSubmit = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if(!newComment.trim()) return;
+    
+    if (editingComment) {
+       await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'capacitaciones', videoId, 'comments', editingComment), {
+          content: newComment.trim(),
+          isEdited: true
+       });
+       setEditingComment(null);
+    } else {
+       const commentsRef = collection(db, 'artifacts', appId, 'public', 'data', 'capacitaciones', videoId, 'comments');
+       await addDoc(commentsRef, {
+          content: newComment.trim(),
+          userId: user?.uid,
+          userName: user?.displayName || 'Agente',
+          userEmail: user?.email || 'Agente',
+          isAdmin: false,
+          parentId: replyingTo,
+          isEdited: false,
+          createdAt: serverTimestamp()
+       });
+       setReplyingTo(null);
+    }
+    setNewComment("");
+  };
+
+  const startEditing = (comment: any) => {
+     setEditingComment(comment.id);
+     setReplyingTo(null);
+     setNewComment(comment.content);
+  };
+
+  const deleteComment = async (id: string) => {
+     if (window.confirm("¿Seguro que deseas eliminar este comentario?")) {
+        await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'capacitaciones', videoId, 'comments', id));
+     }
+  };
+
+  const topLevelComments = comments.filter(c => !c.parentId);
+
+  const renderComment = (comment: any) => (
+    <div key={comment.id} className={`flex gap-3 mb-4 ${comment.parentId ? 'ml-8 relative' : ''}`}>
+      {comment.parentId && <div className="absolute -left-5 top-0 bottom-6 w-px bg-white/20" />}
+      {comment.parentId && <div className="absolute -left-5 top-4 w-4 h-px bg-white/20" />}
+      <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center shrink-0 border border-white/20">
+        <User size={16} className="text-gray-300" />
+      </div>
+      <div className="flex-1">
+        <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl rounded-tl-sm px-4 py-3 shadow-md">
+          <div className="flex items-center justify-between mb-1">
+             <div className="flex items-center gap-2">
+               <p className="text-xs font-bold text-gray-200">{comment.userEmail.split('@')[0]}</p>
+               {comment.isAdmin && <span className="px-1.5 py-0.5 bg-red-500/20 text-red-300 rounded text-[9px] font-black tracking-widest uppercase">TL / ADMIN</span>}
+             </div>
+             {comment.createdAt && <p className="text-[10px] text-gray-500">{comment.createdAt.toDate().toLocaleDateString()}</p>}
+          </div>
+          <p className="text-sm text-gray-300 leading-relaxed break-words">{comment.content}</p>
+        </div>
+        
+        <div className="flex items-center gap-3 mt-1 ml-2">
+          {!comment.parentId && (
+            <button 
+                onClick={(e) => { e.stopPropagation(); setReplyingTo(comment.id); setEditingComment(null); setNewComment(""); }} 
+                className="text-[11px] text-gray-400 hover:text-white font-medium transition-colors"
+            >
+                Responder
+            </button>
+          )}
+
+          {user?.uid === comment.userId && (
+            <>
+              <button 
+                onClick={(e) => { e.stopPropagation(); startEditing(comment); }} 
+                className="text-[11px] text-blue-400 hover:text-blue-300 font-medium transition-colors"
+              >
+                Editar
+              </button>
+              <button 
+                onClick={(e) => { e.stopPropagation(); deleteComment(comment.id); }} 
+                className="text-[11px] text-red-400 hover:text-red-300 font-medium transition-colors"
+              >
+                Eliminar
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="absolute inset-x-0 bottom-0 h-3/4 max-h-[600px] bg-[#0A0A0A]/95 backdrop-blur-2xl rounded-t-3xl border-t border-white/10 z-50 flex flex-col shadow-[0_-10px_40px_rgba(0,0,0,0.5)] text-white animate-in slide-in-from-bottom duration-300">
+      <div className="flex justify-between items-center p-4 border-b border-white/10 shrink-0">
+        <h3 className="font-bold flex items-center gap-2 text-white">
+            <MessageCircle size={18} className="text-blue-500"/> Consultas y Feedback
+        </h3>
+        <button onClick={(e) => { e.stopPropagation(); onClose(); }} className="p-2 bg-white/5 border border-white/10 rounded-full text-gray-400 hover:text-white hover:bg-white/10 transition-colors"><X size={16} /></button>
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-4 pb-20 no-scrollbar">
+        {topLevelComments.map(c => (
+           <div key={c.id}>
+               {renderComment(c)}
+               {comments.filter(reply => reply.parentId === c.id).map(reply => renderComment(reply))}
+           </div>
+        ))}
+        <div ref={endOfMessagesRef} />
+      </div>
+
+      <form onSubmit={handleSubmit} className="p-4 border-t border-white/10 bg-[#0A0A0A] pb-6 relative z-50 shrink-0 mt-auto">
+        {(replyingTo || editingComment) && (
+           <div className="flex items-center justify-between bg-white/5 border border-white/10 px-4 py-2 rounded-t-xl -mt-4 mb-2 shadow-sm">
+              <span className="text-[10px] text-blue-400 font-bold uppercase tracking-wider">
+                {editingComment ? "Editando Comentario..." : "Respondiendo..."}
+              </span>
+              <button type="button" onClick={(e) => {e.stopPropagation(); setReplyingTo(null); setEditingComment(null); setNewComment("");}} className="text-gray-500 hover:text-white transition-colors">
+                 <X size={14} />
+              </button>
+           </div>
+        )}
+        <div className="flex gap-2">
+          <input 
+            type="text" 
+            placeholder={editingComment ? "Escribe tu modificación..." : (replyingTo ? "Añade una respuesta..." : "Escribe tu duda al TL...")}
+            value={newComment}
+            onChange={e => setNewComment(e.target.value)}
+            className="flex-1 bg-[#111] border border-white/20 shadow-inner rounded-full px-4 py-3 text-white text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors placeholder:text-gray-500"
+          />
+          <button type="submit" disabled={!newComment.trim()} className="w-12 h-12 flex items-center justify-center bg-blue-600 text-white rounded-full hover:bg-blue-500 transition-colors disabled:opacity-50 disabled:grayscale shrink-0 shadow-lg">
+            <Send size={18} className="translate-x-[-1px] translate-y-[1px]" />
+          </button>
+        </div>
+      </form>
+    </div>
+  );
 }
 
 export default function ProcessPage() {
@@ -22,10 +229,13 @@ export default function ProcessPage() {
   const [loading, setLoading] = useState(true);
   const [userLob, setUserLob] = useState<string | null>(null);
 
+  const [activeVideoId, setActiveVideoId] = useState<string | null>(null);
+  const [visibleId, setVisibleId] = useState<string | null>(null);
+
   useEffect(() => {
     const fetchUserLob = async () => {
       if (!user) {
-        setUserLob('phone'); // Guest default
+        setUserLob('phone');
         return;
       }
       try {
@@ -37,7 +247,6 @@ export default function ProcessPage() {
           setUserLob('phone');
         }
       } catch (err) {
-        console.error("Error fetching user LOB:", err);
         setUserLob('phone');
       }
     };
@@ -46,29 +255,30 @@ export default function ProcessPage() {
 
   useEffect(() => {
     const fetchMateriales = async () => {
-       if (!userLob) return; // Wait for LOB
+       if (!userLob) return;
        setLoading(true);
        try {
          const { getDocsWithFallback } = await import("../firebasePaths");
-         console.log(`[ProcessPage] Buscando materiales para LOB: ${userLob}`);
          const querySnapshot = await getDocsWithFallback("processes");
          const videos = querySnapshot.docs
-          .map(doc => {
-             const data = doc.data();
+          .map(d => {
+             const data = d.data();
              return {
-                 id: doc.id,
+                 id: d.id,
                  title: data.title || "Sin título",
-                 description: data.description || "Sin descripción disponible.",
+                 description: data.description || "",
                  videoUrl: data.url || "", 
                  category: data.category || "General",
-                 viewedBy: data.viewedBy || [],
-                 thumbnailUrl: data.thumbnailUrl,
-                 lobId: data.lobId || 'phone'
+                 lobId: data.lobId || 'phone',
+                 mediaType: data.mediaType || (data.type === 'image' ? 'image' : 'video')
              } as VideoModule;
           })
-          .filter(v => v.lobId === userLob || v.lobId === 'phone'); // Show user's LOB + global
+          .filter(v => v.videoUrl && (v.lobId === userLob || v.lobId === 'phone'));
           
          setMateriales(videos);
+         if (videos.length > 0) {
+             setVisibleId(videos[0].id);
+         }
        } catch (error) {
          console.error("Error fetching materials:", error);
        } finally {
@@ -78,84 +288,68 @@ export default function ProcessPage() {
     fetchMateriales();
   }, [userLob]);
 
-  // Group materials by category
-  const groupedMateriales = materiales.reduce((acc, current) => {
-    const cat = current.category;
-    if (!acc[cat]) {
-      acc[cat] = [];
-    }
-    acc[cat].push(current);
-    return acc;
-  }, {} as Record<string, VideoModule[]>);
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            setVisibleId(entry.target.getAttribute('data-id'));
+          }
+        });
+      },
+      { threshold: 0.6 }
+    );
 
-  // Sorting categories: General last, others alphabetical
-  const sortedCategories = Object.keys(groupedMateriales).sort((a, b) => {
-    if (a === 'General') return 1;
-    if (b === 'General') return -1;
-    return a.localeCompare(b);
-  });
+    document.querySelectorAll('.video-snap-item').forEach((el) => observer.observe(el));
+    return () => observer.disconnect();
+  }, [materiales]);
 
   if (loading) {
       return (
-          <div className="flex justify-center items-center h-screen bg-m3-surface dark:bg-m3-surface-dark">
-              <Loader2 className="animate-spin text-m3-primary" size={48} />
+          <div className="flex justify-center flex-col items-center h-[100dvh] bg-[#0A0A0A] gap-4">
+              <Loader2 className="animate-spin text-blue-500" size={48} />
+              <p className="text-[10px] uppercase tracking-[0.2em] font-bold text-gray-500">Cargando Capacitaciones</p>
+          </div>
+      );
+  }
+
+  if (materiales.length === 0) {
+      return (
+          <div className="flex flex-col items-center justify-center p-8 bg-[#0A0A0A] h-[100dvh] text-gray-500">
+              <VideoIcon className="opacity-20 mb-4 text-gray-600" size={64} />
+              <p className="text-lg font-medium text-gray-400">No se encontraron capacitaciones para tu área.</p>
           </div>
       );
   }
 
   return (
-    <div className="min-h-screen bg-m3-surface dark:bg-m3-surface-dark p-4 pb-24 transition-colors duration-300">
-      <header className="mb-8 mt-4">
-        <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-m3-primary/10 rounded-xl">
-                <Library className="text-m3-primary" size={32} />
+    <div className="min-h-screen h-[100dvh] bg-[#050505] flex flex-col items-center justify-center transition-colors duration-300 relative overflow-hidden">
+      
+      {/* Contenedor Principal (The Feed) estilo TikTok */}
+      <div className="h-[100dvh] w-full max-w-md mx-auto bg-[#0A0A0A] overflow-y-scroll snap-y snap-mandatory relative hide-scrollbar [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
+          
+          {materiales.map((video) => (
+             <VideoItem 
+                key={video.id} 
+                video={video} 
+                isActive={visibleId === video.id}
+                onCommentClick={(id) => setActiveVideoId(id)}
+             />
+          ))}
+
+      </div>
+
+      {activeVideoId && (
+        <div className="absolute inset-0 z-50 pointer-events-none flex flex-col items-center justify-end md:justify-center">
+            <div className="pointer-events-auto w-full h-[100dvh] md:h-[calc(100dvh-80px)] max-w-md mx-auto relative overflow-hidden md:rounded-3xl">
+               <CommentsDrawer 
+                  videoId={activeVideoId} 
+                  onClose={() => setActiveVideoId(null)} 
+               />
             </div>
-            <h1 className="text-3xl font-bold text-m3-secondary dark:text-m3-on-surface-dark">Capacitaciones</h1>
         </div>
-        <p className="text-m3-secondary/70 dark:text-m3-on-surface-dark/60 text-sm">
-          {userLob ? `Mostrando contenido para el área: ${userLob.toUpperCase()}` : 'Explora los módulos de aprendizaje continuo por categoría.'}
-        </p>
-      </header>
-
-      {materiales.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 text-gray-400">
-              <VideoIcon className="opacity-10 mb-4" size={64} />
-              <p className="text-lg font-medium mb-4">No se encontraron capacitaciones para tu área.</p>
-              
-              <div className="max-w-md w-full p-4 rounded-2xl bg-m3-surface-variant/20 border border-m3-surface-variant/30 text-xs font-mono text-left">
-                <p className="text-m3-primary mb-1">Status de Rescate Explicaciones:</p>
-                <p>• LOB asignado: {userLob} ... OK</p>
-                <p>• El sistema filtra automáticamente el contenido por LOB.</p>
-              </div>
-          </div>
-      ) : (
-          <div className="space-y-12">
-            {sortedCategories.map(cat => (
-              <section key={cat} className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <div className="flex items-center gap-4 mb-6">
-                    <h2 className="text-xl font-bold text-m3-secondary dark:text-m3-on-surface-dark bg-m3-primary/5 dark:bg-white/5 px-4 py-2 rounded-2xl border border-m3-surface-variant/30 dark:border-white/10">
-                        {cat}
-                    </h2>
-                    <div className="h-[1px] flex-1 bg-gradient-to-r from-m3-surface-variant/30 dark:from-white/10 to-transparent"></div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {groupedMateriales[cat].map((module) => (
-                    <ProcessCard
-                      key={module.id}
-                      id={module.id}
-                      title={module.title}
-                      description={module.description}
-                      videoUrl={module.videoUrl}
-                      viewedBy={module.viewedBy}
-                      userId={auth.currentUser?.uid}
-                    />
-                  ))}
-                </div>
-              </section>
-            ))}
-          </div>
       )}
+
     </div>
   );
 }

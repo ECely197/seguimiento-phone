@@ -81,90 +81,89 @@ export default function AgentChats() {
     );
 
     return (
-        <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-6 duration-500 pb-20">
+        <div className="max-w-6xl mx-auto px-4 md:px-0 space-y-12 animate-in fade-in slide-in-from-bottom-6 duration-500 pb-32">
             {/* Header Section */}
-            <div className="bg-white dark:bg-[#1E1E1E] p-8 rounded-[40px] border border-m3-surface-variant/30 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6 transition-all">
+            <div className="bg-white/[0.02] backdrop-blur-2xl rounded-3xl border border-white/[0.05] p-6 md:p-8 shadow-[0_8px_30px_rgb(0,0,0,0.12)] flex flex-col md:flex-row md:items-center justify-between gap-8 transition-all">
                 <div className="flex items-center gap-5">
-                    <div className="p-5 bg-m3-primary/10 rounded-[28px] ring-4 ring-m3-primary/5">
-                        <MessageSquare className="text-m3-primary" size={32} />
+                    <div className="p-4 bg-blue-600/10 border border-blue-500/20 rounded-2xl">
+                        <MessageSquare className="text-blue-500" size={32} />
                     </div>
                     <div>
-                        <h2 className="text-3xl font-black text-m3-secondary dark:text-white leading-tight">Mis Chats</h2>
-                        <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mt-1">Visor de Rendimiento por Interacción</p>
+                        <h2 className="text-3xl md:text-4xl font-black text-white leading-tight tracking-tight">Mis Chats</h2>
+                        <p className="text-[10px] uppercase tracking-[0.2em] font-bold text-gray-500 mt-2">Visor de Rendimiento Integral</p>
                     </div>
                 </div>
 
-                <div className="flex gap-2">
-                    <div className="relative group">
-                        <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-m3-primary transition-colors" size={18} />
+                <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto mt-4 md:mt-0">
+                    <div className="relative group flex-1 md:flex-none">
+                        <Calendar className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors" size={18} />
                         <select 
-                            className="pl-12 pr-6 py-4 rounded-2xl bg-m3-surface-variant/10 dark:bg-black/20 border border-m3-surface-variant/30 dark:border-white/5 font-black text-sm w-56 focus:ring-4 focus:ring-m3-primary/10 transition-all outline-none dark:text-white appearance-none cursor-pointer"
+                            className="pl-14 pr-6 py-4 rounded-full bg-transparent border border-white/10 font-bold text-sm w-full md:w-56 focus:ring-4 focus:ring-blue-500/20 transition-all outline-none text-white appearance-none cursor-pointer"
                             value={week}
                             onChange={(e) => {
                                 setWeek(e.target.value);
                                 if (e.target.value) {
-                                    // Trigger search immediately
                                     setTimeout(() => handleSearchAuto(e.target.value), 0);
                                 }
                             }}
                         >
-                            <option value="" className="dark:bg-[#1E1E1E]">Selecciona Semana...</option>
+                            <option value="" className="bg-[#111]">Selecciona Semana...</option>
                             {Array.from({ length: 52 }, (_, i) => i + 1).map(w => (
-                                <option key={w} value={String(w)} className="dark:bg-[#1E1E1E]">Semana {w}</option>
+                                <option key={w} value={String(w)} className="bg-[#111]">Semana {w}</option>
                             ))}
                         </select>
                     </div>
                     <button 
                         onClick={() => handleSearch()}
                         disabled={loading || !week.trim()}
-                        className="p-4 bg-m3-primary text-white rounded-2xl shadow-lg shadow-m3-primary/20 hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:grayscale"
+                        className="px-8 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold rounded-full shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 hover:-translate-y-0.5 active:scale-95 transition-all duration-300 disabled:opacity-50 flex items-center justify-center"
                     >
-                        {loading ? <Loader2 className="animate-spin" size={24} /> : <Search size={24} />}
+                        {loading ? <Loader2 className="animate-spin" size={20} /> : <Search size={20} />}
                     </button>
                 </div>
             </div>
 
             {error && (
-                <div className="flex items-center gap-3 p-6 bg-rose-50 dark:bg-rose-900/10 border border-rose-100 dark:border-rose-900/20 rounded-[28px] text-rose-600 dark:text-rose-400 font-bold text-sm animate-in zoom-in-95 duration-300">
-                    <AlertCircle size={20} />
+                <div className="flex items-center gap-4 p-6 bg-red-500/10 border border-red-500/20 rounded-3xl text-red-500 font-bold text-sm animate-in zoom-in-95 duration-300 shadow-[0_8px_30px_rgb(0,0,0,0.12)]">
+                    <AlertCircle size={24} />
                     {error}
                 </div>
             )}
 
             {/* Results Table */}
-            <div className="bg-white dark:bg-[#1E1E1E] rounded-[40px] border border-m3-surface-variant/30 shadow-sm overflow-hidden">
-                <div className="overflow-x-auto">
+            <div className="bg-[#0A0A0A] rounded-3xl border border-white/10 shadow-xl overflow-hidden">
+                <div className="overflow-x-auto w-full">
                     <table className="w-full text-left border-collapse">
-                        <thead>
-                            <tr className="bg-m3-surface-variant/10 dark:bg-white/5 border-b border-m3-surface-variant/20">
+                        <thead className="bg-white/[0.02] backdrop-blur-md border-b border-white/10 text-xs font-semibold text-gray-400 uppercase tracking-widest">
+                            <tr>
                                 {isClaims ? (
                                     <>
-                                        <th className="px-8 py-6 text-[10px] font-black uppercase tracking-widest text-m3-secondary/60 dark:text-gray-400">FECHA</th>
-                                        <th className="px-8 py-6 text-[10px] font-black uppercase tracking-widest text-m3-secondary/60 dark:text-gray-400">MOTIVO DE CONTACTO (CCR3)</th>
-                                        <th className="px-8 py-6 text-[10px] font-black uppercase tracking-widest text-m3-secondary/60 dark:text-gray-400 text-center">PARTNER ID</th>
-                                        <th className="px-8 py-6 text-[10px] font-black uppercase tracking-widest text-m3-secondary/60 dark:text-gray-400 text-center">TICKET</th>
-                                        <th className="px-8 py-6 text-[10px] font-black uppercase tracking-widest text-m3-secondary/60 dark:text-gray-400 text-center">PSAT</th>
-                                        <th className="px-8 py-6 text-[10px] font-black uppercase tracking-widest text-m3-secondary/60 dark:text-gray-400 text-center">AHT</th>
+                                        <th className="px-6 py-5 whitespace-nowrap">FECHA</th>
+                                        <th className="px-6 py-5 whitespace-nowrap">MOTIVO DE CONTACTO</th>
+                                        <th className="px-6 py-5 text-center whitespace-nowrap">PARTNER ID</th>
+                                        <th className="px-6 py-5 text-center whitespace-nowrap">TICKET</th>
+                                        <th className="px-6 py-5 text-center whitespace-nowrap">PSAT</th>
+                                        <th className="px-6 py-5 text-center whitespace-nowrap">AHT</th>
                                     </>
                                 ) : (
                                     <>
-                                        <th className="px-8 py-6 text-[10px] font-black uppercase tracking-widest text-m3-secondary/60 dark:text-gray-400">INTERACCIÓN</th>
-                                        <th className="px-8 py-6 text-[10px] font-black uppercase tracking-widest text-m3-secondary/60 dark:text-gray-400">CRONOLOGÍA</th>
-                                        <th className="px-8 py-6 text-[10px] font-black uppercase tracking-widest text-m3-secondary/60 dark:text-gray-400 text-center">AHT</th>
-                                        <th className="px-8 py-6 text-[10px] font-black uppercase tracking-widest text-m3-secondary/60 dark:text-gray-400 text-center">WUT</th>
-                                        <th className="px-8 py-6 text-[10px] font-black uppercase tracking-widest text-m3-secondary/60 dark:text-gray-400 text-center">FRT</th>
-                                        <th className="px-8 py-6 text-[10px] font-black uppercase tracking-widest text-m3-secondary/60 dark:text-gray-400 text-center">PSAT</th>
-                                        <th className="px-6 py-6 border-transparent"></th>
+                                        <th className="px-6 py-5 whitespace-nowrap">INTERACCIÓN</th>
+                                        <th className="px-6 py-5 whitespace-nowrap">CRONOLOGÍA</th>
+                                        <th className="px-6 py-5 text-center whitespace-nowrap">AHT</th>
+                                        <th className="px-6 py-5 text-center whitespace-nowrap">WUT</th>
+                                        <th className="px-6 py-5 text-center whitespace-nowrap">FRT</th>
+                                        <th className="px-6 py-5 text-center whitespace-nowrap">PSAT</th>
+                                        <th className="px-6 py-5 border-transparent"></th>
                                     </>
                                 )}
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-m3-surface-variant/10">
+                        <tbody className="divide-y divide-white/[0.05]">
                             {chats.length === 0 && !loading && !error && (
                                 <tr>
-                                    <td colSpan={7} className="px-8 py-20 text-center">
-                                        <div className="flex flex-col items-center gap-4 opacity-30">
-                                            <Search size={48} className="text-gray-400" />
+                                    <td colSpan={7} className="px-8 py-32 text-center">
+                                        <div className="flex flex-col items-center gap-6 opacity-30">
+                                            <Search size={64} className="text-gray-400" />
                                             <p className="text-sm font-black uppercase tracking-widest text-gray-500">
                                                 {week ? `No se encontraron chats para la Semana ${week}` : 'Selecciona una semana para visualizar los datos'}
                                             </p>
@@ -173,70 +172,70 @@ export default function AgentChats() {
                                 </tr>
                             )}
                             {chats.map((chat, idx) => (
-                                <tr key={idx} className="group hover:bg-m3-primary/[0.02] dark:hover:bg-m3-primary/5 transition-colors duration-200">
+                                <tr key={idx} className="group hover:bg-white/[0.02] transition-colors duration-200">
                                     {isClaims ? (
                                         <>
-                                            <td className="px-8 py-6 text-sm text-m3-secondary dark:text-gray-300 font-bold">{chat.fecha}</td>
-                                            <td className="px-8 py-6 text-sm text-m3-secondary dark:text-gray-300">{chat.contactReason}</td>
-                                            <td className="px-8 py-6 text-sm text-m3-secondary dark:text-gray-300 text-center">{chat.partnerId}</td>
-                                            <td className="px-8 py-6 text-sm text-m3-secondary dark:text-gray-300 text-center">{chat.ticket}</td>
-                                            <td className="px-8 py-6 text-center">
-                                                <div className={`inline-flex items-center gap-1 px-4 py-2 rounded-xl font-black text-xs shadow-sm
-                                                    ${chat.psat?.includes('100%') ? 'bg-emerald-500 text-white' : 
-                                                      chat.psat?.includes('0%') ? 'bg-rose-500 text-white' : 
-                                                      'bg-amber-100 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400'}
+                                            <td className="px-6 py-5 text-sm text-gray-200 font-medium whitespace-nowrap">{chat.fecha}</td>
+                                            <td className="px-6 py-5 text-sm text-gray-400 whitespace-nowrap">{chat.contactReason}</td>
+                                            <td className="px-6 py-5 text-sm text-gray-400 text-center whitespace-nowrap">{chat.partnerId}</td>
+                                            <td className="px-6 py-5 text-sm text-gray-400 text-center whitespace-nowrap">{chat.ticket}</td>
+                                            <td className="px-6 py-5 text-center whitespace-nowrap">
+                                                <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full font-bold text-xs border
+                                                    ${chat.psat?.includes('100%') ? 'bg-green-500/10 text-green-400 border-green-500/20' : 
+                                                      chat.psat?.includes('0%') ? 'bg-red-500/10 text-red-500 border-red-500/20' : 
+                                                      'bg-yellow-500/10 text-yellow-500 border-yellow-500/20'}
                                                 `}>
                                                     <Smile size={14} /> {chat.psat}
                                                 </div>
                                             </td>
-                                            <td className="px-8 py-6 text-center">
-                                                <div className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-blue-50 dark:bg-blue-900/10 text-blue-600 dark:text-blue-400 font-black text-[10px]">
+                                            <td className="px-6 py-5 text-center whitespace-nowrap">
+                                                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 font-bold text-[10px]">
                                                     <Clock size={12} /> {chat.aht}
                                                 </div>
                                             </td>
                                         </>
                                     ) : (
                                         <>
-                                            <td className="px-8 py-6">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-10 h-10 rounded-xl bg-orange-50 dark:bg-orange-900/10 flex items-center justify-center text-orange-600 dark:text-orange-400 border border-orange-100 dark:border-orange-900/30">
+                                            <td className="px-6 py-5 whitespace-nowrap">
+                                                <div className="flex items-center gap-4">
+                                                    <div className="w-10 h-10 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center text-orange-400 shadow-inner">
                                                         <Hash size={16} />
                                                     </div>
-                                                    <span className="font-black text-m3-secondary dark:text-white dark:text-opacity-90">{chat.ticket}</span>
+                                                    <span className="font-bold text-white text-sm">{chat.ticket}</span>
                                                 </div>
                                             </td>
-                                            <td className="px-8 py-6">
+                                            <td className="px-6 py-5 whitespace-nowrap">
                                                 <div className="flex flex-col">
-                                                    <span className="text-xs font-black text-m3-secondary dark:text-white uppercase leading-none mb-1">{chat.fecha}</span>
-                                                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">Sincronizado vía GViz</span>
+                                                    <span className="text-sm font-medium text-gray-200 leading-none mb-2">{chat.fecha}</span>
+                                                    <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Sincronizado vía GViz</span>
                                                 </div>
                                             </td>
-                                            <td className="px-8 py-6 text-center">
-                                                <div className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-blue-50 dark:bg-blue-900/10 text-blue-600 dark:text-blue-400 font-black text-[10px]">
+                                            <td className="px-6 py-5 text-center whitespace-nowrap">
+                                                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 font-bold text-xs">
                                                     <Clock size={12} /> {chat.aht}s
                                                 </div>
                                             </td>
-                                            <td className="px-8 py-6 text-center">
-                                                <div className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-purple-50 dark:bg-purple-900/10 text-purple-600 dark:text-purple-400 font-black text-[10px]">
+                                            <td className="px-6 py-5 text-center whitespace-nowrap">
+                                                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20 font-bold text-xs">
                                                     <Clock size={12} /> {chat.wut}s
                                                 </div>
                                             </td>
-                                            <td className="px-8 py-6 text-center">
-                                                <div className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-orange-50 dark:bg-orange-900/10 text-orange-600 dark:text-orange-400 font-black text-[10px]">
+                                            <td className="px-6 py-5 text-center whitespace-nowrap">
+                                                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-500/10 text-orange-400 border border-orange-500/20 font-bold text-xs">
                                                     <Zap size={12} /> {chat.frt}s
                                                 </div>
                                             </td>
-                                            <td className="px-8 py-6 text-center">
-                                                <div className={`inline-flex items-center gap-1 px-4 py-2 rounded-xl font-black text-xs shadow-sm
-                                                    ${chat.psat?.includes('100%') ? 'bg-emerald-500 text-white' : 
-                                                      chat.psat?.includes('0%') ? 'bg-rose-500 text-white' : 
-                                                      'bg-amber-100 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400'}
+                                            <td className="px-6 py-5 text-center whitespace-nowrap">
+                                                <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full font-bold text-xs border
+                                                    ${chat.psat?.includes('100%') ? 'bg-green-500/10 text-green-400 border-green-500/20' : 
+                                                      chat.psat?.includes('0%') ? 'bg-red-500/10 text-red-500 border-red-500/20' : 
+                                                      'bg-yellow-500/10 text-yellow-500 border-yellow-500/20'}
                                                 `}>
                                                     <Smile size={14} /> {chat.psat}
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-6 text-right">
-                                                <ChevronRight size={18} className="text-gray-300 group-hover:text-m3-primary transition-colors" />
+                                            <td className="px-6 py-5 text-right whitespace-nowrap">
+                                                <ChevronRight size={18} className="text-gray-600 group-hover:text-blue-500 transition-colors" />
                                             </td>
                                         </>
                                     )}

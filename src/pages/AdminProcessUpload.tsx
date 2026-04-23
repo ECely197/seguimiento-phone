@@ -120,7 +120,8 @@ export default function AdminProcessUpload({ selectedLob: globalLobFilter }: { s
                 category,
                 lobId: selectedLob,
                 url: downloadURL,
-                type: file.type.startsWith('video') ? 'video' : 'audio',
+                type: file.type.startsWith('video') ? 'video' : file.type.startsWith('image') ? 'image' : 'audio',
+                mediaType: file.type.startsWith('image') ? 'image' : 'video',
                 filename: file.name,
                 createdAt: serverTimestamp(),
                 createdBy: auth.currentUser?.email
@@ -331,7 +332,7 @@ export default function AdminProcessUpload({ selectedLob: globalLobFilter }: { s
                         <div>
                             <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3 ml-1">Asset Multimedia</label>
                             <div className="border-4 border-dashed border-m3-surface-variant/30 dark:border-white/5 rounded-[32px] p-10 text-center hover:bg-m3-surface-variant/10 transition-all cursor-pointer relative group overflow-hidden">
-                                <input type="file" accept="video/*,audio/*" onChange={handleFileChange} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+                                <input type="file" accept="video/*, image/png, image/jpeg, image/webp" onChange={handleFileChange} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
                                 <div className="flex flex-col items-center gap-3 text-gray-400 group-hover:text-m3-primary transition-all">
                                     <div className="p-4 bg-m3-surface-variant/20 rounded-full group-hover:scale-110 transition-transform">
                                         <Upload size={40} />
@@ -384,8 +385,12 @@ export default function AdminProcessUpload({ selectedLob: globalLobFilter }: { s
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                         {filteredMaterial.map((item) => (
                             <div key={item.id} className="bg-white dark:bg-[#1E1E1E] rounded-[32px] shadow-sm border border-m3-surface-variant/30 overflow-hidden flex flex-col group hover:shadow-2xl hover:-translate-y-1 transition-all">
-                                <div className="relative w-full aspect-video bg-black overflow-hidden">
-                                    <video src={item.url} controls className="absolute inset-0 w-full h-full object-contain" />
+                                <div className="relative w-full aspect-video bg-black overflow-hidden flex items-center justify-center">
+                                    {item.mediaType === 'image' || item.url?.match(/\.(jpeg|jpg|gif|png|webp)$/i) ? (
+                                        <img src={item.url} alt={item.title} className="absolute inset-0 w-full h-full object-contain" />
+                                    ) : (
+                                        <video src={item.url} controls className="absolute inset-0 w-full h-full object-contain" />
+                                    )}
                                     <div className="absolute top-4 right-4 z-10">
                                         <span className="text-[9px] font-black uppercase tracking-widest px-3 py-1 bg-white/90 dark:bg-black/80 backdrop-blur-md rounded-full shadow-lg">
                                             {item.category || 'General'}

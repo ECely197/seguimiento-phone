@@ -1,8 +1,13 @@
 import { NavLink } from "react-router-dom";
-import { Home, BookOpen, CheckCircle, Timer, Clock, MessageSquare } from "lucide-react";
+import { Home, BookOpen, CheckCircle, Timer, Clock, MessageSquare, X } from "lucide-react";
 import { usePermissions } from "../context/PermissionsContext";
 
-export default function Navbar() {
+interface NavbarProps {
+  isOpen?: boolean;
+  onClose?: () => void;
+}
+
+export default function Navbar({ isOpen, onClose }: NavbarProps) {
   const { permissions, loading } = usePermissions();
 
   const navItems = [
@@ -16,43 +21,56 @@ export default function Navbar() {
 
   if (loading) return null;
 
-  const cols = navItems.length;
-
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-white dark:bg-[#1E1E1E] border-t border-gray-200 dark:border-white/10 h-20 z-50 shadow-lg transition-colors duration-300">
-      <div className={`grid h-full max-w-lg mx-auto`} style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}>
-        {navItems.map((item) => (
-          <NavLink
-            key={item.path}
-            to={item.path}
-            className={({ isActive }) =>
-              `flex flex-col items-center justify-center transition-all duration-300 ${
-                isActive
-                  ? "text-m3-primary dark:text-m3-primary-dark"
-                  : "text-m3-secondary/60 dark:text-m3-on-surface-dark/40 hover:text-m3-primary dark:hover:text-m3-primary-dark"
-              }`
-            }
-          >
-            {({ isActive }) => (
-              <>
-                <div
-                  className={`p-2 rounded-2xl mb-1 transition-all duration-300 ${
-                    isActive ? "bg-m3-primary/10 dark:bg-m3-primary-dark/20 scale-110" : "bg-transparent"
-                  }`}
-                >
-                  <item.icon
-                    size={24}
-                    strokeWidth={isActive ? 2.5 : 2}
-                  />
-                </div>
-                <span className={`text-[10px] font-bold uppercase tracking-wider transition-all duration-300 ${isActive ? 'opacity-100' : 'opacity-70'}`}>
-                  {item.name}
-                </span>
-              </>
-            )}
-          </NavLink>
-        ))}
-      </div>
-    </nav>
+    <>
+      <div 
+        className={`fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} 
+        onClick={onClose}
+      />
+      <nav 
+        className={`fixed inset-y-0 left-0 w-64 bg-[#0A0A0A] border-r border-white/5 z-50 transform transition-transform duration-300 md:translate-x-0 flex flex-col ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}
+      >
+        <div className="flex h-full flex-col pt-20 pb-6 overflow-y-auto">
+          {onClose && (
+            <button 
+              onClick={onClose}
+              className="absolute top-4 right-4 p-2 text-gray-400 hover:bg-white/10 rounded-xl md:hidden transition-all"
+            >
+              <X size={24} />
+            </button>
+          )}
+
+          <div className="flex flex-col gap-2">
+            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em] pl-6 mb-2">Herramientas</span>
+            {navItems.map((item) => (
+              <NavLink
+                key={item.path}
+                to={item.path}
+                onClick={() => { if (window.innerWidth < 768 && onClose) onClose(); }}
+                className={({ isActive }) =>
+                  `mx-3 flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-300 ${
+                    isActive
+                      ? "bg-blue-600/10 text-blue-500 font-semibold border border-blue-500/20"
+                      : "text-gray-400 hover:bg-white/5 hover:text-white"
+                  }`
+                }
+              >
+                {({ isActive }) => (
+                  <>
+                    <item.icon
+                      size={20}
+                      className={isActive ? "opacity-100" : "opacity-70"}
+                    />
+                    <span className="text-sm">
+                      {item.name}
+                    </span>
+                  </>
+                )}
+              </NavLink>
+            ))}
+          </div>
+        </div>
+      </nav>
+    </>
   );
 }

@@ -325,35 +325,20 @@ export default function QuizPage() {
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-m3-surface dark:bg-black p-4 pb-24 transition-colors duration-300">
-      <header className="mb-6 mt-2 flex items-center justify-between flex-wrap gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-m3-primary dark:text-m3-primary">Práctica</h1>
-          <p className="text-m3-secondary dark:text-gray-400 text-sm">Mejora tus habilidades en el área {userLob?.toUpperCase()}.</p>
-        </div>
-        <a 
-          href="/pda-manual" 
-          target="_blank" 
-          rel="noopener noreferrer"
-          className="flex items-center gap-2 px-4 py-2 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 font-bold rounded-2xl shadow-sm border border-blue-200 dark:border-blue-800/30 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors text-sm"
-        >
-          <HelpCircle size={18} /> 📖 Conoce los criterios de evaluación
-        </a>
-      </header>
-
-      {/* Accuracy card — only on list view */}
-      {!activeQuiz && !loading && (
-        <div className="bg-gradient-to-r from-m3-primary to-blue-600 rounded-[28px] p-6 text-white shadow-lg mb-8 animate-in slide-in-from-top duration-500">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-bold opacity-90 mb-1 flex items-center gap-2">
-                <TrendingUp size={20} /> Mi Precisión Histórica
-              </h2>
-              <p className="text-sm opacity-80">Rendimiento global en quizzes de opción múltiple</p>
-            </div>
-            <div className="text-4xl font-bold">
-              {accuracy !== null ? `${accuracy}%` : <span className="text-2xl opacity-50">--%</span>}
-            </div>
+    <div className="min-h-screen bg-[#050505] p-4 md:p-8 relative pb-40">
+      
+      {/* ── Hero / Stats ── */}
+      {!activeQuiz && (
+        <div className="bg-gradient-to-br from-blue-900/40 to-[#0A0A0A] backdrop-blur-2xl border border-white/10 rounded-3xl p-8 flex flex-col md:flex-row items-center justify-between shadow-[0_0_40px_rgba(59,130,246,0.15)] mb-10 overflow-hidden relative">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+          <div className="relative z-10 text-center md:text-left">
+            <h2 className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-300 flex items-center justify-center md:justify-start gap-3">
+              <TrendingUp className="text-blue-500 drop-shadow-[0_0_10px_rgba(59,130,246,0.5)]" size={32} />
+              Precisión Histórica
+            </h2>
+          </div>
+          <div className="text-5xl font-black text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.3)] mt-4 md:mt-0 relative z-10">
+            {accuracy !== null ? `${accuracy}%` : <span className="text-4xl opacity-50">--%</span>}
           </div>
         </div>
       )}
@@ -372,60 +357,62 @@ export default function QuizPage() {
         const canSubmit  = openAudio ? (!!audioBlob && !isRecording) : !!selectedOption;
 
         return (
-          <div className="max-w-2xl mx-auto space-y-6 animate-in slide-in-from-right duration-500">
+          <div className="max-w-3xl mx-auto space-y-6 animate-in slide-in-from-right duration-500 relative z-10">
             <button
               onClick={() => { setActiveQuiz(null); resetQuizState(); }}
-              className="text-m3-primary font-bold text-sm mb-4 hover:underline"
+              className="text-gray-400 font-bold text-sm mb-4 hover:text-white transition-colors"
             >
-              ← Volver a la lista
+              ← Volver a Operaciones
             </button>
 
             {/* Context card */}
-            <section className="bg-white dark:bg-[#1E1E1E] rounded-[28px] p-6 shadow-sm border border-m3-surface-variant/50 dark:border-white/10">
+            <section className="bg-[#0A0A0A]/80 backdrop-blur-xl rounded-[32px] p-8 shadow-2xl border border-white/5 relative group">
               {/* Quiz-type badge */}
-              <div className={`mb-4 inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider px-3 py-1 rounded-full ${
+              <div className={`mb-6 inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest px-4 py-1.5 rounded-full ${
                 openAudio
-                  ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300'
-                  : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
+                  ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+                  : 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
               }`}>
-                {openAudio ? <Mic size={11} /> : <CheckCircle size={11} />}
-                {openAudio ? 'Roleplay — Respuesta de Voz' : 'Opción Múltiple'}
+                {openAudio ? <Mic size={12} /> : <CheckCircle size={12} />}
+                {openAudio ? 'ROLEPLAY CINEMÁTICO' : 'EVALUACIÓN MÚLTIPLE'}
               </div>
 
-              <h2 className="text-xl font-bold text-m3-secondary dark:text-white mb-4">{activeQuiz.title}</h2>
+              <h2 className="text-2xl font-black text-white mb-6 drop-shadow-md">{activeQuiz.title}</h2>
 
-              <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl border border-blue-100 dark:border-blue-900/30 mb-6">
-                <p className="font-medium text-blue-900 dark:text-blue-100 text-lg">{activeQuiz.description}</p>
+              <div className="bg-white/5 p-6 rounded-2xl border border-white/10 mb-8 backdrop-blur-md">
+                <p className="font-semibold text-gray-200 text-lg leading-relaxed">{activeQuiz.description}</p>
               </div>
 
               {/* ── Dynamic media player ── */}
               {mediaUrl && (
                 isVideo ? (
-                  <div className="rounded-2xl overflow-hidden border border-m3-surface-variant/30 dark:border-white/10 mb-2">
-                    <div className="flex items-center gap-2 px-4 py-2 bg-m3-surface-variant/20 dark:bg-white/5">
-                      <Video size={14} className="text-m3-primary" />
-                      <span className="text-xs font-semibold text-m3-secondary dark:text-gray-300">Video de Referencia</span>
+                  <div className="rounded-3xl border border-white/10 shadow-2xl bg-white/5 p-2 mb-4">
+                    <div className="flex items-center gap-2 px-4 py-3">
+                      <Video size={16} className="text-blue-400 shadow-blue-500" />
+                      <span className="text-[11px] font-black tracking-widest text-gray-300 uppercase">Referencia Multimedia</span>
                     </div>
                     <video
                       src={mediaUrl}
                       controls
-                      className="w-full"
-                      style={{ maxHeight: 320 }}
+                      className="w-full rounded-2xl object-cover bg-black"
+                      style={{ maxHeight: 400 }}
                     />
                   </div>
                 ) : (
-                  <div className="bg-m3-surface-variant/30 dark:bg-white/5 rounded-full px-4 py-3 flex items-center gap-4 mb-2">
-                    <div className="bg-m3-primary text-white p-3 rounded-full">
-                      <Headphones size={20} />
+                  <div className="bg-white/5 rounded-3xl p-4 flex items-center gap-6 mb-4 border border-white/10">
+                    <div className="bg-blue-600 shadow-[0_0_20px_rgba(37,99,235,0.5)] text-white p-4 rounded-full shrink-0">
+                      <Headphones size={24} />
                     </div>
-                    <span className="text-xs text-m3-secondary dark:text-gray-300 font-bold">Audio de Referencia</span>
-                    <audio src={mediaUrl} controls className="flex-1 h-9 min-w-0" />
+                    <div className="flex-1 w-full flex flex-col gap-2">
+                       <span className="text-[11px] font-black tracking-widest text-gray-300 uppercase">Audio de Evidencia</span>
+                       <audio src={mediaUrl} controls className="w-full h-10" />
+                    </div>
                   </div>
                 )
               )}
 
               {activeQuiz.explanation && (
-                <p className="text-sm text-gray-500 dark:text-gray-400 italic mt-4">
+                <p className="text-sm text-gray-400 italic mt-6 border-l-2 border-indigo-500/50 pl-4 bg-indigo-900/10 py-2">
                   💡 {activeQuiz.explanation}
                 </p>
               )}
@@ -437,39 +424,39 @@ export default function QuizPage() {
               {/* ── Condition A: Multiple-choice ── */}
               {!openAudio && (
                 <div>
-                  <h3 className="text-lg font-bold text-m3-secondary dark:text-white mb-4">
-                    Paso 1: Selecciona la mejor respuesta
+                  <h3 className="text-xl font-bold text-white mb-6 drop-shadow-sm">
+                    Misión: Selecciona la resolución óptima
                   </h3>
-                  <div className="grid gap-3">
+                  <div className="grid gap-4">
                     {activeQuiz.options?.map((option) => {
-                      let style = 'bg-white dark:bg-[#2C2C2C] border-2 border-transparent hover:border-m3-primary/30 text-m3-secondary dark:text-gray-200';
+                      let style = 'bg-[#111] border border-white/5 hover:border-blue-500/50 hover:bg-white/5 text-gray-300';
                       if (showResult) {
                         if (option.id === activeQuiz.correctOption)
-                          style = 'bg-green-100 dark:bg-green-900/30 border-2 border-green-500 text-green-800 dark:text-green-300';
+                          style = 'bg-green-900/40 border-2 border-green-500 text-green-200 shadow-[0_0_20px_rgba(34,197,94,0.2)]';
                         else if (option.id === selectedOption)
-                          style = 'bg-red-100 dark:bg-red-900/30 border-2 border-red-500 text-red-800 dark:text-red-300';
+                          style = 'bg-red-900/40 border-2 border-red-500 text-red-200';
                         else
-                          style = 'bg-gray-50 dark:bg-gray-800 opacity-50';
+                          style = 'bg-[#0A0A0A]/50 opacity-50 border-transparent text-gray-500';
                       } else if (selectedOption === option.id) {
-                        style = 'bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-500 text-blue-800 dark:text-blue-200';
+                        style = 'bg-blue-600/20 border-2 border-blue-500 text-blue-200 shadow-[0_0_20px_rgba(59,130,246,0.3)] transform scale-[1.01]';
                       }
                       return (
                         <button
                           key={option.id}
                           onClick={() => !showResult && setSelectedOption(option.id)}
                           disabled={showResult}
-                          className={`w-full p-5 rounded-2xl text-left transition-all duration-300 shadow-sm ${style}`}
+                          className={`w-full p-6 mx-auto max-w-full rounded-3xl text-left transition-all duration-300 ${style}`}
                         >
-                          <div className="flex items-start gap-4">
-                            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0 ${
-                              showResult && option.id === activeQuiz.correctOption ? 'bg-green-200 text-green-800 dark:bg-green-800 dark:text-green-100' :
-                              showResult && option.id === selectedOption ? 'bg-red-200 text-red-800 dark:bg-red-800 dark:text-red-100' :
-                              selectedOption === option.id ? 'bg-blue-200 text-blue-800 dark:bg-blue-800 dark:text-blue-100' :
-                              'bg-m3-surface-variant dark:bg-white/10 text-m3-secondary dark:text-gray-300'
+                          <div className="flex items-center gap-6">
+                            <div className={`w-12 h-12 rounded-full flex items-center justify-center font-black text-lg flex-shrink-0 shadow-lg ${
+                              showResult && option.id === activeQuiz.correctOption ? 'bg-green-500 text-white' :
+                              showResult && option.id === selectedOption ? 'bg-red-500 text-white' :
+                              selectedOption === option.id ? 'bg-blue-600 text-white shadow-[0_0_15px_currentColor]' :
+                              'bg-white/10 text-white border border-white/20'
                             }`}>
                               {option.id}
                             </div>
-                            <span className="text-sm font-medium leading-relaxed">{option.text}</span>
+                            <span className="text-base font-semibold leading-relaxed">{option.text}</span>
                           </div>
                         </button>
                       );
@@ -481,49 +468,52 @@ export default function QuizPage() {
               {/* ── Condition B: Open-audio recorder ── */}
               {openAudio && !showResult && (
                 <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-bold text-m3-secondary dark:text-white flex items-center gap-2">
-                      <Mic size={20} className="text-purple-500" />
-                      Graba tu respuesta *
+                  <div className="flex items-center justify-between mb-6 border-t border-white/10 pt-6">
+                    <h3 className="text-xl font-bold text-white flex items-center gap-3">
+                      <Mic size={24} className="text-purple-500" />
+                      Captura tu intervención
                     </h3>
-                    <span className="px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 text-xs font-bold rounded-full uppercase">
-                      Obligatorio
+                    <span className="px-3 py-1 bg-purple-500/20 text-purple-300 border border-purple-500/30 text-[10px] font-black rounded-full uppercase tracking-widest drop-shadow-[0_0_8px_rgba(168,85,247,0.4)]">
+                      Evidencia Requerida
                     </span>
                   </div>
 
-                  <div className="bg-white dark:bg-[#2C2C2C] rounded-[24px] p-8 border border-m3-surface-variant/30 dark:border-white/5 flex flex-col items-center gap-5">
+                  <div className="bg-[#111] backdrop-blur-md rounded-3xl p-12 border border-white/10 flex flex-col items-center gap-6 shadow-[inset_0_2px_40px_rgba(0,0,0,0.5)]">
 
                     {!audioPreviewUrl ? (
                       <>
-                        <p className="text-sm text-center text-m3-secondary/70 dark:text-gray-400 max-w-xs">
-                          Imagina que estás respondiendo al cliente del video. Presiona el micrófono y graba tu respuesta real.
+                        <p className="text-sm text-center text-gray-400 max-w-sm mb-4 font-medium">
+                          Dirígete al micrófono como si estuvieras en línea con el cliente. Sé firme, preciso y respeta el protocolo operativo.
                         </p>
                         <button
                           onClick={isRecording ? stopRecording : startRecording}
-                          className={`w-20 h-20 rounded-full flex items-center justify-center transition-all shadow-lg ${
+                          className={`rounded-full flex items-center justify-center transition-all mx-auto shadow-2xl ${
                             isRecording
-                              ? 'bg-red-500 animate-pulse ring-4 ring-red-200 dark:ring-red-900/30'
-                              : 'bg-purple-600 hover:bg-purple-700'
+                              ? 'w-28 h-28 bg-red-500 shadow-[0_0_80px_rgba(239,68,68,0.6)] animate-pulse border-none text-white'
+                              : 'w-24 h-24 bg-[#111] border border-white/10 hover:bg-white/10 text-white active:scale-95'
                           }`}
                         >
                           {isRecording
-                            ? <Square size={28} className="text-white" />
-                            : <Mic size={28} className="text-white" />}
+                            ? <Square size={36} fill="currentColor" />
+                            : <Mic size={36} fill="currentColor" className="opacity-80" />}
                         </button>
-                        <p className="text-sm font-medium text-m3-secondary dark:text-gray-400">
-                          {isRecording ? '🔴 Grabando… (click para detener)' : 'Click para comenzar a grabar'}
-                        </p>
+                        <div className="flex flex-col items-center mt-2">
+                           <p className={`text-sm font-bold tracking-widest uppercase transition-colors ${isRecording ? 'text-red-500' : 'text-gray-500'}`}>
+                             {isRecording ? '🔴 Grabación Activa' : 'Presiona para grabar'}
+                           </p>
+                           {isRecording && <span className="text-[10px] text-red-500/70 font-mono mt-1 font-bold">Haz clic para finalizar captura</span>}
+                        </div>
                       </>
                     ) : (
                       <div className="w-full space-y-4">
-                        <p className="text-sm font-semibold text-green-600 dark:text-green-400 text-center">
-                          ✅ Audio grabado — escúchalo antes de enviar
+                        <p className="text-sm font-bold text-green-400 text-center uppercase tracking-widest">
+                          ✅ Audio grabado — Confirmación visual
                         </p>
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-full p-2 pr-4 shadow-lg text-white">
                           <audio src={audioPreviewUrl} controls className="flex-1 h-10" />
                           <button
                             onClick={deleteRecording}
-                            className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-colors"
+                            className="p-2 text-red-500 hover:bg-red-900/20 rounded-full transition-colors flex items-center justify-center"
                             title="Descartar y volver a grabar"
                           >
                             <Trash2 size={20} />
@@ -539,32 +529,32 @@ export default function QuizPage() {
               {!openAudio && selectedOption && !showResult && (
                 <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-bold text-m3-secondary dark:text-white">
+                    <h3 className="text-lg font-bold text-white">
                       Paso 2 (Opcional): Justifica tu respuesta
                     </h3>
-                    <span className="px-2 py-1 bg-gray-100 dark:bg-white/10 text-xs rounded text-gray-500 dark:text-gray-400">Audio</span>
+                    <span className="px-2 py-1 bg-white/10 text-xs rounded text-gray-400">Audio</span>
                   </div>
-                  <div className="bg-white dark:bg-[#2C2C2C] rounded-[24px] p-6 border border-m3-surface-variant/30 dark:border-white/5 flex flex-col items-center gap-4">
+                  <div className="bg-[#111] rounded-[24px] p-6 border border-white/5 flex flex-col items-center gap-4">
                     {!audioPreviewUrl ? (
                       <>
                         <button
                           onClick={isRecording ? stopRecording : startRecording}
                           className={`w-16 h-16 rounded-full flex items-center justify-center transition-all ${
                             isRecording
-                              ? 'bg-red-500 animate-pulse ring-4 ring-red-200 dark:ring-red-900/30'
-                              : 'bg-m3-primary hover:bg-m3-primary/90'
+                              ? 'bg-red-500 animate-pulse ring-4 ring-red-900/30'
+                              : 'bg-white/10 border border-white/20 hover:bg-white/20'
                           }`}
                         >
-                          {isRecording ? <Square className="text-white" /> : <Mic className="text-white" />}
+                          {isRecording ? <Square className="text-white" /> : <Mic className="text-white opacity-80" />}
                         </button>
-                        <p className="text-sm text-m3-secondary dark:text-gray-400">
+                        <p className="text-sm text-gray-400">
                           {isRecording ? 'Grabando... (Click para detener)' : 'Graba un audio explicando tu elección'}
                         </p>
                       </>
                     ) : (
-                      <div className="w-full flex items-center gap-3">
+                      <div className="w-full flex items-center gap-3 text-white">
                         <audio src={audioPreviewUrl} controls className="flex-1 h-10" />
-                        <button onClick={deleteRecording} className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-colors">
+                        <button onClick={deleteRecording} className="p-2 text-red-500 hover:bg-red-900/20 rounded-full transition-colors">
                           <Trash2 size={20} />
                         </button>
                       </div>
@@ -578,11 +568,11 @@ export default function QuizPage() {
                 <button
                   onClick={submitAnswer}
                   disabled={!canSubmit || isSubmitting || isRecording}
-                  className="w-full py-4 bg-m3-primary text-white font-bold rounded-[24px] shadow-lg hover:bg-m3-primary/90 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed animate-in fade-in slide-in-from-bottom-4 flex items-center justify-center gap-2"
+                  className="w-full py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-black uppercase tracking-widest text-sm rounded-[24px] shadow-[0_0_30px_rgba(59,130,246,0.3)] hover:shadow-[0_0_40px_rgba(59,130,246,0.5)] hover:-translate-y-1 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed animate-in fade-in slide-in-from-bottom-4 flex items-center justify-center gap-3 border border-blue-500/50"
                 >
                   {isSubmitting
-                    ? 'Enviando...'
-                    : <><SendHorizonal size={18} /> {openAudio ? 'Enviar Respuesta de Voz' : 'Enviar Respuesta'}</>}
+                    ? 'Procesando...'
+                    : <><SendHorizonal size={20} /> {openAudio ? 'Enviar Respuesta Cinematica' : 'Confimar Resolución'}</>}
                 </button>
               )}
 
@@ -590,40 +580,40 @@ export default function QuizPage() {
               {showResult && (
                 openAudio ? (
                   /* Open-audio: neutral confirmation */
-                  <div className="p-6 rounded-[24px] bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800/30 animate-in fade-in slide-in-from-bottom-4 shadow-md">
+                  <div className="p-6 rounded-[24px] bg-purple-900/20 border border-purple-800/30 animate-in fade-in slide-in-from-bottom-4 shadow-lg text-purple-200">
                     <div className="flex items-start gap-3 mb-3">
-                      <Mic className="text-purple-600 dark:text-purple-400 flex-shrink-0" size={24} />
-                      <h4 className="font-bold text-lg text-purple-800 dark:text-purple-300">¡Respuesta enviada!</h4>
+                      <Mic className="text-purple-400 flex-shrink-0" size={24} />
+                      <h4 className="font-bold text-lg text-purple-300">Misión Completada Exitosamente</h4>
                     </div>
-                    <p className="text-sm text-purple-700 dark:text-purple-200 mb-6 leading-relaxed">
-                      Tu audio fue guardado exitosamente. El supervisor escuchará tu respuesta y te dará retroalimentación personalizada.
+                    <p className="text-sm mb-6 leading-relaxed opacity-80 font-medium">
+                      Tu evidencia fue almacenada. Tu supervisor analizará tu desempeño y calidad de atención y te otorgará feedback directamente.
                     </p>
                     <button
                       onClick={() => { setActiveQuiz(null); resetQuizState(); }}
-                      className="w-full py-3 bg-white dark:bg-white/10 border border-purple-200 dark:border-white/10 text-m3-secondary dark:text-white font-bold rounded-xl shadow-sm hover:bg-purple-50 dark:hover:bg-white/20 transition-colors"
+                      className="w-full py-3 bg-white/10 border border-white/20 text-white font-bold rounded-xl shadow-sm hover:bg-white/20 transition-colors"
                     >
-                      Continuar con otro Quiz
+                      Tomar Siguiente Misión
                     </button>
                   </div>
                 ) : (
                   /* Multiple-choice: correct / incorrect */
-                  <div className={`p-6 rounded-[24px] animate-in fade-in slide-in-from-bottom-4 shadow-md ${isCorrect ? 'bg-green-50 dark:bg-green-900/20' : 'bg-red-50 dark:bg-red-900/20'}`}>
+                  <div className={`p-6 rounded-[24px] animate-in fade-in slide-in-from-bottom-4 shadow-lg border ${isCorrect ? 'bg-green-900/20 border-green-800/30 text-green-200' : 'bg-red-900/20 border-red-800/30 text-red-200'}`}>
                     <div className="flex items-start gap-3 mb-3">
                       {isCorrect
-                        ? <CheckCircle className="text-green-600 dark:text-green-400 flex-shrink-0" size={24} />
-                        : <AlertCircle className="text-red-600 dark:text-red-400 flex-shrink-0" size={24} />}
-                      <h4 className={`font-bold text-lg ${isCorrect ? 'text-green-800 dark:text-green-300' : 'text-red-800 dark:text-red-300'}`}>
-                        {isCorrect ? '¡Correcto!' : 'Incorrecto'}
+                        ? <CheckCircle className="text-green-400 flex-shrink-0" size={24} />
+                        : <AlertCircle className="text-red-400 flex-shrink-0" size={24} />}
+                      <h4 className={`font-black text-lg ${isCorrect ? 'text-green-400' : 'text-red-400'}`}>
+                        {isCorrect ? '¡Resolución Optima!' : 'Análisis Incorrecto'}
                       </h4>
                     </div>
-                    <p className={`text-sm leading-relaxed mb-6 ${isCorrect ? 'text-green-700 dark:text-green-200' : 'text-red-700 dark:text-red-200'}`}>
-                      {activeQuiz.explanation || 'No hay explicación disponible.'}
+                    <p className={`text-sm leading-relaxed mb-6 font-medium`}>
+                      {activeQuiz.explanation || 'Protocolo completado y procesado.'}
                     </p>
                     <button
                       onClick={() => { setActiveQuiz(null); resetQuizState(); }}
-                      className="w-full py-3 bg-white dark:bg-white/10 border border-gray-200 dark:border-white/10 text-m3-secondary dark:text-white font-bold rounded-xl shadow-sm hover:bg-gray-50 dark:hover:bg-white/20 transition-colors"
+                      className="w-full py-3 bg-white/10 border border-white/20 text-white font-bold rounded-xl shadow-sm hover:bg-white/20 transition-colors"
                     >
-                      Continuar con otro Quiz
+                      Continuar a Nueva Misión
                     </button>
                   </div>
                 )
@@ -636,49 +626,53 @@ export default function QuizPage() {
         /* ── Quiz list ── */
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-in fade-in duration-500">
           {quizzes.length === 0 ? (
-            <div className="col-span-full text-center py-20 text-gray-400">
-              <HelpCircle className="mx-auto mb-4 opacity-20" size={48} />
-              <p className="text-lg font-medium mb-2">No hay prácticas disponibles para el área {userLob?.toUpperCase()}.</p>
-              <div className="max-w-md mx-auto p-4 rounded-2xl bg-m3-surface-variant/20 border border-m3-surface-variant/30 text-xs font-mono text-left">
-                <p className="text-m3-primary mb-1">Status de Rescate Quizzes:</p>
-                <p>• LOB asignado: {userLob} ... OK</p>
-                <p>• Se requiere asignación directa del supervisor.</p>
+            <div className="col-span-full text-center py-20 text-gray-500">
+              <HelpCircle className="mx-auto mb-4 text-gray-600" size={48} />
+              <p className="text-lg font-medium mb-2 text-gray-400">No hay misiones disponibles para el área {userLob?.toUpperCase()}.</p>
+              <div className="max-w-md mx-auto p-4 rounded-2xl bg-white/5 border border-white/10 text-xs font-mono text-left shadow-sm">
+                <p className="text-blue-500 mb-1 font-bold">Status de Rescate de Misiones:</p>
+                <p className="text-gray-400">• LOB asignado: {userLob} ... OK</p>
+                <p className="text-gray-400">• Se requiere asignación directa del TL/Supervisor.</p>
               </div>
             </div>
           ) : quizzes.map((quiz) => {
             const done      = completedQuizzes.has(quiz.id);
             const roleplay  = isOpenAudio(quiz);
             return (
-              <div key={quiz.id} className={`rounded-[28px] p-6 shadow-sm border transition-shadow flex flex-col h-full ${
+              <div key={quiz.id} className={`bg-[#0A0A0A]/80 backdrop-blur-xl border border-white/5 rounded-3xl p-6 transition-all duration-500 relative overflow-hidden flex flex-col h-full group text-gray-300 shadow-2xl ${
                 done
-                  ? 'bg-gray-50 dark:bg-[#121212] border-gray-200 dark:border-white/5 opacity-70'
-                  : 'bg-white dark:bg-[#1E1E1E] border-m3-surface-variant/50 dark:border-white/5 hover:shadow-md'
+                  ? 'opacity-80 grayscale-[0.3]'
+                  : 'hover:-translate-y-3 hover:border-blue-500/50 hover:shadow-[0_10px_40px_-10px_rgba(59,130,246,0.3)]'
               }`}>
-                {/* Type badge */}
-                <div className={`mb-3 inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full w-fit ${
-                  roleplay
-                    ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300'
-                    : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
-                }`}>
-                  {roleplay ? <Mic size={9} /> : <CheckCircle size={9} />}
-                  {roleplay ? 'Roleplay' : 'Quiz'}
-                </div>
-                <h3 className="text-lg font-bold text-m3-secondary dark:text-white mb-2 line-clamp-2">{quiz.title}</h3>
-                <p className="text-m3-secondary/70 dark:text-gray-400 text-sm mb-6 line-clamp-3 flex-grow">{quiz.description}</p>
+                <div className="absolute inset-0 bg-gradient-to-br from-blue-600/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
 
+                {/* Type badge */}
+                <div className={`mb-4 inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full w-max relative z-10 ${
+                  roleplay
+                    ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30 shadow-[0_0_8px_rgba(168,85,247,0.4)]'
+                    : 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                }`}>
+                  {roleplay ? <Mic size={11} className={!done ? "animate-pulse" : ""} /> : <CheckCircle size={11} />}
+                  {roleplay ? 'MISIÓN: ROLEPLAY CINEMÁTICO' : 'MISIÓN: RESOLUCIÓN LÓGICA'}
+                </div>
+                <h3 className="text-xl font-bold text-white mb-2 line-clamp-2 leading-snug relative z-10 drop-shadow-md">{quiz.title}</h3>
+                <p className="text-gray-400 text-sm mb-6 line-clamp-3 flex-grow relative z-10 font-medium">{quiz.description}</p>
+
+                <div className="mt-auto relative z-10 w-full pt-4 border-t border-white/10">
                 {done ? (
-                  <button disabled className="w-full py-3 bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400 font-bold rounded-full cursor-not-allowed flex items-center justify-center gap-2">
-                    <CheckCircle size={18} /> Completado
+                  <button disabled className="w-full py-3 bg-green-900/30 text-green-400 border border-green-500/30 font-bold rounded-2xl cursor-not-allowed flex items-center justify-center gap-2 shadow-sm">
+                    <CheckCircle size={18} /> Misión Cumplida
                   </button>
                 ) : (
                   <button
                     onClick={() => { setActiveQuiz(quiz); resetQuizState(); }}
-                    className="w-full py-3 bg-m3-primary/10 dark:bg-m3-primary/20 text-m3-primary font-bold rounded-full hover:bg-m3-primary/20 transition-colors flex items-center justify-center gap-2"
+                    className="w-full py-3 px-4 bg-white/10 hover:bg-blue-600 text-white font-bold rounded-2xl transition-all duration-300 flex items-center justify-center gap-2 active:scale-95 shadow-lg shadow-blue-900/20"
                   >
                     <Play size={18} fill="currentColor" />
-                    {roleplay ? 'Iniciar Roleplay' : 'Iniciar Quiz'}
+                    {roleplay ? 'INICIAR GRABACIÓN' : 'INICIAR RESOLUCIÓN'}
                   </button>
                 )}
+                </div>
               </div>
             );
           })}

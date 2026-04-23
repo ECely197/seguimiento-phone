@@ -240,15 +240,15 @@ export default function AcwPractice() {
 
   if (allScenarios.length === 0) {
     return (
-      <div className="h-full flex flex-col items-center justify-center gap-6 text-center p-8 bg-gray-50 dark:bg-[#121212]">
-        <div className="p-5 bg-orange-100 dark:bg-orange-900/20 rounded-3xl animate-pulse"><Timer className="text-orange-500" size={48} /></div>
+      <div className="h-full flex flex-col items-center justify-center gap-6 text-center p-8 bg-[#0A0A0A]">
+        <div className="p-5 bg-orange-900/20 rounded-3xl animate-pulse"><Timer className="text-orange-500" size={48} /></div>
         <div className="space-y-2">
-          <h2 className="text-2xl font-bold text-m3-secondary dark:text-m3-on-surface-dark">Sin escenarios disponibles</h2>
-          <p className="text-m3-secondary/60 dark:text-m3-on-surface-dark/50 max-w-sm">No se encontraron escenarios de ACW para el área {userLob?.toUpperCase()}.</p>
+          <h2 className="text-2xl font-bold text-white">Sin escenarios disponibles</h2>
+          <p className="text-gray-400 max-w-sm">No se encontraron escenarios de ACW para el área {userLob?.toUpperCase()}.</p>
         </div>
         
-        <div className="max-w-xs w-full p-4 rounded-2xl bg-m3-surface-variant/20 border border-m3-surface-variant/30 text-[10px] font-mono text-left">
-          <p className="text-m3-primary mb-1">Status de Rescate ACW:</p>
+        <div className="max-w-xs w-full p-4 rounded-2xl bg-white/5 border border-white/10 text-[10px] font-mono text-left text-gray-400">
+          <p className="text-orange-500 mb-1">Status de Rescate ACW:</p>
           <p>• LOB asignado: {userLob} ... OK</p>
           <p>• El simulador solo muestra escenarios relevantes para tu equipo.</p>
         </div>
@@ -259,31 +259,37 @@ export default function AcwPractice() {
   // ── LOBBY ──────────────────────────────────────────────────────────────────
   if (state === 'lobby') {
     return (
-      <div className="min-h-full flex flex-col items-center justify-center p-8 bg-gray-50 dark:bg-[#121212]">
-        <div className="max-w-md w-full text-center">
+      <div className="min-h-full flex flex-col items-center justify-center p-8 bg-[#0A0A0A] relative pb-40">
+        <div className="max-w-xl w-full text-center bg-[#0A0A0A]/80 backdrop-blur-2xl border border-orange-500/20 rounded-3xl p-10 shadow-[0_0_50px_rgba(249,115,22,0.1)] relative overflow-hidden text-white">
           <div className="relative mx-auto w-28 h-28 flex items-center justify-center mb-6">
             <div className="absolute inset-0 bg-orange-500/20 rounded-full animate-ping" />
-            <div className="relative p-6 bg-orange-100 dark:bg-orange-900/30 rounded-full">
-              <Shuffle size={44} className="text-orange-500" />
+            <div className="relative p-6 bg-orange-500/10 rounded-full shadow-[0_0_30px_rgba(249,115,22,0.2)]">
+              <Shuffle size={44} className="text-orange-500 drop-shadow-[0_0_10px_rgba(249,115,22,0.5)]" />
             </div>
           </div>
-          <div className="flex items-center justify-center gap-2 mb-2">
-            <div className="p-1 bg-orange-100 dark:bg-orange-900/30 rounded-lg"><Zap className="text-orange-500" size={14} /></div>
-            <span className="text-xs font-bold uppercase tracking-wider text-orange-500">Simulador ACW — Area {userLob?.toUpperCase()}</span>
+          <div className="flex items-center justify-center gap-2 mb-4">
+            <div className="p-1.5 bg-orange-500/20 rounded-lg"><Zap className="text-orange-400" size={12} /></div>
+            <span className="text-[10px] font-black uppercase tracking-widest text-orange-400">Simulador ACW — Area {userLob?.toUpperCase()}</span>
           </div>
-          <h1 className="text-3xl font-bold text-m3-secondary dark:text-m3-on-surface-dark mb-3">Desafío Aleatorio</h1>
-          <p className="text-m3-secondary/60 dark:text-m3-on-surface-dark/50 mb-1 text-sm">Recibirás un escenario sorpresa. <strong>Escucha</strong> la llamada y cuando estés listo, presiona <strong>"Colgar"</strong> para que empiece el cronómetro.</p>
-          <p className="text-xs text-orange-600 dark:text-orange-400 font-semibold mb-8">🎯 Meta: Tipificar en menos de 30 segundos tras colgar</p>
-          <div className="flex items-center justify-center gap-6 mb-8">
-            <div><p className="text-xl font-bold text-m3-secondary dark:text-m3-on-surface-dark">{allScenarios.length}</p><p className="text-xs text-gray-400">Escenarios</p></div>
-            <div className="w-px h-8 bg-gray-200 dark:bg-white/10" />
-            <div><p className="text-xl font-bold text-orange-500">30s</p><p className="text-xs text-gray-400">Meta ACW</p></div>
-            <div className="w-px h-8 bg-gray-200 dark:bg-white/10" />
-            <div><p className="text-xl font-bold text-m3-secondary dark:text-m3-on-surface-dark">ACW</p><p className="text-xs text-gray-400">Modo</p></div>
+          <h1 className="text-4xl md:text-5xl font-black mb-4 tracking-wide text-white">Desafío Aleatorio</h1>
+          <p className="text-gray-400 mb-10 max-w-sm mx-auto text-sm leading-relaxed">
+            Recibirás un escenario sorpresa. Cuando finalice tu intervención, presiona <b>Colgar</b> para detonar el contador.
+          </p>
+
+          <div className="flex items-center justify-center gap-6 mb-12 w-full px-4">
+            <div className="flex flex-col items-center bg-white/5 border border-white/10 rounded-2xl p-5 w-1/2 shadow-lg text-white">
+               <p className="text-3xl font-black">{allScenarios.length}</p>
+               <p className="text-[10px] font-bold tracking-widest text-gray-500 uppercase mt-2">Escenarios</p>
+            </div>
+            <div className="flex flex-col items-center bg-orange-500/10 border border-orange-500/20 rounded-2xl p-5 w-1/2 shadow-lg">
+               <p className="text-3xl font-black text-orange-500">30s</p>
+               <p className="text-[10px] font-bold tracking-widest text-orange-400 uppercase mt-2">Meta ACW</p>
+            </div>
           </div>
+
           <button onClick={handleStartChallenge}
-            className="w-full py-5 flex items-center justify-center gap-3 bg-orange-500 hover:bg-orange-600 text-white rounded-3xl font-bold text-xl shadow-xl transition-all hover:scale-[1.02] active:scale-100">
-            <Play size={26} fill="white" /> ⏱️ Iniciar Desafío Aleatorio
+            className="w-full bg-gradient-to-r from-orange-500 to-red-500 text-white font-black text-lg py-4 rounded-2xl shadow-[0_10px_30px_rgba(249,115,22,0.4)] hover:shadow-[0_10px_40px_rgba(249,115,22,0.6)] hover:-translate-y-1 active:scale-95 transition-all animate-pulse flex items-center justify-center gap-3">
+            <Play size={24} fill="white" /> INICIAR DESAFÍO
           </button>
         </div>
       </div>
@@ -294,267 +300,219 @@ export default function AcwPractice() {
   const activeScenario = scenario!;
 
   return (
-    <div className="min-h-full flex flex-col bg-gray-50 dark:bg-[#121212]">
+    <div className={`min-h-[calc(100vh-120px)] flex flex-col text-gray-200 pb-32 transition-colors duration-1000 relative overflow-hidden ${
+      state === 'acw'
+        ? elapsed > 30000 ? 'bg-gradient-to-b from-red-900/30 to-[#0A0A0A] animate-pulse'
+        : elapsed > 15000 ? 'bg-gradient-to-b from-yellow-900/20 to-[#0A0A0A]'
+        : 'bg-gradient-to-b from-green-900/20 to-[#0A0A0A]'
+      : 'bg-[#0A0A0A]'
+    }`}>
+      
+      {/* ── Floating ACW HUD Chronometer ── */}
+      {/* ── Floating ACW HUD Chronometer ── */}
+      <div className={`fixed top-6 right-6 md:top-10 md:right-10 z-[110] bg-black/60 backdrop-blur-md border border-white/10 rounded-3xl px-6 py-3 shadow-2xl transition-colors duration-500 font-mono text-4xl md:text-5xl font-black drop-shadow-[0_0_15px_currentColor] ${
+        state === 'listening' ? 'text-green-400/50'
+        : state === 'acw'
+          ? elapsed > 30000 ? 'text-red-500 animate-bounce'
+            : elapsed > 15000 ? 'text-yellow-400'
+            : 'text-green-400'
+        : 'text-gray-500'
+      }`}>
+        {formatTime(state === 'result' ? finalTimeMs : elapsed)}
+      </div>
 
       {/* ── Header ── */}
-      <div className="px-4 md:px-6 py-3 bg-white dark:bg-[#1E1E1E] border-b border-gray-200 dark:border-white/10 flex items-center justify-between gap-4 flex-wrap">
-        <div className="flex items-center gap-3">
-          <div className="p-1.5 bg-orange-100 dark:bg-orange-900/30 rounded-xl"><Shuffle size={16} className="text-orange-500" /></div>
+      <div className="px-6 py-4 bg-[#111]/40 border-b border-white/10 flex items-center justify-between gap-4 flex-wrap z-10 relative">
+        <div className="flex items-center gap-4">
+          <div className="p-2 bg-orange-500/20 rounded-xl border border-orange-500/30"><Shuffle size={18} className="text-orange-500" /></div>
           <div>
-            <p className="text-xs text-orange-500 font-bold uppercase tracking-wide">Caso Aleatorio ({userLob})</p>
-            <h1 className="text-sm font-bold text-m3-secondary dark:text-m3-on-surface-dark leading-tight">{activeScenario.title}</h1>
+            <p className="text-[10px] text-orange-500 font-black uppercase tracking-widest mb-1.5 drop-shadow-[0_0_5px_rgba(249,115,22,0.5)]">Match Aleatorio ({userLob})</p>
+            <h1 className="text-base font-bold text-white leading-tight">{activeScenario.title}</h1>
           </div>
         </div>
 
-        {/* Phase indicator + stopwatch */}
+        {/* Phase indicator limited to badge */}
         <div className="flex items-center gap-3">
-          {/* Phase badge */}
-          <span className={`text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full ${
-            state === 'listening' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
-            : state === 'acw' ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400'
-            : 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
+          <span className={`text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-full border ${
+            state === 'listening' ? 'bg-blue-900/40 border-blue-500 text-blue-300'
+            : state === 'acw' ? 'bg-orange-900/40 border-orange-500 text-orange-400 shadow-[0_0_15px_rgba(249,115,22,0.4)] animate-pulse'
+            : 'bg-green-900/40 border-green-500 text-green-300'
           }`}>
-            {state === 'listening' ? '📞 En Llamada' : state === 'acw' ? '⏱ ACW' : '✅ Cerrado'}
+            {state === 'listening' ? '📞 EN CURSO' : state === 'acw' ? '⚡ ACW ACTIVO' : '✅ COMPLETADO'}
           </span>
-
-          {/* Clock */}
-          <div className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl font-mono text-2xl font-bold transition-all duration-200 ${
-            state === 'listening' ? 'bg-gray-100 dark:bg-white/5 text-gray-400'
-            : state === 'acw'
-              ? elapsed > 50000 ? 'bg-red-500 text-white animate-pulse'
-                : elapsed > 25000 ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400'
-                : 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
-            : 'bg-gray-100 dark:bg-white/5 text-gray-400'
-          }`}>
-            <Clock size={18} strokeWidth={2.5} />
-            {formatTime(state === 'result' ? finalTimeMs : elapsed)}
-          </div>
         </div>
       </div>
 
       {/* ── Body ── */}
-      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
+      <div className="flex-1 w-full max-w-7xl mx-auto relative z-10 px-4 md:px-6 py-4 min-h-0 flex flex-col pb-24 md:pb-8">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6 w-full flex-1 min-h-[calc(100vh-200px)]">
 
-        {/* LEFT: Video + Datos del Sistema + Colgar Button */}
-        <div className="lg:w-[38%] flex flex-col">
+          {/* LEFT: Video/Audio + Botón destructivo (Compacto) */}
+          <div className="lg:col-span-5 flex flex-col h-full min-h-0 text-gray-200">
+            <div className="bg-white/5 border border-white/10 rounded-3xl p-2 w-full shadow-sm flex items-center justify-center flex-1 min-h-0 min-h-[250px] relative overflow-hidden backdrop-blur-md mb-4">
+               <video ref={videoRef} src={activeScenario.videoUrl} controls
+                 className="absolute inset-0 w-full h-full object-contain bg-[#111] rounded-2xl" />
+            </div>
 
-          {/* Video */}
-          <div className="bg-black flex-1 flex items-center justify-center min-h-[200px]">
-            <video ref={videoRef} src={activeScenario.videoUrl} controls
-              className="w-full h-full object-contain max-h-[280px] lg:max-h-full" />
+            {/* 📞 COLGAR LLAMADA button */}
+            {state === 'listening' ? (
+              <button
+                onClick={handleHangUp}
+                className="w-full flex shrink-0 items-center justify-center gap-3 py-3 md:py-4 bg-red-500/10 text-red-500 border border-red-500/50 hover:bg-red-500 hover:text-white hover:border-transparent rounded-xl font-bold text-lg shadow-sm transition-all active:scale-95 animate-pulse uppercase tracking-widest"
+              >
+                <PhoneOff size={22} /> FINALIZAR CONTACTO
+              </button>
+            ) : (
+              <div className="w-full shrink-0 px-4 py-3 md:py-4 bg-white/5 border border-white/10 rounded-xl text-gray-500 font-bold text-sm uppercase tracking-widest text-center flex items-center justify-center gap-2">
+                <PhoneOff size={18} /> Contacto Desconectado
+              </div>
+            )}
           </div>
 
-          {/* 📞 COLGAR LLAMADA button - only visible in 'listening' phase */}
-          {state === 'listening' && (
-            <button
-              onClick={handleHangUp}
-              className="mx-4 my-3 flex items-center justify-center gap-3 py-4 bg-red-500 hover:bg-red-600 text-white rounded-2xl font-bold text-base shadow-lg transition-all hover:scale-[1.02] active:scale-100 animate-pulse"
-            >
-              <PhoneOff size={22} />
-              📞 Colgar Llamada
-            </button>
-          )}
+          {/* RIGHT: HeroCare Simulator (Compacto sin scroll) */}
+          <div className="lg:col-span-7 relative h-full flex flex-col bg-black/40 backdrop-blur-md border border-white/10 rounded-3xl lg:p-6 p-4 overflow-hidden shadow-xl min-h-[500px]">
 
-          {/* ACW started indicator */}
-          {state === 'acw' && (
-            <div className="mx-4 my-3 flex items-center justify-center gap-2 py-3 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800/30 rounded-2xl text-orange-600 dark:text-orange-400 font-bold text-sm">
-              <Timer size={16} /> Cronómetro corriendo — Tipifica ahora
-            </div>
-          )}
-
-          {/* Datos del Sistema */}
-          {(activeScenario.contextOrderNumber || activeScenario.contextTicketId) && (
-            <div className="bg-[#0f2a52] text-white p-4 space-y-2.5">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-blue-300/70 mb-3">📋 Datos del Sistema</p>
-              {activeScenario.contextOrderNumber && (
-                <div className="flex items-center justify-between bg-white/10 rounded-xl px-3 py-2.5">
-                  <div>
-                    <p className="text-[10px] text-blue-300/70 uppercase tracking-wide">Order #</p>
-                    <p className="font-mono font-bold text-sm text-white tracking-wider">{activeScenario.contextOrderNumber}</p>
-                  </div>
-                  <CopyButton value={activeScenario.contextOrderNumber} />
+            {/* ── RESULT MODAL ── */}
+            {state === 'result' && (
+              <div className="absolute inset-0 z-30 flex flex-col items-center justify-center p-6 text-center bg-[#0A0A0A]/95 backdrop-blur-2xl rounded-3xl border border-white/10">
+                <div className="p-4 md:p-6 rounded-full mb-4 bg-green-900/30 border border-green-500/50 shadow-sm">
+                  <Trophy size={48} className="text-green-500" />
                 </div>
-              )}
-              {activeScenario.contextTicketId && (
-                <div className="flex items-center justify-between bg-white/10 rounded-xl px-3 py-2.5">
-                  <div>
-                    <p className="text-[10px] text-blue-300/70 uppercase tracking-wide">Ticket ID</p>
-                    <p className="font-mono font-bold text-sm text-white tracking-wider">{activeScenario.contextTicketId}</p>
-                  </div>
-                  <CopyButton value={activeScenario.contextTicketId} />
+                <h2 className="text-3xl font-black text-white mb-2">¡Tipi Finalizado!</h2>
+                <div className="flex items-center gap-3 px-6 py-4 bg-green-900/20 rounded-[24px] border border-green-500/30 mb-6 shadow-sm">
+                  <Clock size={28} className="text-green-500" />
+                  <span className="font-mono font-black text-5xl text-green-400 drop-shadow-[0_0_15px_currentColor]">{formatTime(finalTimeMs)}s</span>
                 </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* RIGHT: HeroCare Simulator */}
-        <div className="flex-1 p-4 md:p-6 overflow-y-auto relative">
-
-          {/* ── RESULT MODAL ── */}
-          {state === 'result' && (
-            <div className="absolute inset-0 z-30 flex flex-col items-center justify-center p-6 text-center bg-green-50 dark:bg-green-900/20">
-              <div className="p-4 rounded-3xl mb-4 bg-green-100 dark:bg-green-900/40">
-                <Trophy size={48} className="text-green-600 dark:text-green-400" />
-              </div>
-              <h2 className="text-2xl font-bold text-green-700 dark:text-green-400 mb-2">¡ACW Completado!</h2>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">Caso: <span className="font-semibold">{activeScenario.title}</span></p>
-              <div className="flex items-center gap-2 px-6 py-4 bg-white dark:bg-black/20 rounded-2xl border border-green-200 dark:border-green-800/30 mb-3 shadow-sm">
-                <Clock size={24} className="text-green-600 dark:text-green-400" />
-                <span className="font-mono font-bold text-4xl text-green-700 dark:text-green-300">{formatTime(finalTimeMs)}s</span>
-              </div>
-              {finalTimeMs < 30000
-                ? <p className="text-sm font-bold text-green-600 dark:text-green-400 mb-1">🏆 ¡Meta cumplida! Bajo 30 segundos.</p>
-                : finalTimeMs < 60000
-                ? <p className="text-sm font-bold text-yellow-600 dark:text-yellow-400 mb-1">⚠️ Aceptable, pero puedes mejorar.</p>
-                : <p className="text-sm font-bold text-red-600 dark:text-red-400 mb-1">❌ Más de 60 segundos. ¡Practica más!</p>
-              }
-              <p className="text-xs text-gray-400 mb-6">{isSavingAttempt ? '💾 Guardando intento...' : '✅ Intento registrado.'}</p>
-              <div className="flex gap-3">
-                <button onClick={() => { setElapsed(0); setFinalTimeMs(0); setScenario(null); setState('lobby'); }}
-                  className="flex items-center gap-2 px-5 py-2.5 border border-gray-200 dark:border-white/10 bg-white dark:bg-transparent text-m3-secondary dark:text-m3-on-surface-dark rounded-xl font-bold text-sm hover:bg-gray-50 dark:hover:bg-white/10 transition-all">
-                  <Shuffle size={15} /> Nuevo Desafío
-                </button>
-                {allScenarios.length > 1 && (
-                  <button onClick={() => { setElapsed(0); setFinalTimeMs(0); handleStartChallenge(); }}
-                    className="flex items-center gap-2 px-5 py-2.5 bg-m3-primary text-white rounded-xl font-bold text-sm hover:bg-m3-primary/90 shadow-md transition-all">
-                    Repetir <ChevronRight size={15} />
+                {finalTimeMs < 30000
+                  ? <p className="text-xs md:text-sm font-black tracking-widest uppercase text-green-400 mb-2 drop-shadow-md">🏆 ¡Meta cumplida! E-Sports Speed.</p>
+                  : finalTimeMs < 60000
+                  ? <p className="text-xs md:text-sm font-black tracking-widest uppercase text-yellow-400 mb-2 drop-shadow-md">⚠️ Aceptable. Refina tipificación.</p>
+                  : <p className="text-xs md:text-sm font-black tracking-widest uppercase text-red-500 mb-2 drop-shadow-md">❌ Rendimiento Pobre. Lento.</p>
+                }
+                <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-8">{isSavingAttempt ? '💾 SINCRONIZANDO...' : '✅ REGISTRADO OFICIALMENTE'}</p>
+                <div className="flex gap-3 w-full max-w-sm">
+                  <button onClick={() => { setElapsed(0); setFinalTimeMs(0); setScenario(null); setState('lobby'); }}
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-3 border border-white/20 bg-white/5 text-gray-300 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-white/10 transition-all hover:-translate-y-1">
+                    <Shuffle size={14} /> Salir
                   </button>
+                  {allScenarios.length > 1 && (
+                    <button onClick={() => { setElapsed(0); setFinalTimeMs(0); handleStartChallenge(); }}
+                      className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-green-500 hover:bg-green-400 text-white rounded-xl font-black text-xs uppercase tracking-widest shadow-[0_0_20px_rgba(34,197,94,0.3)] hover:-translate-y-1 transition-all">
+                      Reintentar <ChevronRight size={14} />
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* ── Formulario HeroCare Compacto ── */}
+            <div className={`flex flex-col h-full overflow-y-auto no-scrollbar justify-between transition-all duration-300 ${state === 'result' ? 'invisible' : state === 'listening' ? 'opacity-30 pointer-events-none blur-[1px] grayscale-[0.5]' : 'opacity-100 blur-0 grayscale-0'}`}>
+
+              {/* ID de Sistema en Header */}
+              <div className="flex items-center justify-between mb-4 border-b border-white/10 pb-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.8)] animate-pulse" />
+                  <span className="text-[10px] font-black tracking-widest uppercase text-gray-400">HeroCare CRM</span>
+                </div>
+                <div className="flex gap-3">
+                  {activeScenario.contextOrderNumber && (
+                    <div className="text-right">
+                      <p className="text-[9px] font-black text-gray-500 uppercase">Order #</p>
+                      <p className="font-mono text-xs font-bold text-gray-300 hover:text-blue-500 cursor-copy" onClick={() => navigator.clipboard.writeText(activeScenario.contextOrderNumber!)}>{activeScenario.contextOrderNumber}</p>
+                    </div>
+                  )}
+                  {activeScenario.contextTicketId && (
+                    <div className="text-right pl-3 border-l border-white/10">
+                      <p className="text-[9px] font-black text-gray-500 uppercase">Ticket ID</p>
+                      <p className="font-mono text-xs font-bold text-gray-300 hover:text-blue-500 cursor-copy" onClick={() => navigator.clipboard.writeText(activeScenario.contextTicketId!)}>{activeScenario.contextTicketId}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Toku Pre-Input */}
+              <div className="mb-3 shrink-0">
+                <label className="block text-[9px] font-black text-purple-400 mb-1.5 uppercase tracking-widest drop-shadow-[0_0_5px_rgba(168,85,247,0.5)]">
+                  Widget Toku En Vivo
+                </label>
+                <textarea rows={1} disabled={!fieldsEnabled} value={nota} onChange={e => setNota(e.target.value)}
+                  placeholder="Detalles rápidos..."
+                  className="w-full px-3 py-2 text-sm bg-[#111] border border-white/10 rounded-lg resize-none outline-none focus:border-orange-500 focus:ring-1 text-white transition-all placeholder:text-gray-600 h-10 shadow-inner"
+                />
+              </div>
+
+              {formError && (
+                <div className="mb-3 px-3 py-2 bg-red-900/30 border border-red-500/50 rounded-lg text-[10px] text-red-400 font-black tracking-widest uppercase truncate shrink-0">
+                  ⚠️ {formError}
+                </div>
+              )}
+
+              {/* Tipificación Oficial - PCR3 */}
+              <div className="mb-3 relative shrink-0">
+                <label className="block text-[9px] font-black text-gray-400 mb-1.5 uppercase tracking-widest">
+                  Motivo de Contacto / PCR3 <span className="text-red-500 drop-shadow-[0_0_5px_rgba(239,68,68,0.5)]">*</span>
+                </label>
+                <button type="button" disabled={!fieldsEnabled} onClick={() => setShowReasonDropdown(v => !v)}
+                  className="w-full px-3 py-2.5 text-sm bg-[#111] border border-white/10 rounded-lg flex items-center justify-between text-left focus:border-orange-500 transition-all text-white disabled:opacity-40 outline-none shadow-inner">
+                  <span className={selectedReason ? 'truncate' : 'text-gray-600 truncate'}>{selectedReason || 'ABRIR BUSCADOR PCR3...'}</span>
+                  <Search size={14} className="text-gray-500 shrink-0 ml-2" />
+                </button>
+                {showReasonDropdown && (
+                  <div className="absolute top-full left-0 right-0 mt-1.5 bg-[#0A0A0A] border border-white/10 rounded-xl shadow-[0_0_30px_rgba(0,0,0,0.8)] z-20 overflow-hidden backdrop-blur-2xl">
+                    <div className="p-2 border-b border-white/10">
+                      <input autoFocus type="text" value={reasonSearch} onChange={e => setReasonSearch(e.target.value)} placeholder="Buscar..."
+                        className="w-full px-3 py-2.5 text-sm bg-[#111] border border-white/10 rounded-lg outline-none focus:border-orange-500 text-white placeholder:text-gray-600" />
+                    </div>
+                    <div className="max-h-32 overflow-y-auto no-scrollbar">
+                      {filteredReasons.length === 0
+                        ? <p className="text-center text-[10px] text-gray-500 py-4">VACÍO</p>
+                        : filteredReasons.map((r, i) => (
+                          <button key={i} type="button" onClick={() => { setSelectedReason(r); setShowReasonDropdown(false); setReasonSearch(''); }}
+                            className="w-full px-3 py-2 text-xs text-left hover:bg-orange-500/20 hover:text-orange-400 text-gray-400 transition-colors border-b border-white/5">
+                            {r}
+                          </button>
+                        ))
+                      }
+                    </div>
+                  </div>
                 )}
               </div>
-            </div>
-          )}
 
-          {/* ── HeroCare Mockup ── */}
-          <div className={state === 'result' ? 'invisible' : ''}>
-            {/* Disabled overlay during 'listening' */}
-            <div className={`transition-opacity duration-300 ${state === 'listening' ? 'opacity-40 pointer-events-none select-none' : 'opacity-100'}`}>
-
-              {/* CRM top bar */}
-              <div className="bg-[#1a3a6b] text-white px-4 py-2 rounded-t-2xl flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-                  <span className="text-xs font-semibold tracking-wide">HeroCare CRM</span>
-                </div>
-                <span className="text-xs text-white/50 font-mono">TICKET #{activeScenario.contextTicketId || '—'}</span>
+              {/* Comentarios HC */}
+              <div className="mb-4 flex-1 flex flex-col min-h-[60px]">
+                <label className="block text-[9px] font-black text-gray-400 mb-1.5 uppercase tracking-widest shrink-0">
+                  Comentario Exhaustivo <span className="text-red-500 drop-shadow-[0_0_5px_rgba(239,68,68,0.5)]">*</span>
+                </label>
+                <textarea rows={3} disabled={!fieldsEnabled} value={comment} onChange={e => setComment(e.target.value)}
+                  placeholder="Historia del caso..."
+                  className="w-full flex-1 max-h-24 min-h-[4rem] px-3 py-2.5 text-sm bg-[#111] border border-white/10 rounded-lg resize-none outline-none focus:border-orange-500 focus:ring-1 text-white transition-all placeholder:text-gray-600 shadow-inner"
+                />
               </div>
 
-              <div className="bg-white dark:bg-[#252525] rounded-b-2xl border border-gray-200 dark:border-white/10 shadow-sm overflow-hidden">
-                <div className="grid grid-cols-1 md:grid-cols-5 divide-y md:divide-y-0 md:divide-x divide-gray-100 dark:divide-white/10">
-
-                  {/* ── Left: Toku Widget ── */}
-                  <div className="md:col-span-2 p-5">
-                    <div className="flex items-center gap-2 mb-4">
-                      <div className="w-2 h-2 rounded-full bg-purple-500" />
-                      <span className="text-sm font-bold text-gray-700 dark:text-gray-200">Toku Widget</span>
-                    </div>
-                    <div className="bg-gray-50 dark:bg-white/5 rounded-xl p-3 mb-4 text-xs">
-                      <p className="text-gray-400 mb-1">Cliente en línea</p>
-                      <p className="font-bold text-m3-secondary dark:text-m3-on-surface-dark">Cliente Anónimo</p>
-                      <p className="text-gray-400 mt-1">Cola: Soporte General</p>
-                    </div>
-
-                    {/* ── NOTA EN TOKU WIDGET ── */}
-                    <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-wide">
-                      Nota en Toku Widget
+              {/* Action Buttons Tighly Packed */}
+              <div className="shrink-0 mb-4">
+                <label className="block text-[9px] font-black text-gray-400 mb-1.5 uppercase tracking-widest">
+                  Resolución <span className="text-red-500 drop-shadow-[0_0_5px_rgba(239,68,68,0.5)]">*</span>
+                </label>
+                <div className="flex gap-2">
+                  {['Resolver', 'Transferir', 'Escalar'].map(opt => (
+                    <label key={opt} className={`flex-1 flex items-center justify-center p-2 rounded-lg border text-xs font-black uppercase tracking-widest transition-all ${fieldsEnabled ? 'cursor-pointer hover:border-orange-500/50' : 'opacity-40 cursor-not-allowed'} ${
+                      selectedAction === opt
+                        ? 'border-orange-500 bg-orange-500/20 text-orange-400 shadow-[0_0_10px_rgba(249,115,22,0.3)]'
+                        : 'border-white/10 bg-white/5 text-gray-500'
+                    }`}>
+                      <input type="radio" name="finalAction" disabled={!fieldsEnabled} value={opt} checked={selectedAction === opt} onChange={() => setSelectedAction(opt)} className="sr-only" />
+                      {opt}
                     </label>
-                    <textarea rows={4} disabled={!fieldsEnabled} value={nota} onChange={e => setNota(e.target.value)}
-                      placeholder="Notas del widget Toku..."
-                      className="w-full px-3 py-2.5 text-sm bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl resize-none outline-none focus:ring-2 focus:ring-purple-400/50 disabled:opacity-40 disabled:cursor-not-allowed text-m3-secondary dark:text-m3-on-surface-dark transition-all"
-                    />
-
-                    {state === 'listening' && (
-                      <p className="text-center text-xs text-blue-500 mt-3 font-semibold">
-                        📞 Escuchando llamada — presiona Colgar para tipificar
-                      </p>
-                    )}
-                  </div>
-
-                  {/* ── Right: HeroCare Close Ticket ── */}
-                  <div className="md:col-span-3 p-5">
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full bg-orange-500" />
-                        <span className="text-sm font-bold text-gray-700 dark:text-gray-200">Cerrar Ticket — HeroCare</span>
-                      </div>
-                      {state === 'acw' && (
-                        <span className="text-[10px] font-bold bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 px-2 py-0.5 rounded-full uppercase tracking-wide animate-pulse">
-                          ACW Activo
-                        </span>
-                      )}
-                    </div>
-
-                    {formError && (
-                      <div className="mb-3 px-3 py-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/40 rounded-xl text-xs text-red-600 dark:text-red-400 font-medium">
-                        ⚠️ {formError}
-                      </div>
-                    )}
-
-                    {/* ── MOTIVO DE CONTACTO PCR3 ── */}
-                    <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-wide">
-                      Motivo de Contacto PCR3 *
-                    </label>
-                    <div className="relative mb-4">
-                      <button type="button" disabled={!fieldsEnabled} onClick={() => setShowReasonDropdown(v => !v)}
-                        className="w-full px-3 py-2.5 text-sm bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl text-left flex items-center justify-between hover:border-blue-300 dark:hover:border-blue-600 transition-all text-m3-secondary dark:text-m3-on-surface-dark disabled:opacity-40 disabled:cursor-not-allowed">
-                        <span className={selectedReason ? '' : 'text-gray-400'}>{selectedReason || 'Selecciona un motivo...'}</span>
-                        <Search size={14} className="text-gray-400 flex-shrink-0" />
-                      </button>
-                      {showReasonDropdown && (
-                        <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-[#2a2a2a] border border-gray-200 dark:border-white/10 rounded-xl shadow-xl z-20 overflow-hidden">
-                          <div className="p-2 border-b border-gray-100 dark:border-white/5">
-                            <input autoFocus type="text" value={reasonSearch} onChange={e => setReasonSearch(e.target.value)} placeholder="Buscar motivo..."
-                              className="w-full px-3 py-2 text-xs bg-gray-50 dark:bg-white/5 rounded-lg outline-none border border-gray-200 dark:border-white/10 text-m3-secondary dark:text-m3-on-surface-dark" />
-                          </div>
-                          <div className="max-h-40 overflow-y-auto">
-                            {filteredReasons.length === 0
-                              ? <p className="text-center text-xs text-gray-400 py-4">Sin resultados</p>
-                              : filteredReasons.map((r, i) => (
-                                <button key={i} type="button" onClick={() => { setSelectedReason(r); setShowReasonDropdown(false); setReasonSearch(''); }}
-                                  className="w-full px-4 py-2.5 text-xs text-left hover:bg-blue-50 dark:hover:bg-blue-900/20 text-m3-secondary dark:text-m3-on-surface-dark transition-colors">
-                                  {r}
-                                </button>
-                              ))
-
-                            }
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* ── COMENTARIO EN HC ── */}
-                    <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-wide">
-                      Comentario en HC *
-                    </label>
-                    <textarea rows={3} disabled={!fieldsEnabled} value={comment} onChange={e => setComment(e.target.value)}
-                      placeholder="Describe el caso brevemente..."
-                      className="w-full px-3 py-2.5 text-sm bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl resize-none outline-none focus:ring-2 focus:ring-blue-400/50 disabled:opacity-40 disabled:cursor-not-allowed text-m3-secondary dark:text-m3-on-surface-dark transition-all mb-4"
-                    />
-
-                    {/* Radio Buttons */}
-                    <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2 uppercase tracking-wide">Finalizar Contacto *</label>
-                    <div className="flex flex-wrap gap-2 mb-5">
-                      {['Resolver', 'Transferir', 'Escalar'].map(opt => (
-                        <label key={opt} className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 text-sm font-semibold transition-all ${fieldsEnabled ? 'cursor-pointer' : 'opacity-40 cursor-not-allowed'} ${
-                          selectedAction === opt
-                            ? 'border-[#1a3a6b] bg-[#1a3a6b]/10 dark:bg-blue-900/30 text-[#1a3a6b] dark:text-blue-300'
-                            : 'border-gray-200 dark:border-white/10 text-gray-500 dark:text-gray-400 hover:border-gray-300 dark:hover:border-white/20'
-                        }`}>
-                          <input type="radio" name="finalAction" disabled={!fieldsEnabled} value={opt} checked={selectedAction === opt} onChange={() => setSelectedAction(opt)} className="sr-only" />
-                          <span className={`w-3 h-3 rounded-full border-2 flex-shrink-0 ${selectedAction === opt ? 'border-[#1a3a6b] bg-[#1a3a6b]' : 'border-gray-300 dark:border-white/30'}`} />
-                          {opt}
-                        </label>
-                      ))}
-                    </div>
-
-                    <button onClick={handleClose} disabled={!fieldsEnabled}
-                      className="w-full py-3 bg-orange-500 hover:bg-orange-600 disabled:opacity-30 disabled:cursor-not-allowed text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-md hover:scale-[1.01] active:scale-100">
-                      <CheckCircle2 size={18} /> Cerrar Ticket y Finalizar ACW
-                    </button>
-                  </div>
-
+                  ))}
                 </div>
               </div>
+
+              <button onClick={handleClose} disabled={!fieldsEnabled}
+                className="w-full mt-auto py-3 bg-green-500 hover:bg-green-400 disabled:opacity-20 disabled:cursor-not-allowed text-white rounded-xl font-black text-sm uppercase tracking-widest flex items-center justify-center gap-2 transition-colors shadow-[0_0_20px_rgba(34,197,94,0.3)] shrink-0 active:scale-[0.98]">
+                <CheckCircle2 size={18} /> GUARDAR TIPIFICACIÓN
+              </button>
+
             </div>
           </div>
         </div>
