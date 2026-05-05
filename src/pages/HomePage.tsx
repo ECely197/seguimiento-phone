@@ -11,7 +11,7 @@ import { usePermissions } from '../context/PermissionsContext';
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend 
 } from 'recharts';
-import { Clock, Zap, Edit3, Smile, Info, BarChart3, Lightbulb, Loader2, ClipboardList, CheckSquare, TrendingUp, User, ShieldAlert } from 'lucide-react';
+import { Clock, Zap, Edit3, Smile, Info, BarChart3, Lightbulb, Loader2, ClipboardList, CheckSquare, TrendingUp, User, ShieldAlert, AlertTriangle } from 'lucide-react';
 
 // ── LOB badge colours ──────────────────────────────────────────────────────────
 const LOB_BADGE: Record<string, string> = {
@@ -319,23 +319,61 @@ export default function HomePage() {
   const agentName  = agentData?.name || 'Agente';
   const lobKey     = (agentData?.lob ?? '').toLowerCase();
   const badgeClass = LOB_BADGE[lobKey] ?? 'bg-gray-100 text-gray-700 dark:bg-gray-700/40 dark:text-gray-300';
+  
+  // Extract Phase 8 fields
+  const isAberrante = dynamicMetrics?.aberrante === 'Aberrante';
+  const clusterActual = dynamicMetrics?.cluster_actual || dynamicMetrics?.Cluster_Actual;
+  const posibleCluster = dynamicMetrics?.posible_cluster || dynamicMetrics?.Posible_Cluster;
+  const posibleBaja = dynamicMetrics?.posible_baja || dynamicMetrics?.Posible_Baja;
 
   return (
     <div className="min-h-screen bg-transparent p-4 md:p-8 pb-48 transition-colors duration-300">
 
       <header className="mb-10 mt-2 flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
-          <h1 className="text-4xl md:text-5xl font-black bg-clip-text text-transparent bg-gradient-to-r from-white via-gray-200 to-gray-500 mb-2 tracking-tight">
-            Hola, {loading ? '...' : isGuest ? 'Invitado' : agentName.split(' ')[0]}
-          </h1>
-          <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-4 mb-2">
+            <h1 className={`text-4xl md:text-5xl font-black bg-clip-text text-transparent bg-gradient-to-r from-white via-gray-200 to-gray-500 tracking-tight transition-all duration-300 ${isAberrante ? 'drop-shadow-[0_0_10px_rgba(239,68,68,0.5)]' : ''}`}>
+              Hola, {loading ? '...' : isGuest ? 'Invitado' : agentName.split(' ')[0]}
+            </h1>
+            {!loading && !isGuest && dynamicMetrics && (
+              isAberrante ? (
+                <span className="bg-red-500/20 text-red-400 border border-red-500/50 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest animate-pulse whitespace-nowrap">
+                  ⚠️ Estatus: Aberrante
+                </span>
+              ) : (
+                <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/50 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest whitespace-nowrap">
+                  ✅ Estatus: Estable
+                </span>
+              )
+            )}
+          </div>
+          
+          <div className="flex items-center gap-3 flex-wrap mt-4">
             {agentData?.lob && !loading && !isGuest && (
               <span className="bg-blue-500/10 text-blue-400 border border-blue-500/20 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest">
                 Área: {agentData.lob.toUpperCase()}
               </span>
             )}
           </div>
-          <p className="text-gray-400 text-sm mt-3 font-medium">
+          
+          {/* Tira de Estatus de Carrera (Clusters) */}
+          {!loading && !isGuest && (clusterActual || posibleCluster) && (
+             <div className="mt-4 flex items-center gap-3 animate-in fade-in slide-in-from-left-4 duration-500">
+               <span className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Carrera y Perfilamiento:</span>
+               {clusterActual && (
+                 <span className="bg-white/5 border border-white/10 px-4 py-2 rounded-full text-xs font-bold text-gray-300">
+                   Cluster: {clusterActual}
+                 </span>
+               )}
+               {posibleCluster && (
+                 <span className="bg-blue-600/10 border border-blue-500/30 px-4 py-2 rounded-full text-xs font-bold text-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.2)]">
+                   Próximo: {posibleCluster}
+                 </span>
+               )}
+             </div>
+          )}
+
+          <p className="text-gray-400 text-sm mt-4 font-medium">
             {isGuest ? 'Bienvenido al modo de prueba del simulador.' : 'Aquí están tus métricas de hoy.'}
           </p>
         </div>
@@ -405,6 +443,19 @@ export default function HomePage() {
             Tu Impacto este Mes
           </h2>
           
+          {/* Banner de Alerta Máxima (Posible Baja) */}
+          {posibleBaja && (
+             <div className="bg-gradient-to-r from-red-900/40 via-red-600/20 to-transparent border border-red-500/30 p-4 rounded-2xl flex items-center gap-4 mb-6 animate-pulse shadow-[0_0_30px_rgba(239,68,68,0.2)]">
+               <div className="bg-red-500/20 p-3 rounded-full shrink-0">
+                  <AlertTriangle size={24} className="text-red-500 drop-shadow-[0_0_10px_rgba(239,68,68,0.8)]" />
+               </div>
+               <div>
+                 <h4 className="text-red-400 font-black uppercase tracking-widest text-sm mb-0.5">Alerta de Desempeño Crítico</h4>
+                 <p className="text-red-200/80 text-sm font-medium">{posibleBaja}</p>
+               </div>
+             </div>
+          )}
+
           {/* Contenedor Lógico de Tarjetas Dinámicas */}
           {dynamicMetrics === undefined ? (
             <div className="flex flex-col items-center justify-center p-12 bg-white/[0.02] backdrop-blur-2xl border border-white/[0.05] rounded-3xl">
@@ -419,7 +470,8 @@ export default function HomePage() {
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 md:gap-6 mb-8">
               {Object.entries(dynamicMetrics).map(([key, value]) => {
                 const lowerKey = key.toLowerCase();
-                if (['agente', 'nombre', 'name', 'correo', 'email', 'lob'].includes(lowerKey)) return null;
+                const excludedKeys = ['agente', 'nombre', 'name', 'correo', 'email', 'lob', 'aberrante', 'cluster_actual', 'posible_cluster', 'posible_baja', 'mensaje_diario'];
+                if (excludedKeys.some(k => lowerKey === k || lowerKey === k.replace(/_/g, ''))) return null;
 
                 // Formateo de números: máximo 1 decimal, y si es entero no poner .0
                 const formattedValue = typeof value === 'number' 
@@ -553,13 +605,13 @@ export default function HomePage() {
                     <h4 className="text-lg font-bold text-white mb-6 flex items-center gap-2 px-2">
                       <ClipboardList size={20} className="text-blue-500" /> Detalle Diario del Mes
                     </h4>
-                    <div className="overflow-x-auto w-full">
+                    <div className="overflow-x-auto w-full custom-scrollbar pb-4">
                       <table className="w-full text-left border-collapse">
                         <thead>
                           <tr>
-                            <th className="text-[10px] text-gray-500 uppercase tracking-[0.2em] pb-4 font-bold border-b border-white/5 w-16">Día</th>
+                            <th className="text-[10px] text-gray-500 uppercase tracking-[0.2em] pb-4 font-bold border-b border-white/5 w-16 sticky left-0 bg-[#111] z-20 shadow-[4px_0_10px_rgba(0,0,0,0.3)]">Día</th>
                             {historicalKpis.map(kpi => (
-                              <th key={kpi} className="text-[10px] text-gray-500 uppercase tracking-[0.2em] pb-4 font-bold text-center border-b border-white/5">{kpi.replace(/_/g, ' ')}</th>
+                              <th key={kpi} className="text-[10px] text-gray-500 uppercase tracking-[0.2em] pb-4 font-bold text-right border-b border-white/5 whitespace-nowrap min-w-[100px] px-4">{kpi.replace(/_/g, ' ')}</th>
                             ))}
                           </tr>
                         </thead>
@@ -578,7 +630,7 @@ export default function HomePage() {
                                   ${!hasRowData ? 'opacity-40' : 'hover:bg-white/[0.02]'}
                                 `}
                               >
-                                <td className="text-sm text-gray-300 py-4 font-medium flex items-center gap-3">
+                                <td className="text-sm text-gray-300 py-4 font-medium flex items-center gap-3 sticky left-0 bg-[#0A0A0A] z-10 shadow-[4px_0_10px_rgba(0,0,0,0.3)] group-hover:bg-[#111] transition-colors border-b border-white/5">
                                   <span>{row.day}</span>
                                   {(isTodayRow || isLastDataRow) && (
                                     <span className={`text-[9px] px-2 py-0.5 rounded-full uppercase tracking-wider font-black
@@ -594,7 +646,7 @@ export default function HomePage() {
                                       : '—';
                                       
                                   return (
-                                    <td key={`${row.fullDate}-${kpi}`} className="text-sm text-gray-300 py-4 text-center font-medium">
+                                    <td key={`${row.fullDate}-${kpi}`} className="text-sm text-gray-300 py-4 text-right font-medium whitespace-nowrap min-w-[100px] px-4">
                                       {formattedVal}
                                     </td>
                                   );
