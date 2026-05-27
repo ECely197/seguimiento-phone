@@ -27,6 +27,7 @@ export default function AdminPage() {
   const [lobs, setLobs] = useState<{id: string, name: string}[]>([]);
   const [showExitModal, setShowExitModal] = useState(false);
   const [isScrollingUp, setIsScrollingUp] = useState(true);
+  const [isAgentModalOpen, setIsAgentModalOpen] = useState(false);
   
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
@@ -134,7 +135,7 @@ export default function AdminPage() {
       </div>
 
       {/* Main Dock Navigation: z-[200] */}
-      <div className="fixed bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-4 bg-[#0A0A0A]/90 backdrop-blur-3xl border border-white/10 px-6 py-4 rounded-full z-[200] shadow-[0_20px_50px_rgba(0,0,0,0.8)] animate-[float_4s_ease-in-out_infinite]">
+      <div className={`fixed bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-4 bg-[#0A0A0A]/90 backdrop-blur-3xl border border-white/10 px-6 py-4 rounded-full z-[200] shadow-[0_20px_50px_rgba(0,0,0,0.8)] animate-[float_4s_ease-in-out_infinite] transition-all duration-300 ${isAgentModalOpen ? 'opacity-0 pointer-events-none' : ''}`}>
          {adminGroups.map(group => {
             const isActive = activeGroup.id === group.id;
             return (
@@ -230,7 +231,7 @@ export default function AdminPage() {
             <div className="bg-[#0A0A0A]/80 backdrop-blur-2xl rounded-3xl shadow-2xl border border-white/5 p-6 md:p-10 relative min-h-[600px] overflow-x-hidden transition-all duration-300">
                 
                 {/* Content Rendering Switch with selectedLob filter */}
-                {activeSection === 'agents' && <AdminAgents selectedLob={selectedLob} />}
+                {activeSection === 'agents' && <AdminAgents selectedLob={selectedLob} onModalStateChange={setIsAgentModalOpen} />}
                 {activeSection === 'users' && <AdminUsers selectedLob={selectedLob} />}
                 {activeSection === 'processes' && <AdminProcessUpload selectedLob={selectedLob} />}
                 {activeSection === 'quizzes' && <AdminQuizEditor selectedLob={selectedLob} />}

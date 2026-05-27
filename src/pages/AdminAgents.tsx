@@ -7,7 +7,8 @@ import { getPublicCollection, getPublicDoc, getUserDoc, fetchAllUsersSubcollecti
 
 import {
   ChevronRight, Search, X, Loader2, TrendingUp,
-  CheckCircle, XCircle, RefreshCw, User, Edit3, Save, Clock, Building2, Play, Video as VideoIcon, MessageCircle
+  CheckCircle, XCircle, RefreshCw, User, Edit3, Save, Clock, Building2, Play, Video as VideoIcon, MessageCircle,
+  Film, CheckSquare, Activity
 } from 'lucide-react';
 import { updateAgentSuggestion } from '../api/sheetService';
 
@@ -87,6 +88,21 @@ const formatCellValue = (key: string, value: any) => {
   }
   
   return value.toString();
+};
+
+const formatTimestamp = (ts: any): string => {
+  if (!ts) return '—';
+  const date = typeof ts.toDate === 'function' ? ts.toDate() : new Date(ts);
+  if (isNaN(date.getTime())) return '—';
+  
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const dd = pad(date.getDate());
+  const mm = pad(date.getMonth() + 1);
+  const yyyy = date.getFullYear();
+  const hh = pad(date.getHours());
+  const min = pad(date.getMinutes());
+  
+  return `${dd}/${mm}/${yyyy} ${hh}:${min}`;
 };
 
 // ── Shared table sub-component ─────────────────────────────────────────────────
@@ -187,7 +203,7 @@ function AgentTable({
 }
 
 // ── Main component ─────────────────────────────────────────────────────────────
-export default function AdminAgents({ selectedLob: globalLobFilter }: { selectedLob?: string }) {
+export default function AdminAgents({ selectedLob: globalLobFilter, onModalStateChange }: { selectedLob?: string, onModalStateChange?: (isOpen: boolean) => void }) {
   // Data
   const [dynamicGroups, setDynamicGroups] = useState<Record<string, AgentGroup>>({});
   const [loading,       setLoading]       = useState(true);
@@ -211,9 +227,25 @@ export default function AdminAgents({ selectedLob: globalLobFilter }: { selected
   const [quizMap,        setQuizMap]        = useState<Record<string, string>>({});
   const [resultsLoading, setResultsLoading] = useState(false);
 
+  const [allProcesses, setAllProcesses] = useState<any[]>([]);
+  const [viewedExplanations, setViewedExplanations] = useState<Record<string, any>>({});
+  const [allQuizzes, setAllQuizzes] = useState<any[]>([]);
+
   useEffect(() => { loadAll(); fetchQuizzes(); }, []);
 
   useEffect(() => {
+    if (selected) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [selected]);
+
+  useEffect(() => {
+    onModalStateChange?.(!!selected);
     if (selected) {
       const email = getEmail(selected);
       if (email) {
@@ -221,7 +253,7 @@ export default function AdminAgents({ selectedLob: globalLobFilter }: { selected
         fetchAgentRecord(email);
       }
     }
-  }, [selected]);
+  }, [selected, onModalStateChange]);
 
   const fetchAgentRecord = async (email: string) => {
     try {
@@ -321,11 +353,78 @@ export default function AdminAgents({ selectedLob: globalLobFilter }: { selected
   const fetchAgentResults = async (email: string) => {
     setResultsLoading(true);
     try {
-      const allQ = await fetchAllUsersSubcollection('resultados_quizzes'); setAgentResults(allQ.filter((r: any) => r.agentEmail === email));
-      const allAcw = await fetchAllUsersSubcollection('acw_attempts'); setAgentAcw(allAcw.filter((r: any) => r.userEmail === email));
-      const allAcad = await fetchAllUsersSubcollection('process_views'); setAgentAcademy(allAcad.filter((r: any) => r.userEmail === email));
-    } catch (err) { console.error('[AdminAgents] fetchAgentResults:', err); }
-    finally { setResultsLoading(false); }
+      // 1. Get agent's uid
+      const usersRef = collection(db, 'artifacts', appId, 'users');
+      const q = query(usersRef, where('email', '==', email));
+      const snap = await getDocs(q);
+      const agentId = snap.empty ? null : snap.docs[0].id;
+
+      let resultsList: any[] = [];
+      let acwList: any[] = [];
+      let viewedMap: Record<string, any> = {};
+
+      if (agentId) {
+        // Fetch quiz_results / resultados_quizzes
+        const [snapRes1, snapRes2, snapAcw, snapViewed] = await Promise.allSettled([
+          getDocs(collection(db, 'artifacts', appId, 'users', agentId, 'resultados_quizzes')),
+          getDocs(collection(db, 'artifacts', appId, 'users', agentId, 'quiz_results')),
+          getDocs(collection(db, 'artifacts', appId, 'users', agentId, 'acw_attempts')),
+          getDocs(collection(db, 'artifacts', appId, 'users', agentId, 'viewed_explanations'))
+        ]);
+
+        if (snapRes1.status === 'fulfilled') {
+          snapRes1.value.forEach(d => resultsList.push({ id: d.id, ...d.data() }));
+        }
+        if (snapRes2.status === 'fulfilled') {
+          snapRes2.value.forEach(d => {
+            if (!resultsList.some(r => r.id === d.id)) {
+              resultsList.push({ id: d.id, ...d.data() });
+            }
+          });
+        }
+        if (snapAcw.status === 'fulfilled') {
+          snapAcw.value.forEach(d => acwList.push({ id: d.id, ...d.data() }));
+        }
+        if (snapViewed.status === 'fulfilled') {
+          snapViewed.value.forEach(d => {
+            viewedMap[d.id] = d.data();
+          });
+        }
+      } else {
+        // Fallback for email matching in case user doc doesn't exist
+        const [allQ, allAcw, allAcad] = await Promise.all([
+          fetchAllUsersSubcollection('resultados_quizzes'),
+          fetchAllUsersSubcollection('acw_attempts'),
+          fetchAllUsersSubcollection('process_views')
+        ]);
+        resultsList = allQ.filter((r: any) => r.agentEmail === email);
+        acwList = allAcw.filter((r: any) => r.userEmail === email);
+      }
+
+      setAgentResults(resultsList);
+      setAgentAcw(acwList);
+      setViewedExplanations(viewedMap);
+
+      // Fetch all public processes and quizzes for contrast
+      const { getDocsWithFallback } = await import("../firebasePaths");
+      const [snapProc, snapQuizzes] = await Promise.allSettled([
+        getDocsWithFallback("processes"),
+        getDocsWithFallback("quizzes")
+      ]);
+
+      if (snapProc.status === 'fulfilled') {
+        const procList = snapProc.value.docs.map(d => ({ id: d.id, ...d.data() }));
+        setAllProcesses(procList);
+      }
+      if (snapQuizzes.status === 'fulfilled') {
+        const qList = snapQuizzes.value.docs.map(d => ({ id: d.id, ...d.data() }));
+        setAllQuizzes(qList);
+      }
+    } catch (err) { 
+      console.error('[AdminAgents] fetchAgentResults:', err); 
+    } finally { 
+      setResultsLoading(false); 
+    }
   };
 
   const deleteResult = async (r: any) => {
@@ -488,188 +587,260 @@ export default function AdminAgents({ selectedLob: globalLobFilter }: { selected
 
       {/* ── Perfil 360° Modal (Floating Island) ────────────────────────────────────────────────── */}
       {selected && (
-        <div className="fixed inset-0 z-[300] bg-black/60 backdrop-blur-md flex items-center justify-center p-4 transition-opacity duration-300 animate-in fade-in">
-          <div className="bg-[#0A0A0A]/90 border border-white/10 shadow-[0_20px_60px_rgba(0,0,0,0.8)] w-full max-w-[650px] h-[85vh] rounded-[3rem] flex flex-col overflow-hidden backdrop-blur-3xl animate-in zoom-in-95 duration-300 relative border-gradient-to-b from-white/10 to-transparent">
-          
-          {/* Header Island */}
-          <div className="p-10 border-b border-white/5 relative overflow-hidden shrink-0 text-center flex flex-col items-center">
-            <button onClick={() => setSelected(null)} className="absolute top-8 right-8 p-3 bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white rounded-full transition-all border border-white/10 z-50 active:scale-90">
-              <X size={20} />
-            </button>
-            <div className="absolute top-0 right-0 w-80 h-80 bg-blue-500/10 rounded-full blur-[100px] -z-10 pointer-events-none" />
+        <div className="fixed inset-0 z-[300] bg-black/75 backdrop-blur-md flex items-center justify-center p-4 transition-opacity duration-300 animate-in fade-in">
+          <div className="bg-[#0A0A0A]/95 border border-white/10 shadow-[0_25px_70px_rgba(0,0,0,0.8)] w-full max-w-[620px] h-[80vh] rounded-[2.5rem] flex flex-col overflow-hidden backdrop-blur-3xl animate-in fade-in-50 zoom-in-95 duration-200">
             
-            <div className="relative group mb-4">
-              <div className="absolute inset-0 bg-blue-500 rounded-full blur-2xl opacity-20 group-hover:opacity-40 transition-opacity" />
-              <div className="relative w-24 h-24 rounded-full bg-gradient-to-br from-blue-600/30 to-indigo-600/30 text-blue-400 flex items-center justify-center text-3xl font-black border border-blue-500/30 shadow-2xl shrink-0">
-                {initials(selected)}
+            {/* Header Wrapper (Static) */}
+            <div className="p-6 pb-4 border-b border-white/5 flex flex-col shrink-0 relative">
+              <button 
+                onClick={() => setSelected(null)} 
+                className="absolute top-6 right-6 p-2 bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white rounded-full transition-colors duration-200 cursor-pointer z-50"
+              >
+                <X size={16} />
+              </button>
+              
+              {/* Avatar y Datos Centrados */}
+              <div className="text-center">
+                <div className="w-16 h-16 rounded-full bg-blue-600/15 border border-blue-500/30 text-blue-400 text-xl font-black flex items-center justify-center shadow-[0_0_15px_rgba(59,130,246,0.15)] mx-auto mb-3">
+                  {initials(selected)}
+                </div>
+                <h2 className="text-xl font-black text-white leading-tight tracking-tight">{getName(selected) || 'Desconocido'}</h2>
+                <p className="text-xs text-gray-400 mt-1">{getEmail(selected)}</p>
+                
+                <div className="mt-3 flex justify-center gap-2">
+                  <span className="text-[9px] font-black uppercase tracking-wider px-3 py-1.5 rounded-full bg-blue-600/10 text-blue-400 border border-blue-500/20">
+                    {dynamicGroups[selectedSrc]?.name || selectedSrc.toUpperCase() || 'Sin Área'}
+                  </span>
+                  <span className="text-[9px] font-black uppercase tracking-wider px-3 py-1.5 rounded-full bg-green-600/10 text-green-400 border border-green-500/20">
+                    Score: {accuracy()}%
+                  </span>
+                </div>
+              </div>
+
+              {/* Selector Segmentado de Tabs */}
+              <div className="flex p-1 bg-white/5 border border-white/5 rounded-2xl mx-auto mt-4 w-full max-w-[480px] justify-between">
+                {[
+                  { id: 'gestion', label: 'Dashboard' },
+                  { id: 'academy', label: 'Formación' },
+                  { id: 'quizzes', label: 'Quizzes' },
+                  { id: 'acw', label: 'ACW Lab' }
+                ].map(tab => (
+                  <button 
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id as any)}
+                    className={`flex-1 py-2 text-center text-xs font-semibold rounded-xl transition-all duration-300 cursor-pointer ${
+                      activeTab === tab.id 
+                        ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20 scale-102' 
+                        : 'text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
               </div>
             </div>
 
-            <h2 className="text-3xl font-black text-white leading-tight tracking-tight">{getName(selected) || 'Desconocido'}</h2>
-            <p className="text-sm text-gray-500 font-medium px-4 py-1 bg-white/5 rounded-full border border-white/5 mt-2">{getEmail(selected)}</p>
-            
-            <div className="mt-4 flex gap-2">
-              <span className="text-[10px] font-black uppercase tracking-[0.2em] px-4 py-2 rounded-full shadow-lg bg-blue-600/10 text-blue-400 border border-blue-500/20">
-                Operaciones: {dynamicGroups[selectedSrc]?.name || selectedSrc.toUpperCase() || 'Sin ÁREA'}
-              </span>
-              <span className="text-[10px] font-black uppercase tracking-[0.2em] px-4 py-2 rounded-full shadow-lg bg-green-600/10 text-green-400 border border-green-500/20">
-                Score: {accuracy()}%
-              </span>
-            </div>
-          </div>
+            {/* Dynamic Content Area (Independent Internal Scroll) */}
+            <div className="flex-1 overflow-y-auto px-6 py-4 custom-scrollbar">
+               {activeTab === 'gestion' && (
+                  <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
+                     <div className="p-6 bg-white/[0.02] rounded-2xl border border-white/5 group">
+                        <label className="block text-[10px] font-black text-gray-500 mb-3 uppercase tracking-wider group-hover:text-blue-500 transition-colors">
+                          Sincronización Operativa (LOB)
+                        </label>
+                        <select 
+                          value={agentLob}
+                          onChange={e => setAgentLob(e.target.value)}
+                          className="w-full px-4 py-3.5 rounded-xl border border-white/10 bg-black/40 text-sm font-bold text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all cursor-pointer backdrop-blur-md appearance-none"
+                        >
+                          {lobs.length === 0 ? <option value="">Cargando áreas...</option> : <><option value="">Selecciona un Área...</option>{lobs.map(lob => <option key={lob.id} value={lob.id}>{lob.name}</option>)}</>}
+                        </select>
+                     </div>
+                     
+                     <div className="p-6 bg-white/[0.02] rounded-2xl border border-white/5 relative overflow-hidden group">
+                        <label className="block text-[10px] font-black text-gray-500 mb-3 uppercase tracking-wider group-hover:text-purple-400 transition-colors">
+                          Estrategia de Mejora (Feedback)
+                        </label>
+                        <textarea
+                          value={suggestion} onChange={e => setSuggestion(e.target.value)}
+                          className="w-full h-32 p-4 rounded-xl border border-white/5 bg-black/40 text-white focus:ring-2 focus:ring-purple-500 outline-none resize-none text-sm transition-all placeholder:text-gray-700 font-medium"
+                          placeholder="Define los puntos de dolor y oportunidades comerciales detectadas..."
+                        />
+                        {saveError && <p className="mt-3 text-xs text-red-500 font-black text-center animate-pulse">⚠️ {saveError}</p>}
+                     </div>
+                  </div>
+               )}
 
-          {/* iOS Style Segmented Control */}
-          <div className="px-10 py-6 shrink-0 z-20">
-            <div className="flex bg-[#111] p-1.5 rounded-[2rem] border border-white/5 shadow-inner">
-              {[
-                { id: 'gestion', label: 'Dashboard' },
-                { id: 'academy', label: 'Formación' },
-                { id: 'quizzes', label: 'Quizzes' },
-                { id: 'acw', label: 'ACW Lab' }
-              ].map(tab => (
+               {activeTab === 'academy' && (
+                  <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
+                     <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-wider mb-2">Progresión de Aprendizaje</h3>
+                     {(() => {
+                        const lobProcesses = allProcesses.filter(p => p.lobId === agentLob || p.lobId === 'phone');
+                        if (lobProcesses.length === 0) {
+                           return (
+                              <div className="flex flex-col items-center justify-center p-8 rounded-2xl border border-white/5 bg-white/[0.01] text-center min-h-[220px] transition-all">
+                                  <Film size={36} className="text-gray-400 opacity-25 mb-4 animate-[pulse_3s_infinite]" />
+                                  <p className="text-xs text-gray-400">Sin capacitación completada</p>
+                              </div>
+                           );
+                        }
+                        return lobProcesses.map((proc) => {
+                           const viewed = viewedExplanations[proc.id];
+                           return (
+                             <div key={proc.id} className="p-4 rounded-xl bg-white/[0.02] border border-white/5 flex items-center justify-between hover:bg-white/5 transition-all shadow-sm group">
+                                 <div className="flex gap-3 items-center">
+                                     <div className="p-3 rounded-xl bg-indigo-500/10 text-indigo-400 group-hover:scale-105 transition-transform">
+                                         <VideoIcon size={16} />
+                                     </div>
+                                     <div>
+                                         <p className="text-sm font-bold text-white leading-tight">{proc.title || 'Material de Formación'}</p>
+                                         <p className="text-[9px] text-gray-500 mt-1 font-semibold uppercase tracking-wider">{proc.category || 'General'}</p>
+                                     </div>
+                                 </div>
+                                 <div>
+                                     {viewed ? (
+                                         <span className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 px-3 py-1 rounded-full text-[11px] font-bold whitespace-nowrap">
+                                             ✓ Visto el {formatTimestamp(viewed.timestamp || viewed.viewedAt)}
+                                         </span>
+                                     ) : (
+                                         <span className="bg-white/5 border border-white/10 text-gray-400 px-3 py-1 rounded-full text-[11px] font-bold">
+                                             Pendiente
+                                         </span>
+                                     )}
+                                 </div>
+                             </div>
+                           );
+                        });
+                     })()}
+                  </div>
+               )}
+
+               {activeTab === 'quizzes' && (
+                  <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
+                     <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-wider mb-2">Logros y Evaluaciones</h3>
+                     {resultsLoading ? <Loader2 className="animate-spin mx-auto text-blue-500 my-10" /> : (() => {
+                        const lobQuizzes = allQuizzes.filter(q => q.lobId === agentLob || q.lobId === 'phone');
+                        if (lobQuizzes.length === 0) {
+                           return (
+                              <div className="flex flex-col items-center justify-center p-8 rounded-2xl border border-white/5 bg-white/[0.01] text-center min-h-[220px] transition-all">
+                                  <CheckSquare size={36} className="text-gray-400 opacity-25 mb-4 animate-[pulse_3s_infinite]" />
+                                  <p className="text-xs text-gray-400">Aún no se registran evaluaciones</p>
+                              </div>
+                           );
+                        }
+                        return lobQuizzes.map((quiz) => {
+                           const res = agentResults.find(r => r.quizId === quiz.id);
+                           return (
+                             <div key={quiz.id} className="p-5 rounded-2xl bg-white/[0.02] border border-white/5 flex flex-col gap-4 relative overflow-hidden group hover:bg-white/5 transition-all shadow-inner">
+                                 <div className={`absolute top-0 bottom-0 left-0 w-1.5 ${res ? (res.isCorrect ? 'bg-green-500' : 'bg-red-500') : 'bg-gray-500'}`} />
+                                 <div className="flex justify-between items-start pl-2">
+                                     <div>
+                                         <h4 className="text-md font-black text-white">{quiz.situation || quiz.title || 'Evaluación'}</h4>
+                                         {res ? (
+                                             <span className="text-[9px] text-gray-500 uppercase tracking-wider font-black mt-1.5 inline-block bg-white/5 px-2.5 py-0.5 rounded-full">
+                                                 Finalizado: {formatTimestamp(res.timestamp || res.completedAt)}
+                                             </span>
+                                         ) : (
+                                             <span className="text-[9px] text-gray-400 uppercase tracking-wider font-black mt-1.5 inline-block bg-white/5 px-2.5 py-0.5 rounded-full">
+                                                 Asignado
+                                             </span>
+                                         )}
+                                     </div>
+                                     <div className="text-right">
+                                         {res ? (
+                                             <span className={`text-xs font-black ${res.isCorrect ? 'text-green-400' : 'text-red-400'}`}>
+                                                 Score: {res.score !== undefined ? `${res.score}%` : (res.isCorrect ? '100%' : '0%')}
+                                             </span>
+                                         ) : (
+                                             <span className="bg-white/5 border border-white/10 text-gray-400 px-3 py-1 rounded-full text-[11px] font-bold">
+                                                 Por Realizar
+                                             </span>
+                                         )}
+                                     </div>
+                                 </div>
+                                 
+                                 {res && (res.audioUrl || res.audio) && (
+                                     <div className="w-full pl-2">
+                                         <button 
+                                             onClick={() => window.open(res.audioUrl || res.audio, '_blank')} 
+                                             className="w-full py-3 bg-white hover:bg-gray-200 text-black rounded-xl font-black uppercase tracking-wider text-[10px] flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer"
+                                         >
+                                             ▶️ Escuchar Grabación de Audio
+                                         </button>
+                                     </div>
+                                 )}
+                             </div>
+                           );
+                        });
+                     })()}
+                  </div>
+               )}
+
+               {activeTab === 'acw' && (
+                  <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
+                     <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-wider mb-2">Métricas de Velocidad (ACW Lab)</h3>
+                     {agentAcw.length === 0 ? (
+                         <div className="flex flex-col items-center justify-center p-8 rounded-2xl border border-white/5 bg-white/[0.01] text-center min-h-[220px] transition-all">
+                             <Activity size={36} className="text-gray-400 opacity-25 mb-4 animate-[pulse_3s_infinite]" />
+                             <p className="text-xs text-gray-400">Aún no se registran métricas de velocidad</p>
+                         </div>
+                     ) : (
+                         <div className="overflow-x-auto rounded-xl border border-white/5 bg-white/[0.01]">
+                             <table className="w-full text-left border-collapse text-xs">
+                                 <thead>
+                                     <tr className="border-b border-white/5 bg-white/5">
+                                         <th className="p-3 text-[10px] font-black text-gray-400 uppercase tracking-wider">Escenario</th>
+                                         <th className="p-3 text-[10px] font-black text-gray-400 uppercase tracking-wider text-right">Tiempo</th>
+                                         <th className="p-3 text-[10px] font-black text-gray-400 uppercase tracking-wider">Tipificación</th>
+                                         <th className="p-3 text-[10px] font-black text-gray-400 uppercase tracking-wider">Fecha</th>
+                                     </tr>
+                                 </thead>
+                                 <tbody className="divide-y divide-white/5">
+                                     {agentAcw
+                                       .sort((a, b) => (b.timestamp?.toDate?.()?.getTime() || 0) - (a.timestamp?.toDate?.()?.getTime() || 0))
+                                       .map((acw, idx) => (
+                                         <tr key={acw.id || idx} className="hover:bg-white/5 transition-colors">
+                                             <td className="p-3 font-bold text-white truncate max-w-[150px]" title={acw.scenarioTitle}>{acw.scenarioTitle || 'Simulación'}</td>
+                                             <td className={`p-3 font-black text-right ${acw.timeSpent <= 30 ? 'text-green-400' : 'text-red-400'}`}>{acw.timeSpent}s</td>
+                                             <td className="p-3 text-gray-300 font-medium truncate max-w-[150px]" title={acw.comments || acw.inputs?.comment}>{acw.comments || acw.inputs?.comment || 'Evidencia vacía'}</td>
+                                             <td className="p-3 text-gray-400 whitespace-nowrap">{formatTimestamp(acw.timestamp)}</td>
+                                         </tr>
+                                     ))}
+                                 </tbody>
+                             </table>
+                         </div>
+                     )}
+                  </div>
+               )}
+            </div>
+
+            {/* Static Footer Container */}
+            <div className="p-5 border-t border-white/5 bg-[#0A0A0A]/50 backdrop-blur-md flex justify-end gap-3 shrink-0">
+              <button 
+                onClick={() => setSelected(null)}
+                className="px-5 py-2.5 bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-all"
+              >
+                Cerrar
+              </button>
+              {activeTab === 'gestion' && (
                 <button 
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id as any)}
-                  className={`flex-1 py-3 text-[11px] font-black uppercase tracking-widest transition-all rounded-[1.5rem] ${activeTab === tab.id ? 'bg-blue-600 text-white shadow-[0_5px_15px_rgba(37,99,235,0.3)] scale-100' : 'text-gray-500 hover:text-white'}`}
+                  onClick={handleSave} 
+                  disabled={saving}
+                  className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl text-xs font-black uppercase tracking-wider hover:opacity-90 active:scale-95 transition-all shadow-[0_0_20px_rgba(59,130,246,0.25)] flex items-center gap-2"
                 >
-                  {tab.label}
+                  {saving ? (
+                    <>
+                      <Loader2 size={12} className="animate-spin" /> Guardando...
+                    </>
+                  ) : (
+                    <>
+                      <Save size={12} /> Confirmar Cambios
+                    </>
+                  )}
                 </button>
-              ))}
+              )}
             </div>
-          </div>
 
-          {/* Content Area (Glass Container) */}
-          <div className="flex-1 overflow-y-auto px-10 pb-10 hide-scrollbar relative z-10">
-             {activeTab === 'gestion' && (
-                <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                   <div className="p-8 bg-white/[0.03] rounded-[2.5rem] border border-white/5 shadow-inner group">
-                      <label className="block text-[10px] font-black text-gray-500 mb-4 uppercase tracking-[0.3em] group-hover:text-blue-500 transition-colors">
-                        Sincronización Operativa (LOB)
-                      </label>
-                      <select 
-                        value={agentLob}
-                        onChange={e => setAgentLob(e.target.value)}
-                        className="w-full px-6 py-5 rounded-2xl border border-white/10 bg-black/40 text-sm font-bold text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all cursor-pointer backdrop-blur-md shadow-lg appearance-none"
-                      >
-                        {lobs.length === 0 ? <option value="">Cargando áreas...</option> : <><option value="">Selecciona un Área...</option>{lobs.map(lob => <option key={lob.id} value={lob.id}>{lob.name}</option>)}</>}
-                      </select>
-                   </div>
-                   
-                   <div className="p-8 bg-white/[0.03] rounded-[2.5rem] border border-white/5 shadow-inner relative overflow-hidden group">
-                      <label className="block text-[10px] font-black text-gray-500 mb-4 uppercase tracking-[0.3em] group-hover:text-purple-400 transition-colors">
-                        Estrategia de Mejora (Feedback)
-                      </label>
-                      <textarea
-                        value={suggestion} onChange={e => setSuggestion(e.target.value)}
-                        className="w-full h-40 p-6 rounded-3xl border border-white/5 bg-black/40 text-white focus:ring-2 focus:ring-purple-500 outline-none resize-none text-sm transition-all shadow-inner placeholder:text-gray-700 font-medium"
-                        placeholder="Define los puntos de dolor y oportunidades comerciales detectadas..."
-                      />
-                      <button onClick={handleSave} disabled={saving}
-                        className="mt-8 w-full py-5 rounded-[1.5rem] font-black uppercase tracking-[0.2em] text-xs bg-white text-black hover:bg-gray-200 transition-all shadow-[0_15px_30px_rgba(255,255,255,0.05)] flex items-center justify-center gap-3 active:scale-95">
-                        {saving ? <Loader2 size={18} className="animate-spin" /> : <Save size={20} />}
-                        Confirmar Cambios del Perfil
-                      </button>
-                      {saveError && <p className="mt-4 text-xs text-red-500 font-black text-center animate-pulse">⚠️ {saveError}</p>}
-                   </div>
-                </div>
-             )}
-
-             {activeTab === 'academy' && (
-                <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                   <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-[0.3em] mb-6">Progresión de Aprendizaje</h3>
-                   {agentAcademy.length === 0 ? (
-                       <div className="p-16 text-center bg-white/[0.02] rounded-[2.5rem] border-2 border-dashed border-white/5">
-                           <Play size={48} className="mx-auto mb-6 text-gray-800 opacity-50" />
-                           <p className="text-sm font-black text-gray-500 uppercase tracking-widest">Sin Actividad Academy</p>
-                       </div>
-                   ) : (
-                       agentAcademy.map((acad, idx) => (
-                           <div key={idx} className="p-6 rounded-[2rem] bg-white/[0.03] border border-white/5 flex items-center justify-between hover:bg-white/5 transition-all shadow-sm group">
-                               <div className="flex gap-4 items-center">
-                                   <div className="p-4 rounded-2xl bg-indigo-500/10 text-indigo-400 group-hover:scale-110 transition-transform">
-                                       <VideoIcon size={20} />
-                                   </div>
-                                   <div>
-                                       <p className="text-base font-bold text-white leading-tight">{acad.videoTitle || 'Material de Formación'}</p>
-                                       <p className="text-[9px] text-gray-500 uppercase tracking-widest mt-1.5 font-black">{acad.timestamp?.toDate().toLocaleDateString()} — COMPLETADO</p>
-                                   </div>
-                               </div>
-                               <div className="p-3 rounded-full bg-green-500/10 text-green-500 border border-green-500/20 shadow-[0_0_15px_rgba(34,197,94,0.1)]">
-                                   <CheckCircle size={20} />
-                               </div>
-                           </div>
-                       ))
-                   )}
-                </div>
-             )}
-
-             {activeTab === 'quizzes' && (
-                <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                   <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-[0.3em] mb-6">Logros y Evaluaciones</h3>
-                   {resultsLoading ? <Loader2 className="animate-spin mx-auto text-blue-500 my-10" /> : agentResults.length === 0 ? (
-                       <div className="p-16 text-center bg-white/[0.02] rounded-[2.5rem] border-2 border-dashed border-white/5">
-                           <TrendingUp size={48} className="mx-auto mb-6 text-gray-800 opacity-50" />
-                           <p className="text-sm font-black text-gray-500 uppercase tracking-widest">Aún no evaluado</p>
-                       </div>
-                   ) : (
-                       agentResults.map((r, idx) => (
-                           <div key={r.id || idx} className="p-8 rounded-[2.5rem] bg-white/[0.03] border border-white/5 flex flex-col gap-6 relative overflow-hidden group hover:bg-white/5 transition-all shadow-inner">
-                               <div className={`absolute top-0 bottom-0 left-0 w-2 ${r.isCorrect ? 'bg-green-500' : 'bg-red-500'}`} />
-                               <div className="flex justify-between items-start">
-                                   <div>
-                                       <h4 className="text-xl font-black text-white">{quizMap[r.quizId] || r.quizTitle || 'Evaluación'}</h4>
-                                       <span className="text-[10px] text-gray-500 uppercase tracking-[0.2em] font-black mt-2 inline-block bg-white/5 px-3 py-1 rounded-full">{r.timestamp?.toDate().toLocaleDateString()}</span>
-                                   </div>
-                                   <div className={`text-4xl font-black shadow-text ${r.isCorrect ? 'text-green-400' : 'text-red-400'}`}>
-                                      {r.isCorrect ? 'OK' : 'FAIL'}
-                                   </div>
-                               </div>
-                               
-                               {r.audioUrl && (
-                                   <button onClick={() => window.open(r.audioUrl, '_blank')} className="w-full p-5 bg-white text-black rounded-[1.5rem] font-black uppercase tracking-[0.2em] text-[10px] flex items-center justify-center gap-3 shadow-2xl hover:bg-gray-100 transition-all active:scale-95">
-                                       <Play size={18} fill="currentColor" /> Reproducir Roleplay
-                                   </button>
-                               )}
-                           </div>
-                       ))
-                   )}
-                </div>
-             )}
-
-             {activeTab === 'acw' && (
-                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                   <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-[0.3em] mb-6">Métricas de Velocidad (ACW Lab)</h3>
-                   {agentAcw.length === 0 ? (
-                       <div className="p-16 text-center bg-white/[0.02] rounded-[2.5rem] border-2 border-dashed border-white/5">
-                           <Clock size={48} className="mx-auto mb-6 text-gray-800 opacity-50" />
-                           <p className="text-sm font-black text-gray-500 uppercase tracking-widest">Sin Pruebas de Velocidad</p>
-                       </div>
-                   ) : (
-                       agentAcw.sort((a: any, b: any) => (b.timestamp?.toDate()?.getTime() || 0) - (a.timestamp?.toDate()?.getTime() || 0)).map((acw, idx) => (
-                           <div key={acw.id || idx} className="p-8 rounded-[2.5rem] bg-white/[0.03] border border-white/5 flex flex-col relative overflow-hidden group shadow-inner">
-                               <div className="flex justify-between items-center mb-6">
-                                   <div className="flex items-center gap-4">
-                                       <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-xl shadow-lg ${acw.timeSpent <= 30 ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}`}>
-                                         {acw.timeSpent}s
-                                       </div>
-                                       <div>
-                                           <p className="text-base font-bold text-white truncate max-w-[200px]">{acw.scenarioTitle || 'Simulación Cascada'}</p>
-                                           <p className="text-[10px] text-gray-500 uppercase tracking-widest font-black mt-1">{acw.timestamp?.toDate().toLocaleDateString()}</p>
-                                       </div>
-                                   </div>
-                                   <span className={`text-[10px] font-black px-4 py-2 rounded-full border tracking-widest uppercase ${acw.timeSpent <= 30 ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20'}`}>
-                                     {acw.timeSpent <= 30 ? 'FAST' : 'OUTSIDE SLA'}
-                                   </span>
-                               </div>
-                               <div className="bg-black/20 p-5 rounded-[1.5rem] border border-white/5 italic">
-                                  <p className="text-xs text-gray-400 leading-relaxed">"{acw.comments || acw.inputs?.comment || 'Evidencia de tipificación vacía'}"</p>
-                               </div>
-                           </div>
-                       ))
-                   )}
-                </div>
-             )}
-          </div>
           </div>
         </div>
       )}
