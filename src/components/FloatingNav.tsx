@@ -1,6 +1,6 @@
-import { NavLink, useNavigate } from "react-router-dom";
+import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import { useState } from "react";
-import { Home, BookOpen, CheckCircle, Timer, Clock, MessageSquare, X, Menu, LogOut } from "lucide-react";
+import { Home, BookOpen, CheckCircle, Timer, Clock, MessageSquare, X, Menu, LogOut, Compass } from "lucide-react";
 import { usePermissions } from "../context/PermissionsContext";
 import { auth } from "../firebaseConfig";
 import { signOut } from "firebase/auth";
@@ -9,6 +9,7 @@ export default function FloatingNav() {
   const { permissions, loading, hideFloatingNav } = usePermissions();
   const [isOpen, setIsOpen] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
 
   const handleLogout = async () => {
     try {
@@ -31,6 +32,67 @@ export default function FloatingNav() {
 
   if (loading || hideFloatingNav) return null;
 
+  const isProcesosPage = location.pathname === "/procesos";
+
+  // Render processes-specific collapsible menu (always, both desktop and mobile on that page)
+  if (isProcesosPage) {
+    return (
+      <>
+        {/* Compact Collapsible Menu (Explicaciones Page Only) */}
+        <div className="fixed bottom-6 left-6 z-[110] flex flex-col-reverse items-start">
+          {/* Main Toggle Button */}
+          <button 
+              onClick={() => setIsOpen(!isOpen)} 
+              className="w-14 h-14 rounded-full bg-white/10 backdrop-blur-2xl border border-white/20 text-white shadow-xl hover:bg-white/20 transition-all active:scale-95 flex items-center justify-center animate-[float_4s_ease-in-out_infinite] cursor-pointer"
+          >
+            {isOpen ? <X size={20} /> : <Compass size={20} className="animate-spin-slow" />}
+          </button>
+
+          {/* Micro-bubbles stack floating upwards */}
+          <div className={`flex flex-col gap-3 mb-4 transition-all duration-300 origin-bottom-left ${isOpen ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-50 translate-y-10 pointer-events-none'}`}>
+            {navItems.map((route, i) => (
+              <NavLink 
+                  key={route.path}
+                  to={route.path}
+                  onClick={() => setIsOpen(false)}
+                  className={({isActive}) => `
+                      w-12 h-12 rounded-full backdrop-blur-2xl border border-white/20 flex items-center justify-center shadow-lg transition-all hover:scale-105 relative group
+                      ${isActive ? 'bg-blue-600/50 text-blue-300 border-blue-500/50' : 'bg-[#111]/80 text-gray-300 hover:bg-white/15 hover:text-white'}
+                  `}
+                  style={{ transitionDelay: `${i * 30}ms` }}
+              >
+                  <route.icon size={18} />
+                  {/* Tooltip Label */}
+                  <span className="absolute left-16 bg-[#111]/90 backdrop-blur-md text-white text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-xl border border-white/10 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap shadow-md pointer-events-none select-none">
+                    {route.name}
+                  </span>
+              </NavLink>
+            ))}
+            {/* Logout Option */}
+            <button 
+                onClick={handleLogout}
+                className="w-12 h-12 rounded-full backdrop-blur-2xl border border-white/20 flex items-center justify-center text-red-400 shadow-lg transition-all hover:scale-105 bg-[#111]/80 hover:bg-red-500/20 hover:text-red-300 relative group cursor-pointer"
+            >
+                <LogOut size={18} />
+                <span className="absolute left-16 bg-[#111]/90 backdrop-blur-md text-white text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-xl border border-white/10 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap shadow-md pointer-events-none select-none">
+                  Salir
+                </span>
+            </button>
+          </div>
+        </div>
+
+        {/* Overlay closing toggle */}
+        {isOpen && (
+          <div 
+            className="fixed inset-0 bg-black/40 backdrop-blur-md z-[105]" 
+            onClick={() => setIsOpen(false)}
+          />
+        )}
+      </>
+    );
+  }
+
+  // Render normal menu for other pages
   return (
     <>
       {/* Desktop Dock */}
@@ -114,3 +176,4 @@ export default function FloatingNav() {
     </>
   );
 }
+

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Play, CheckCircle, AlertCircle, TrendingUp, HelpCircle, Mic, Square, Trash2,
-         SendHorizonal, Headphones, Video } from 'lucide-react';
+         SendHorizonal, Headphones, Video, X, BookOpen, Lightbulb } from 'lucide-react';
 import { auth, storage } from '../firebaseConfig';import { getPublicCollection, getUserCollection, getPublicDoc, getUserDoc, getAppStorageRef, fetchAllUsersSubcollection } from '../firebasePaths';
 
 import { collection, setDoc, getDocs, addDoc, query, where, serverTimestamp, doc, getDoc } from 'firebase/firestore';
@@ -24,6 +24,10 @@ interface QuizModule {
   options?: QuizOption[];
   correctOption?: string;
   explanation?: string;
+  supportText?: string;
+  supportMediaUrl?: string;
+  feedbackText?: string;
+  feedbackMediaUrl?: string;
   lobId?: string;
 }
 
@@ -54,6 +58,9 @@ export default function QuizPage() {
   const [isCorrect,        setIsCorrect]         = useState<boolean | null>(null);
   const [showResult,       setShowResult]        = useState(false);
   const [isSubmitting,     setIsSubmitting]      = useState(false);
+  
+  // Pre-answer Support Modal State
+  const [showSupportModal, setShowSupportModal] = useState(false);
 
   // Audio-recorder state
   const [isRecording,      setIsRecording]       = useState(false);
@@ -123,9 +130,20 @@ export default function QuizPage() {
             audioUrl: data.audioUrl || '',
             mediaType: data.mediaType || '',
             quizType: data.quizType || (data.options?.length ? 'multiple-choice' : 'open-audio'),
-            options: data.options || [],
+            options: Array.isArray(data.options)
+              ? data.options.map((opt: any, idx: number) => {
+                  if (typeof opt === 'string') {
+                    return { id: String.fromCharCode(65 + idx), text: opt };
+                  }
+                  return opt;
+                })
+              : [],
             correctOption: data.correctOption,
             explanation: data.explanation,
+            supportText: data.supportText || '',
+            supportMediaUrl: data.supportMediaUrl || '',
+            feedbackText: data.feedbackText || '',
+            feedbackMediaUrl: data.feedbackMediaUrl || '',
             lobId: data.lobId || 'phone'
           }));
       } else {
@@ -148,9 +166,6 @@ export default function QuizPage() {
         details = snapQuizzes.docs
           .filter(d => assignedIds.has(d.id))
           .map(d => ({ id: d.id, ...d.data() } as any))
-          // We show assigned quizzes regardless of current LOB if they were explicitly assigned,
-          // OR we can be strict and filter by userLob too. Let's do a "User LOB + Phone" filter for assignments too or just trust assignments.
-          // Usually, an assignment overrides the general LOB filter. but let's stick to the assigned area.
           .map(data => ({
             id: data.id,
             title: data.situation || 'Contexto del Quiz',
@@ -159,9 +174,20 @@ export default function QuizPage() {
             audioUrl: data.audioUrl || '',
             mediaType: data.mediaType || '',
             quizType: data.quizType || (data.options?.length ? 'multiple-choice' : 'open-audio'),
-            options: data.options || [],
+            options: Array.isArray(data.options)
+              ? data.options.map((opt: any, idx: number) => {
+                  if (typeof opt === 'string') {
+                    return { id: String.fromCharCode(65 + idx), text: opt };
+                  }
+                  return opt;
+                })
+              : [],
             correctOption: data.correctOption,
             explanation: data.explanation,
+            supportText: data.supportText || '',
+            supportMediaUrl: data.supportMediaUrl || '',
+            feedbackText: data.feedbackText || '',
+            feedbackMediaUrl: data.feedbackMediaUrl || '',
             lobId: data.lobId || 'phone'
           }));
       }
@@ -207,7 +233,7 @@ export default function QuizPage() {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       mediaRecorderRef.current = new MediaRecorder(stream);
       chunksRef.current = [];
-      mediaRecorderRef.current.ondataavailable = (e) => {
+      mediaRecorderRef.current.ondataavailable = (e: BlobEvent) => {
         if (e.data.size > 0) chunksRef.current.push(e.data);
       };
       mediaRecorderRef.current.onstop = () => {
@@ -298,7 +324,7 @@ export default function QuizPage() {
       });
 
       setIsCorrect(correct);
-      setCompletedQuizzes(prev => {
+      setCompletedQuizzes((prev: Set<string>) => {
         const next = new Set(prev).add(activeQuiz.id);
         if (isGuest) {
           localStorage.setItem('guest_completed_quizzes', JSON.stringify(Array.from(next)));
@@ -420,6 +446,17 @@ export default function QuizPage() {
 
             {/* Answer section */}
             <section className="space-y-6">
+              {/* ── Support Material Activator ── */}
+              {(activeQuiz.supportText || activeQuiz.supportMediaUrl) && (
+                <button
+                  type="button"
+                  onClick={() => setShowSupportModal(true)}
+                  className="flex items-center gap-2 px-4 py-2 bg-indigo-500/10 backdrop-blur-xl border border-indigo-500/25 text-indigo-300 rounded-full shadow-[0_0_15px_rgba(99,102,241,0.2)] hover:bg-indigo-600/20 active:scale-95 transition-all text-xs font-bold uppercase tracking-wider cursor-pointer animate-[pulse_2s_infinite] mb-6 w-max"
+                >
+                  <BookOpen size={14} />
+                  <span>📖 Leer Material de Apoyo / Instrucciones</span>
+                </button>
+              )}
 
               {/* ── Condition A: Multiple-choice ── */}
               {!openAudio && (
@@ -428,14 +465,9 @@ export default function QuizPage() {
                     Misión: Selecciona la resolución óptima
                   </h3>
                   <div className="grid gap-4">
-                    {activeQuiz.options?.map((option) => {
+                    {activeQuiz.options?.map((option: QuizOption) => {
                       let style = 'bg-[#111] border border-white/5 hover:border-blue-500/50 hover:bg-white/5 text-gray-300';
                       if (showResult) {
-                        if (option.id === activeQuiz.correctOption)
-                          style = 'bg-green-900/40 border-2 border-green-500 text-green-200 shadow-[0_0_20px_rgba(34,197,94,0.2)]';
-                        else if (option.id === selectedOption)
-                          style = 'bg-red-900/40 border-2 border-red-500 text-red-200';
-                        else
                           style = 'bg-[#0A0A0A]/50 opacity-50 border-transparent text-gray-500';
                       } else if (selectedOption === option.id) {
                         style = 'bg-blue-600/20 border-2 border-blue-500 text-blue-200 shadow-[0_0_20px_rgba(59,130,246,0.3)] transform scale-[1.01]';
@@ -596,22 +628,53 @@ export default function QuizPage() {
                     </button>
                   </div>
                 ) : (
-                  /* Multiple-choice: correct / incorrect */
-                  <div className={`p-6 rounded-[24px] animate-in fade-in slide-in-from-bottom-4 shadow-lg border ${isCorrect ? 'bg-green-900/20 border-green-800/30 text-green-200' : 'bg-red-900/20 border-red-800/30 text-red-200'}`}>
-                    <div className="flex items-start gap-3 mb-3">
-                      {isCorrect
-                        ? <CheckCircle className="text-green-400 flex-shrink-0" size={24} />
-                        : <AlertCircle className="text-red-400 flex-shrink-0" size={24} />}
-                      <h4 className={`font-black text-lg ${isCorrect ? 'text-green-400' : 'text-red-400'}`}>
-                        {isCorrect ? '¡Resolución Optima!' : 'Análisis Incorrecto'}
-                      </h4>
+                  /* Multiple-choice: correct / incorrect with multimedia feedback */
+                  <div className="space-y-6 animate-[slideUp_0.5s_ease-out]">
+                    <style>{`
+                      @keyframes slideUp {
+                        from { transform: translateY(20px); opacity: 0; }
+                        to { transform: translateY(0); opacity: 1; }
+                      }
+                    `}</style>
+                    <div className={`p-6 rounded-[24px] border ${isCorrect ? 'bg-[#10B981]/15 border-emerald-500/30 text-emerald-300 shadow-md' : 'bg-red-900/20 border-red-800/30 text-red-200 shadow-md'}`}>
+                      <div className="flex items-start gap-3 mb-3">
+                        {isCorrect
+                          ? <CheckCircle className="text-green-400 flex-shrink-0" size={24} />
+                          : <AlertCircle className="text-red-400 flex-shrink-0" size={24} />}
+                        <h4 className={`font-black text-lg ${isCorrect ? 'text-green-400' : 'text-red-400'}`}>
+                          {isCorrect ? '¡Resolución Óptima!' : 'Análisis Incorrecto'}
+                        </h4>
+                      </div>
+                      <p className="text-sm leading-relaxed font-medium">
+                        {isCorrect ? 'Has resuelto este caso cumpliendo con los estándares de calidad.' : 'Esta opción no cumple con todos los estándares operativos.'}
+                      </p>
                     </div>
-                    <p className={`text-sm leading-relaxed mb-6 font-medium`}>
-                      {activeQuiz.explanation || 'Protocolo completado y procesado.'}
-                    </p>
+
+                    {/* Explicación del Supervisor */}
+                    <div className="bg-white/[0.02] backdrop-blur-2xl border border-white/10 rounded-3xl p-6 mt-6">
+                      <div className="flex items-center gap-2 mb-4">
+                        <Lightbulb className="text-yellow-400 animate-pulse shrink-0" size={20} />
+                        <h4 className="font-black text-white text-sm">Explicación del Supervisor</h4>
+                      </div>
+                      
+                      <p className="text-sm text-gray-300 leading-relaxed font-medium whitespace-pre-wrap mb-4">
+                        {activeQuiz.feedbackText || activeQuiz.explanation || 'No hay explicación adicional disponible.'}
+                      </p>
+
+                      {activeQuiz.feedbackMediaUrl && (
+                        <div className="rounded-2xl border border-white/10 overflow-hidden bg-black/40 p-1">
+                          {/\.(mp4|webm|ogg|mov)(\?|$)/i.test(activeQuiz.feedbackMediaUrl) ? (
+                            <video src={activeQuiz.feedbackMediaUrl} controls className="w-full max-h-60 object-contain bg-black" />
+                          ) : (
+                            <img src={activeQuiz.feedbackMediaUrl} alt="Explicación Visual" className="w-full max-h-60 object-contain" />
+                          )}
+                        </div>
+                      )}
+                    </div>
+
                     <button
                       onClick={() => { setActiveQuiz(null); resetQuizState(); }}
-                      className="w-full py-3 bg-white/10 border border-white/20 text-white font-bold rounded-xl shadow-sm hover:bg-white/20 transition-colors"
+                      className="w-full py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-black rounded-2xl shadow-lg hover:shadow-xl hover:scale-[1.01] active:scale-95 transition-all text-xs uppercase tracking-widest cursor-pointer mt-4"
                     >
                       Continuar a Nueva Misión
                     </button>
@@ -635,7 +698,7 @@ export default function QuizPage() {
                 <p className="text-gray-400">• Se requiere asignación directa del TL/Supervisor.</p>
               </div>
             </div>
-          ) : quizzes.map((quiz) => {
+          ) : quizzes.map((quiz: QuizModule) => {
             const done      = completedQuizzes.has(quiz.id);
             const roleplay  = isOpenAudio(quiz);
             return (
@@ -678,6 +741,47 @@ export default function QuizPage() {
               </div>
             );
           })}
+        </div>
+      )}
+      {/* Modal de Material de Apoyo */}
+      {showSupportModal && activeQuiz && (activeQuiz.supportText || activeQuiz.supportMediaUrl) && (
+        <div className="fixed inset-0 z-[130] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
+          <div className="bg-[#0A0A0A]/95 border border-white/10 backdrop-blur-3xl rounded-[2.5rem] p-8 max-w-lg w-full max-h-[85vh] overflow-y-auto shadow-2xl relative text-white flex flex-col gap-6 animate-in zoom-in-95 duration-300">
+            <div className="flex justify-between items-center pb-3 border-b border-white/10">
+              <h4 className="font-black text-indigo-400 uppercase tracking-widest text-xs flex items-center gap-2">
+                <BookOpen size={16} /> Material de Apoyo / Instrucciones
+              </h4>
+              <button 
+                onClick={() => setShowSupportModal(false)}
+                className="p-2 bg-white/5 border border-white/10 rounded-full text-gray-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer animate-[pulse_2s_infinite]"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            
+            {activeQuiz.supportText && (
+              <p className="text-sm text-gray-300 leading-relaxed font-medium whitespace-pre-wrap">
+                {activeQuiz.supportText}
+              </p>
+            )}
+
+            {activeQuiz.supportMediaUrl && (
+              <div className="rounded-2xl border border-white/10 overflow-hidden bg-black/40 p-1">
+                {/\.(mp4|webm|ogg|mov)(\?|$)/i.test(activeQuiz.supportMediaUrl) ? (
+                  <video src={activeQuiz.supportMediaUrl} controls className="w-full max-h-60 object-contain bg-black" />
+                ) : (
+                  <img src={activeQuiz.supportMediaUrl} alt="Apoyo Visual" className="w-full max-h-60 object-contain" />
+                )}
+              </div>
+            )}
+            
+            <button
+              onClick={() => setShowSupportModal(false)}
+              className="mt-2 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-2xl shadow-lg transition-all text-xs uppercase tracking-widest cursor-pointer"
+            >
+              Entendido, continuar quiz
+            </button>
+          </div>
         </div>
       )}
     </div>

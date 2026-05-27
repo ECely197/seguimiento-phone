@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { collection, doc, getDoc, addDoc, serverTimestamp, query, orderBy, onSnapshot, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db, auth, appId } from '../firebaseConfig';
-import { Loader2, MessageCircle, X, Send, Video as VideoIcon, User } from 'lucide-react';
+import { Loader2, MessageCircle, X, Send, Video as VideoIcon, User, Play, Pause, BookOpen, ChevronLeft, ChevronRight } from 'lucide-react';
 import { usePermissions } from '../context/PermissionsContext';
+
 
 interface VideoModule {
   id: string;
@@ -12,39 +13,183 @@ interface VideoModule {
   category: string;
   lobId?: string;
   mediaType?: string;
+  type?: string;
+  mediaUrls?: string[];
 }
 
-const VideoItem = ({ video, isActive, onCommentClick, hideActions }: { video: VideoModule, isActive: boolean, onCommentClick: (id: string) => void, hideActions: boolean }) => {
+const VideoItem = ({ 
+  video, 
+  isActive, 
+  onCommentClick, 
+  hideActions,
+  onToggleExplanation,
+  isExplanationOpen
+}: { 
+  video: VideoModule, 
+  isActive: boolean, 
+  onCommentClick: (id: string) => void, 
+  hideActions: boolean,
+  onToggleExplanation: (video: VideoModule) => void,
+  isExplanationOpen: boolean
+}) => {
   const videoRef = useRef<HTMLVideoElement>(null);
-  
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [feedback, setFeedback] = useState<'play' | 'pause' | null>(null);
+  const [feedbackKey, setFeedbackKey] = useState(0);
+
+  // Carousel states
+  const [currentSlide, setCurrentSlide] = useState(0);
+  const [touchStart, setTouchStart] = useState<number | null>(null);
+  const [touchEnd, setTouchEnd] = useState<number | null>(null);
+
+  const isCarousel = video.type === 'carousel' && video.mediaUrls && video.mediaUrls.length > 0;
+  const minSwipeDistance = 50;
+
   useEffect(() => {
-    if (isActive) {
-      videoRef.current?.play().catch(() => {});
+    if (isActive && !isExplanationOpen && !isCarousel) {
+      videoRef.current?.play().then(() => setIsPlaying(true)).catch(() => {});
     } else {
       videoRef.current?.pause();
+      setIsPlaying(false);
     }
-  }, [isActive]);
+  }, [isActive, isExplanationOpen, isCarousel]);
+
+  const handleVideoClick = () => {
+    if (isCarousel) return;
+    if (video.mediaType === 'image' || video.videoUrl.match(/\.(jpeg|jpg|gif|png|webp)$/i)) return;
+    if (!videoRef.current) return;
+    
+    if (videoRef.current.paused) {
+      videoRef.current.play().then(() => setIsPlaying(true)).catch(() => {});
+      setFeedback('play');
+      setFeedbackKey(prev => prev + 1);
+    } else {
+      videoRef.current.pause();
+      setIsPlaying(false);
+      setFeedback('pause');
+      setFeedbackKey(prev => prev + 1);
+    }
+  };
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    setTouchEnd(null);
+    setTouchStart(e.targetTouches[0].clientX);
+  };
+
+  const onTouchMove = (e: React.TouchEvent) => {
+    setTouchEnd(e.targetTouches[0].clientX);
+  };
+
+  const onTouchEnd = () => {
+    if (!touchStart || !touchEnd) return;
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > minSwipeDistance;
+    const isRightSwipe = distance < -minSwipeDistance;
+
+    if (isLeftSwipe && currentSlide < (video.mediaUrls?.length ?? 1) - 1) {
+      setCurrentSlide(prev => prev + 1);
+    }
+    if (isRightSwipe && currentSlide > 0) {
+      setCurrentSlide(prev => prev - 1);
+    }
+  };
 
   return (
-     <div data-id={video.id} className="video-snap-item snap-start h-screen w-full relative bg-[#0A0A0A] flex items-center justify-center shrink-0">
-        {video.mediaType === 'image' || video.videoUrl.match(/\.(jpeg|jpg|gif|png|webp)$/i) ? (
-          <img src={video.videoUrl} alt={video.title} className="h-full w-full object-contain" />
+     <div 
+       data-id={video.id} 
+       onClick={handleVideoClick}
+       className="video-snap-item snap-start h-screen w-full relative bg-[#0A0A0A] flex items-center justify-center shrink-0 cursor-pointer overflow-hidden"
+     >
+        {isCarousel ? (
+          <div 
+            className="w-full h-full relative flex items-center justify-center overflow-hidden bg-black select-none"
+            onTouchStart={onTouchStart}
+            onTouchMove={onTouchMove}
+            onTouchEnd={onTouchEnd}
+          >
+            {/* Carousel Track */}
+            <div 
+              className="flex w-full h-full transition-transform duration-500 ease-out"
+              style={{ transform: `translateX(-${currentSlide * 100}%)` }}
+            >
+              {video.mediaUrls!.map((url, i) => (
+                <div key={i} className="w-full h-full flex-shrink-0 flex items-center justify-center bg-black">
+                  <img 
+                    src={url} 
+                    alt={`${video.title} - ${i + 1}`} 
+                    className="h-full w-full object-contain pointer-events-none"
+                  />
+                </div>
+              ))}
+            </div>
+
+            {/* PC Navigation Buttons */}
+            {currentSlide > 0 && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setCurrentSlide(prev => prev - 1);
+                }}
+                className="hidden md:flex absolute left-4 top-1/2 -translate-y-1/2 z-[45] p-2 bg-black/40 backdrop-blur-md rounded-full border border-white/10 hover:bg-black/60 text-white transition-colors cursor-pointer"
+              >
+                <ChevronLeft size={20} />
+              </button>
+            )}
+            {currentSlide < video.mediaUrls!.length - 1 && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setCurrentSlide(prev => prev + 1);
+                }}
+                className="hidden md:flex absolute right-4 top-1/2 -translate-y-1/2 z-[45] p-2 bg-black/40 backdrop-blur-md rounded-full border border-white/10 hover:bg-black/60 text-white transition-colors cursor-pointer"
+              >
+                <ChevronRight size={20} />
+              </button>
+            )}
+
+            {/* Indicators Dots */}
+            <div className="absolute bottom-28 left-1/2 -translate-x-1/2 flex gap-1.5 z-[45]">
+              {video.mediaUrls!.map((_, i) => (
+                <div 
+                  key={i}
+                  className={`w-1.5 h-1.5 rounded-full transition-all duration-300 ${
+                    i === currentSlide ? 'bg-blue-500 scale-125' : 'bg-white/40'
+                  }`}
+                />
+              ))}
+            </div>
+          </div>
         ) : (
-          <video 
-            ref={videoRef}
-            src={video.videoUrl} 
-            className="h-full w-full object-cover"
-            controls={false}
-            loop
-            playsInline
-          />
+          video.mediaType === 'image' || video.videoUrl.match(/\.(jpeg|jpg|gif|png|webp)$/i) ? (
+            <img src={video.videoUrl} alt={video.title} className="h-full w-full object-contain select-none" />
+          ) : (
+            <video 
+              ref={videoRef}
+              src={video.videoUrl} 
+              className="h-full w-full object-cover select-none pointer-events-none"
+              controls={false}
+              loop
+              playsInline
+            />
+          )
+        )}
+        
+        {/* Play/Pause Animated Feedback */}
+        {!isCarousel && feedback && (
+          <div key={feedbackKey} className="absolute inset-0 flex items-center justify-center pointer-events-none z-30">
+            <div className="p-6 bg-black/60 rounded-full animate-fade-scale text-white border border-white/10">
+              {feedback === 'play' ? <Play size={40} fill="white" /> : <Pause size={40} fill="white" />}
+            </div>
+          </div>
         )}
         
         {/* Overlay Glassmorphism - Degradado inferior para legibilidad */}
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/80 pointer-events-none" />
         
         {/* Información del Video */}
-        <div className="absolute bottom-28 left-4 right-16 z-10 text-white">
+        <div className="absolute bottom-28 left-4 right-16 z-10 text-white select-none pointer-events-none">
           <h2 className="text-xl md:text-2xl font-black mb-1 drop-shadow-[0_0_10px_rgba(0,0,0,0.5)]">{video.title}</h2>
           <p className="text-sm text-gray-300 line-clamp-2 drop-shadow-sm font-medium">{video.description}</p>
           <div className="mt-3 inline-block px-3 py-1 bg-white/5 backdrop-blur-md border border-white/10 rounded-full text-[10px] font-bold uppercase tracking-widest text-blue-400">
@@ -52,9 +197,23 @@ const VideoItem = ({ video, isActive, onCommentClick, hideActions }: { video: Vi
           </div>
         </div>
         
+        {/* Botón de Explicación (PC & Móvil) */}
+        {!hideActions && (
+          <button 
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleExplanation(video);
+            }}
+            className="absolute right-4 bottom-48 md:right-8 md:top-1/2 md:bottom-auto md:-translate-y-1/2 z-[45] flex items-center justify-center gap-1.5 px-3 h-9 w-auto max-w-[140px] whitespace-nowrap bg-blue-500/10 backdrop-blur-xl border border-blue-500/25 text-blue-300 rounded-full shadow-[0_0_15px_rgba(59,130,246,0.2)] hover:bg-blue-600/20 active:scale-95 transition-all text-[10px] md:text-xs font-bold uppercase tracking-wider cursor-pointer animate-[bounce_3s_infinite] pointer-events-auto"
+          >
+            <BookOpen size={12} className="shrink-0" />
+            <span>Explicación</span>
+          </button>
+        )}
+        
         {/* Botones de Acción Flotantes - Ocultar si la caja de comentarios está abierta */}
         {!hideActions && (
-          <div className="absolute bottom-6 left-6 flex flex-col items-center gap-4 z-[50] pointer-events-auto">
+          <div className="absolute bottom-6 left-6 flex flex-col items-center gap-4 z-[40] pointer-events-auto">
             <button 
               onClick={(e) => {
                 e.stopPropagation();
@@ -237,11 +396,12 @@ export default function ProcessPage() {
 
   const [activeVideoId, setActiveVideoId] = useState<string | null>(null);
   const [visibleId, setVisibleId] = useState<string | null>(null);
+  const [activeExplanationVideo, setActiveExplanationVideo] = useState<VideoModule | null>(null);
 
   useEffect(() => {
-    setHideFloatingNav(!!activeVideoId);
+    setHideFloatingNav(!!activeVideoId || !!activeExplanationVideo);
     return () => setHideFloatingNav(false);
-  }, [activeVideoId, setHideFloatingNav]);
+  }, [activeVideoId, activeExplanationVideo, setHideFloatingNav]);
 
   useEffect(() => {
     const fetchUserLob = async () => {
@@ -281,10 +441,12 @@ export default function ProcessPage() {
                  videoUrl: data.url || "", 
                  category: data.category || "General",
                  lobId: data.lobId || 'phone',
-                 mediaType: data.mediaType || (data.type === 'image' ? 'image' : 'video')
+                 mediaType: data.mediaType || (data.type === 'image' ? 'image' : 'video'),
+                 type: data.type || 'video',
+                 mediaUrls: data.mediaUrls || []
              } as VideoModule;
           })
-          .filter(v => v.videoUrl && (v.lobId === userLob || v.lobId === 'phone'));
+          .filter(v => (v.videoUrl || (v.mediaUrls && v.mediaUrls.length > 0)) && (v.lobId === userLob || v.lobId === 'phone'));
           
          setMateriales(videos);
          if (videos.length > 0) {
@@ -334,10 +496,25 @@ export default function ProcessPage() {
   }
 
   return (
-    <div className="min-h-screen h-screen bg-[#050505] flex flex-col items-center justify-center transition-colors duration-300 relative overflow-hidden">
+    <div className="min-h-screen h-screen bg-[#050505] flex flex-row items-center justify-center transition-all duration-500 relative overflow-hidden">
       
       {/* Contenedor Principal (The Feed) estilo TikTok */}
-      <div className="h-screen w-full max-w-md mx-auto bg-[#0A0A0A] overflow-y-scroll snap-y snap-mandatory relative hide-scrollbar">
+      <div className={`h-screen bg-[#0A0A0A] overflow-y-scroll snap-y snap-mandatory relative hide-scrollbar transition-all duration-500 ease-out
+        ${activeExplanationVideo ? 'w-full md:w-[50%] lg:w-[48%] md:ml-12 md:mr-6' : 'w-full max-w-md mx-auto'}
+      `}>
+          {/* CSS inyectado para ocultar barras de scroll y animación de play/pause */}
+          <style>{`
+            .hide-scrollbar::-webkit-scrollbar { display: none !important; }
+            .hide-scrollbar { -ms-overflow-style: none !important; scrollbar-width: none !important; }
+            @keyframes fadeScale {
+              0% { transform: scale(0.6); opacity: 0; }
+              50% { transform: scale(1.1); opacity: 0.9; }
+              100% { transform: scale(1.4); opacity: 0; }
+            }
+            .animate-fade-scale {
+              animation: fadeScale 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            }
+          `}</style>
           
           {materiales.map((video) => (
              <VideoItem 
@@ -345,11 +522,88 @@ export default function ProcessPage() {
                 video={video} 
                 isActive={visibleId === video.id}
                 onCommentClick={(id) => setActiveVideoId(id)}
-                hideActions={!!activeVideoId}
+                hideActions={!!activeVideoId || !!activeExplanationVideo}
+                onToggleExplanation={(v) => {
+                  if (activeExplanationVideo?.id === v.id) {
+                    setActiveExplanationVideo(null);
+                  } else {
+                    setActiveExplanationVideo(v);
+                  }
+                }}
+                isExplanationOpen={activeExplanationVideo?.id === video.id}
              />
           ))}
 
       </div>
+
+      {/* Panel Explicativo Deslizable en PC (Material Expressive 3) */}
+      {activeExplanationVideo && (
+        <div className="hidden md:flex flex-col h-[85vh] w-[45%] lg:w-[48%] mr-12 bg-white/[0.03] backdrop-blur-3xl border border-white/10 rounded-[2.5rem] p-8 text-white shadow-2xl relative animate-in slide-in-from-right duration-500 ease-out overflow-y-auto">
+          {/* Header del Panel */}
+          <div className="flex items-center justify-between mb-8 pb-4 border-b border-white/10">
+            <span className="text-[10px] font-black uppercase tracking-widest text-blue-400 bg-blue-500/10 px-3 py-1 rounded-full border border-blue-500/20">
+              Explicación del Módulo
+            </span>
+            <button 
+              onClick={() => setActiveExplanationVideo(null)} 
+              className="p-2 bg-white/5 border border-white/10 rounded-full text-gray-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+            >
+              <X size={18} />
+            </button>
+          </div>
+
+          {/* Contenido del Panel */}
+          <div className="space-y-6">
+            <h3 className="text-3xl lg:text-4xl font-black bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent leading-tight drop-shadow-sm uppercase">
+              {activeExplanationVideo.title}
+            </h3>
+            
+            <div className="inline-block px-3 py-1 bg-white/5 backdrop-blur-md border border-white/10 rounded-full text-[10px] font-bold uppercase tracking-widest text-blue-400">
+              {activeExplanationVideo.lobId || 'General'}
+            </div>
+
+            <p className="text-sm md:text-base text-gray-300 leading-relaxed font-medium whitespace-pre-wrap">
+              {activeExplanationVideo.description || "No hay explicación adicional disponible para este módulo."}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Panel Móvil (Bottom Sheet) */}
+      {activeExplanationVideo && (
+        <div className="md:hidden fixed bottom-0 left-0 right-0 h-[60vh] bg-[#0A0A0A]/95 backdrop-blur-3xl border-t border-white/10 rounded-t-[2.5rem] p-6 z-[120] overflow-y-auto shadow-[0_-15px_35px_rgba(0,0,0,0.5)] animate-in slide-in-from-bottom duration-500 ease-out">
+          {/* Barra Horizontal Superior */}
+          <div className="w-12 h-1 bg-white/20 rounded-full mx-auto mb-4" />
+          
+          {/* Header */}
+          <div className="flex justify-between items-center mb-6 pb-2 border-b border-white/10">
+            <span className="text-[10px] font-black uppercase tracking-widest text-blue-400 bg-blue-500/10 px-3 py-1 rounded-full border border-blue-500/20">
+              Explicación
+            </span>
+            <button 
+              onClick={() => setActiveExplanationVideo(null)} 
+              className="p-2 bg-white/5 border border-white/10 rounded-full text-gray-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+            >
+              <X size={16} />
+            </button>
+          </div>
+
+          {/* Contenido */}
+          <div className="space-y-4">
+            <h3 className="text-2xl font-black bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent leading-tight drop-shadow-sm uppercase">
+              {activeExplanationVideo.title}
+            </h3>
+            
+            <div className="inline-block px-3 py-1 bg-white/5 backdrop-blur-md border border-white/10 rounded-full text-[10px] font-bold uppercase tracking-widest text-blue-400">
+              {activeExplanationVideo.lobId || 'General'}
+            </div>
+
+            <p className="text-sm text-gray-300 leading-relaxed font-medium whitespace-pre-wrap">
+              {activeExplanationVideo.description || "No hay explicación adicional disponible para este módulo."}
+            </p>
+          </div>
+        </div>
+      )}
 
       {activeVideoId && (
         <div className="absolute inset-0 z-[60] pointer-events-none flex flex-col items-center justify-end md:justify-center">

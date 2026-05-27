@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Library, Upload, CheckCircle, AlertCircle, Loader2, Trash2, Pencil, Eye, Users, Building2 } from 'lucide-react';
+import { Library, Upload, CheckCircle, AlertCircle, Loader2, Trash2, Pencil, Eye, Users, Building2, ArrowUp, ArrowDown, Plus, Image, Video } from 'lucide-react';
 import { appId, auth, storage, db } from '../firebaseConfig';import { getPublicCollection, getPublicDoc, getAppStorageRef } from '../firebasePaths';
 
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -22,6 +22,11 @@ export default function AdminProcessUpload({ selectedLob: globalLobFilter }: { s
     const [activeViewerList, setActiveViewerList] = useState<string | null>(null);
     const [lobs, setLobs] = useState<any[]>([]);
     const [selectedLob, setSelectedLob] = useState('');
+    
+    // Carousel specific states
+    const [contentType, setContentType] = useState<'single' | 'carousel'>('single');
+    const [carouselItems, setCarouselItems] = useState<Array<{ id: string; file?: File; url?: string; name: string }>>([]);
+    const [imageUrlInput, setImageUrlInput] = useState('');
 
     useEffect(() => {
         if (globalLobFilter && globalLobFilter !== 'all') {
@@ -33,6 +38,53 @@ export default function AdminProcessUpload({ selectedLob: globalLobFilter }: { s
         if (e.target.files && e.target.files[0]) {
             setFile(e.target.files[0]);
         }
+    };
+
+    const handleAddCarouselFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            const newFile = e.target.files[0];
+            setCarouselItems(prev => [...prev, {
+                id: Math.random().toString(36).substr(2, 9),
+                file: newFile,
+                name: newFile.name
+            }]);
+        }
+    };
+
+    const handleAddCarouselUrl = () => {
+        if (!imageUrlInput.trim()) return;
+        setCarouselItems(prev => [...prev, {
+            id: Math.random().toString(36).substr(2, 9),
+            url: imageUrlInput.trim(),
+            name: imageUrlInput.trim()
+        }]);
+        setImageUrlInput('');
+    };
+
+    const moveItemUp = (index: number) => {
+        if (index === 0) return;
+        setCarouselItems(prev => {
+            const next = [...prev];
+            const temp = next[index];
+            next[index] = next[index - 1];
+            next[index - 1] = temp;
+            return next;
+        });
+    };
+
+    const moveItemDown = (index: number) => {
+        if (index === carouselItems.length - 1) return;
+        setCarouselItems(prev => {
+            const next = [...prev];
+            const temp = next[index];
+            next[index] = next[index + 1];
+            next[index + 1] = temp;
+            return next;
+        });
+    };
+
+    const removeCarouselItem = (id: string) => {
+        setCarouselItems(prev => prev.filter(item => item.id !== id));
     };
 
     const fetchCategories = async () => {
@@ -104,31 +156,66 @@ export default function AdminProcessUpload({ selectedLob: globalLobFilter }: { s
 
     const handleUpload = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!file || !category) {
-            setError("Por favor selecciona un archivo y una categoría.");
+        if (contentType === 'single' && !file) {
+            setError("Por favor selecciona un archivo.");
+            return;
+        }
+        if (contentType === 'carousel' && carouselItems.length === 0) {
+            setError("Por favor agrega al menos una imagen al carrusel.");
+            return;
+        }
+        if (!category) {
+            setError("Por favor selecciona una categoría.");
             return;
         }
         setIsUploading(true); setError(null); setUploadSuccess(false);
         try {
-            const storageRef = getAppStorageRef(`processes/${Date.now()}_${file.name}`);
-            const snapshot = await uploadBytes(storageRef, file);
-            const downloadURL = await getDownloadURL(snapshot.ref);
+            let finalUrl = '';
+            let resolvedUrls: string[] = [];
 
-            await addDoc(getPublicCollection('processes'), {
+            if (contentType === 'single' && file) {
+                const storageRef = getAppStorageRef(`processes/${Date.now()}_${file.name}`);
+                const snapshot = await uploadBytes(storageRef, file);
+                finalUrl = await getDownloadURL(snapshot.ref);
+            } else if (contentType === 'carousel') {
+                for (const item of carouselItems) {
+                    if (item.file) {
+                        const storageRef = getAppStorageRef(`processes/carousel/${Date.now()}_${item.file.name}`);
+                        const snapshot = await uploadBytes(storageRef, item.file);
+                        const url = await getDownloadURL(snapshot.ref);
+                        resolvedUrls.push(url);
+                    } else if (item.url) {
+                        resolvedUrls.push(item.url);
+                    }
+                }
+            }
+
+            const docData: any = {
                 title,
                 description,
                 category,
                 lobId: selectedLob,
-                url: downloadURL,
-                type: file.type.startsWith('video') ? 'video' : file.type.startsWith('image') ? 'image' : 'audio',
-                mediaType: file.type.startsWith('image') ? 'image' : 'video',
-                filename: file.name,
                 createdAt: serverTimestamp(),
                 createdBy: auth.currentUser?.email
-            });
+            };
+
+            if (contentType === 'single') {
+                docData.url = finalUrl;
+                docData.type = file!.type.startsWith('video') ? 'video' : file!.type.startsWith('image') ? 'image' : 'audio';
+                docData.mediaType = file!.type.startsWith('image') ? 'image' : 'video';
+                docData.filename = file!.name;
+            } else {
+                docData.url = resolvedUrls[0] || ''; // Fallback for list display
+                docData.type = 'carousel';
+                docData.mediaType = 'carousel';
+                docData.mediaUrls = resolvedUrls;
+            }
+
+            await addDoc(getPublicCollection('processes'), docData);
 
             setUploadSuccess(true);
             setTitle(''); setDescription(''); setCategory(''); setFile(null);
+            setCarouselItems([]);
             if (globalLobFilter && globalLobFilter !== 'all') setSelectedLob(globalLobFilter);
             else setSelectedLob('');
             setTimeout(() => setUploadSuccess(false), 3000);
@@ -329,19 +416,143 @@ export default function AdminProcessUpload({ selectedLob: globalLobFilter }: { s
                     </div>
 
                     {!editingId && (
-                        <div>
-                            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3 ml-1">Asset Multimedia</label>
-                            <div className="border-4 border-dashed border-m3-surface-variant/30 dark:border-white/5 rounded-[32px] p-10 text-center hover:bg-m3-surface-variant/10 transition-all cursor-pointer relative group overflow-hidden">
-                                <input type="file" accept="video/*, image/png, image/jpeg, image/webp" onChange={handleFileChange} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
-                                <div className="flex flex-col items-center gap-3 text-gray-400 group-hover:text-m3-primary transition-all">
-                                    <div className="p-4 bg-m3-surface-variant/20 rounded-full group-hover:scale-110 transition-transform">
-                                        <Upload size={40} />
-                                    </div>
-                                    <span className="text-xs font-black uppercase tracking-widest">
-                                        {file ? file.name : "Soltar recurso aquí"}
-                                    </span>
+                        <div className="space-y-6">
+                            {/* Selector de Tipo de Medio */}
+                            <div>
+                                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Tipo de Medio</label>
+                                <div className="flex gap-4">
+                                    <button
+                                        type="button"
+                                        onClick={() => setContentType('single')}
+                                        className={`flex-1 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest border transition-all flex items-center justify-center gap-2 ${
+                                            contentType === 'single'
+                                                ? 'bg-[#4F46E5] text-white border-[#4F46E5] shadow-lg shadow-[#4F46E5]/20'
+                                                : 'bg-m3-surface-variant/10 text-m3-secondary dark:text-gray-300 border-m3-surface-variant/30 hover:bg-m3-surface-variant/25'
+                                        }`}
+                                    >
+                                        <Video size={16} />
+                                        Video / Imagen
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setContentType('carousel')}
+                                        className={`flex-1 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest border transition-all flex items-center justify-center gap-2 ${
+                                            contentType === 'carousel'
+                                                ? 'bg-[#4F46E5] text-white border-[#4F46E5] shadow-lg shadow-[#4F46E5]/20'
+                                                : 'bg-m3-surface-variant/10 text-m3-secondary dark:text-gray-300 border-m3-surface-variant/30 hover:bg-m3-surface-variant/25'
+                                        }`}
+                                    >
+                                        <Image size={16} />
+                                        Carrusel de Fotos
+                                    </button>
                                 </div>
                             </div>
+
+                            {contentType === 'carousel' ? (
+                                <div className="space-y-4">
+                                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Imágenes del Carrusel</label>
+                                    
+                                    {/* Inputs to Add Image */}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-m3-surface-variant/5 dark:bg-black/20 p-4 rounded-3xl border border-m3-surface-variant/30 dark:border-white/5">
+                                        {/* File Upload */}
+                                        <div className="relative border-2 border-dashed border-m3-surface-variant/30 dark:border-white/5 rounded-2xl p-6 text-center hover:bg-m3-surface-variant/10 transition-all cursor-pointer overflow-hidden flex flex-col items-center justify-center gap-2">
+                                            <input 
+                                                type="file" 
+                                                accept="image/png, image/jpeg, image/webp" 
+                                                onChange={handleAddCarouselFile} 
+                                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
+                                            />
+                                            <Upload className="text-gray-400" size={24} />
+                                            <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Subir Archivo</span>
+                                        </div>
+
+                                        {/* URL input */}
+                                        <div className="flex flex-col justify-center gap-2">
+                                            <span className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">O ingresar URL de imagen</span>
+                                            <div className="flex gap-2">
+                                                <input 
+                                                    type="text" 
+                                                    placeholder="https://ejemplo.com/imagen.png"
+                                                    value={imageUrlInput}
+                                                    onChange={e => setImageUrlInput(e.target.value)}
+                                                    className="flex-1 px-4 py-2.5 rounded-xl bg-white dark:bg-[#1A1C1E] border border-m3-surface-variant/30 dark:border-white/10 text-xs font-bold shadow-sm focus:ring-2 focus:ring-m3-primary outline-none transition-all dark:text-white"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={handleAddCarouselUrl}
+                                                    className="px-4 py-2 bg-[#4F46E5] text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-md flex items-center justify-center"
+                                                >
+                                                    <Plus size={16} />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* List of Carousel Items */}
+                                    {carouselItems.length > 0 && (
+                                        <div className="space-y-2 mt-4 max-h-60 overflow-y-auto pr-1">
+                                            {carouselItems.map((item, index) => (
+                                                <div key={item.id} className="flex items-center justify-between p-3 bg-white dark:bg-[#1A1C1E] border border-m3-surface-variant/20 rounded-2xl shadow-sm">
+                                                    <div className="flex items-center gap-3 truncate pr-4">
+                                                        <span className="text-[10px] font-black bg-blue-500/10 text-blue-500 px-2.5 py-1 rounded-lg shrink-0">
+                                                            {index + 1}
+                                                        </span>
+                                                        <span className="text-xs font-bold text-m3-secondary dark:text-gray-200 truncate">
+                                                            {item.name}
+                                                        </span>
+                                                    </div>
+
+                                                    <div className="flex items-center gap-1.5 shrink-0">
+                                                        {/* Move Up */}
+                                                        <button
+                                                            type="button"
+                                                            disabled={index === 0}
+                                                            onClick={() => moveItemUp(index)}
+                                                            className="p-2 text-gray-400 hover:text-m3-primary hover:bg-m3-surface-variant/10 rounded-xl transition-all disabled:opacity-30 disabled:pointer-events-none"
+                                                        >
+                                                            <ArrowUp size={14} />
+                                                        </button>
+
+                                                        {/* Move Down */}
+                                                        <button
+                                                            type="button"
+                                                            disabled={index === carouselItems.length - 1}
+                                                            onClick={() => moveItemDown(index)}
+                                                            className="p-2 text-gray-400 hover:text-m3-primary hover:bg-m3-surface-variant/10 rounded-xl transition-all disabled:opacity-30 disabled:pointer-events-none"
+                                                        >
+                                                            <ArrowDown size={14} />
+                                                        </button>
+
+                                                        {/* Remove */}
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => removeCarouselItem(item.id)}
+                                                            className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-xl transition-all"
+                                                        >
+                                                            <Trash2 size={14} />
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            ) : (
+                                <div>
+                                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3 ml-1">Asset Multimedia (Video o Imagen)</label>
+                                    <div className="border-4 border-dashed border-m3-surface-variant/30 dark:border-white/5 rounded-[32px] p-10 text-center hover:bg-m3-surface-variant/10 transition-all cursor-pointer relative group overflow-hidden">
+                                        <input type="file" accept="video/*, image/png, image/jpeg, image/webp" onChange={handleFileChange} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+                                        <div className="flex flex-col items-center gap-3 text-gray-400 group-hover:text-m3-primary transition-all">
+                                            <div className="p-4 bg-m3-surface-variant/20 rounded-full group-hover:scale-110 transition-transform">
+                                                <Upload size={40} />
+                                            </div>
+                                            <span className="text-xs font-black uppercase tracking-widest">
+                                                {file ? file.name : "Soltar recurso aquí"}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
 

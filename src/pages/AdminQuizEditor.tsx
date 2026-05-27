@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FileEdit, CheckCircle, AlertCircle, Loader2, Upload, Video, Mic, Building2 } from 'lucide-react';
+import { FileEdit, CheckCircle, AlertCircle, Loader2, Upload, Video, Mic, Building2, Trash2 } from 'lucide-react';
 import { auth, storage, db } from '../firebaseConfig';import { getPublicCollection, getPublicDoc, getAppStorageRef } from '../firebasePaths';
 
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -9,14 +9,20 @@ export default function AdminQuizEditor({ selectedLob: globalLobFilter }: { sele
     // Quiz State
     const [quizSituation, setQuizSituation]   = useState('');
     const [quizQuestion,  setQuizQuestion]    = useState('');
-    const [optionA,       setOptionA]         = useState('');
-    const [optionB,       setOptionB]         = useState('');
-    const [optionC,       setOptionC]         = useState('');
+    const [options,       setOptions]         = useState<string[]>(['', '']);
     const [correctOption, setCorrectOption]   = useState('A');
     const [explanation,   setExplanation]     = useState('');
     const [quizMedia, setQuizMedia] = useState<File | null>(null);
     const [lobs, setLobs] = useState<any[]>([]);
     const [selectedLob, setSelectedLob] = useState('');
+
+    // Pre-answer Support Guide
+    const [supportText, setSupportText] = useState('');
+    const [supportMediaUrl, setSupportMediaUrl] = useState('');
+
+    // Post-answer Feedback
+    const [feedbackText, setFeedbackText] = useState('');
+    const [feedbackMediaUrl, setFeedbackMediaUrl] = useState('');
 
     useEffect(() => {
         const fetchLobs = async () => {
@@ -39,7 +45,7 @@ export default function AdminQuizEditor({ selectedLob: globalLobFilter }: { sele
     const [uploadSuccess, setUploadSuccess]   = useState(false);
     const [error,         setError]           = useState<string | null>(null);
 
-    const hasOptions   = optionA.trim() !== '' || optionB.trim() !== '';
+    const hasOptions   = options.some(opt => opt.trim() !== '');
     const quizType     = hasOptions ? 'multiple-choice' : 'open-audio';
     const isVideoFile  = quizMedia?.type?.startsWith('video') ?? false;
 
@@ -53,8 +59,8 @@ export default function AdminQuizEditor({ selectedLob: globalLobFilter }: { sele
             setError('Por favor completa la Situación y la Pregunta.');
             return;
         }
-        if (hasOptions && (!optionA.trim() || !optionB.trim() || !correctOption)) {
-            setError('Para un quiz de opción múltiple, completa al menos las opciones A y B.');
+        if (hasOptions && (options[0].trim() === '' || options[1].trim() === '')) {
+            setError('Para un quiz de opción múltiple, completa al menos las dos primeras opciones.');
             return;
         }
 
@@ -75,12 +81,8 @@ export default function AdminQuizEditor({ selectedLob: globalLobFilter }: { sele
                 mediaType = quizMedia.type;
             }
 
-            const options = hasOptions
-                ? [
-                    { id: 'A', text: optionA },
-                    { id: 'B', text: optionB },
-                    ...(optionC.trim() ? [{ id: 'C', text: optionC }] : []),
-                  ]
+            const savedOptions = hasOptions
+                ? options.filter(opt => opt.trim() !== '')
                 : [];
 
             await addDoc(getPublicCollection('quizzes'), {
@@ -91,16 +93,22 @@ export default function AdminQuizEditor({ selectedLob: globalLobFilter }: { sele
                 mediaType,
                 audioUrl:      mediaUrl,
                 quizType,
-                options,
+                options:       savedOptions,
                 correctOption: hasOptions ? correctOption : null,
                 explanation,
+                supportText,
+                supportMediaUrl,
+                feedbackText:  feedbackText || explanation,
+                feedbackMediaUrl,
                 createdAt:     serverTimestamp(),
                 createdBy:     auth.currentUser?.email || 'admin',
             });
 
             setUploadSuccess(true);
-            setQuizSituation(''); setQuizQuestion(''); setOptionA(''); setOptionB(''); setOptionC('');
+            setQuizSituation(''); setQuizQuestion(''); setOptions(['', '']);
             setCorrectOption('A'); setExplanation(''); setQuizMedia(null);
+            setSupportText(''); setSupportMediaUrl('');
+            setFeedbackText(''); setFeedbackMediaUrl('');
             if (globalLobFilter && globalLobFilter !== 'all') setSelectedLob(globalLobFilter);
             else setSelectedLob('');
             setTimeout(() => setUploadSuccess(false), 3500);
@@ -199,25 +207,107 @@ export default function AdminQuizEditor({ selectedLob: globalLobFilter }: { sele
                     <div className="bg-gray-50/50 dark:bg-black/20 p-8 rounded-[40px] space-y-4 border border-m3-surface-variant/10">
                         <div className="flex items-center justify-between mb-4">
                             <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-2">Matriz de Opciones (Dejar vacío para Roleplay)</label>
+                            <button
+                                type="button"
+                                onClick={() => setOptions([...options, ''])}
+                                className="px-4 py-2 bg-white/10 backdrop-blur-md border border-white/20 text-m3-primary rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-m3-primary hover:text-white transition-all shadow-sm cursor-pointer"
+                            >
+                                ➕ Añadir Opción
+                            </button>
                         </div>
-                        {(['A', 'B', 'C'] as const).map((opt) => (
-                            <div key={opt} className="flex gap-4 items-center group/opt">
-                                <div className="w-12 h-12 rounded-2xl bg-white dark:bg-[#2C2C2C] flex items-center justify-center font-black text-m3-primary shadow-sm border border-m3-surface-variant/20">{opt}</div>
-                                <input
-                                    type="text" value={opt === 'A' ? optionA : opt === 'B' ? optionB : optionC}
-                                    onChange={(e) => {
-                                        if (opt === 'A') setOptionA(e.target.value);
-                                        if (opt === 'B') setOptionB(e.target.value);
-                                        if (opt === 'C') setOptionC(e.target.value);
-                                    }}
-                                    placeholder={`Opción estratégica ${opt}`}
-                                    className="flex-1 px-6 py-3.5 rounded-2xl bg-white dark:bg-[#2C2C2C] border border-m3-surface-variant/20 font-bold text-sm outline-none focus:ring-2 focus:ring-m3-primary/50 transition-all dark:text-white shadow-sm"
+                        {options.map((optVal, index) => {
+                            const letter = String.fromCharCode(65 + index);
+                            return (
+                                <div key={index} className="flex gap-4 items-center group/opt">
+                                    <div className="w-12 h-12 rounded-2xl bg-white dark:bg-[#2C2C2C] flex items-center justify-center font-black text-m3-primary shadow-sm border border-m3-surface-variant/20 shrink-0">{letter}</div>
+                                    <input
+                                        type="text" 
+                                        value={optVal}
+                                        onChange={(e) => {
+                                            const updated = [...options];
+                                            updated[index] = e.target.value;
+                                            setOptions(updated);
+                                        }}
+                                        placeholder={`Opción estratégica ${letter}`}
+                                        className="flex-1 px-6 py-3.5 rounded-2xl bg-white dark:bg-[#2C2C2C] border border-m3-surface-variant/20 font-bold text-sm outline-none focus:ring-2 focus:ring-m3-primary/50 transition-all dark:text-white shadow-sm"
+                                    />
+                                    {hasOptions && (
+                                        <div className="flex items-center gap-3 shrink-0">
+                                            <input 
+                                                type="radio" 
+                                                name="correctOption" 
+                                                checked={correctOption === letter} 
+                                                onChange={() => setCorrectOption(letter)} 
+                                                className="w-6 h-6 accent-m3-primary cursor-pointer shadow-sm animate-pulse" 
+                                            />
+                                            {options.length > 2 && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        const updated = options.filter((_, idx) => idx !== index);
+                                                        setOptions(updated);
+                                                        if (correctOption === letter) {
+                                                            setCorrectOption('A');
+                                                        }
+                                                    }}
+                                                    className="p-2.5 text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-all cursor-pointer"
+                                                >
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
+
+                    {/* Sección de Material de Apoyo */}
+                    <div className="bg-indigo-50/30 dark:bg-indigo-900/5 p-8 rounded-[40px] border border-indigo-100 dark:border-indigo-900/20 space-y-6">
+                        <h4 className="text-[10px] font-black text-indigo-500 uppercase tracking-widest ml-2">Material de Apoyo (Pre-Respuesta)</h4>
+                        <div className="grid grid-cols-1 gap-6">
+                            <div>
+                                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-2">Texto de Apoyo / Instrucciones</label>
+                                <textarea
+                                    value={supportText} onChange={(e) => setSupportText(e.target.value)}
+                                    placeholder="Guía, políticas o notas operativas para el agente..."
+                                    rows={2}
+                                    className="w-full px-6 py-4 rounded-3xl bg-white dark:bg-black/20 border border-indigo-100 dark:border-white/5 font-bold text-sm focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all dark:text-white resize-none"
                                 />
-                                {hasOptions && (
-                                    <input type="radio" name="correctOption" checked={correctOption === opt} onChange={() => setCorrectOption(opt)} className="w-6 h-6 accent-m3-primary cursor-pointer shadow-sm" />
-                                )}
                             </div>
-                        ))}
+                            <div>
+                                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-2">URL de Media de Apoyo (Imagen o Video)</label>
+                                <input
+                                    type="text" value={supportMediaUrl} onChange={(e) => setSupportMediaUrl(e.target.value)}
+                                    placeholder="https://ejemplo.com/soporte.png"
+                                    className="w-full px-6 py-4 rounded-3xl bg-white dark:bg-black/20 border border-indigo-100 dark:border-white/5 font-bold text-sm focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all dark:text-white"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Sección de Retroalimentación Correctiva */}
+                    <div className="bg-emerald-50/30 dark:bg-emerald-900/5 p-8 rounded-[40px] border border-emerald-100 dark:border-emerald-900/20 space-y-6">
+                        <h4 className="text-[10px] font-black text-emerald-500 uppercase tracking-widest ml-2">Retroalimentación Correctiva (Post-Respuesta)</h4>
+                        <div className="grid grid-cols-1 gap-6">
+                            <div>
+                                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-2">Justificación Correctiva (feedbackText)</label>
+                                <textarea
+                                    value={feedbackText} onChange={(e) => setFeedbackText(e.target.value)}
+                                    placeholder="Explicación detallada de por qué esa opción es correcta y qué PDA de Tono, Voz o Proceso se debe usar..."
+                                    rows={2}
+                                    className="w-full px-6 py-4 rounded-3xl bg-white dark:bg-black/20 border border-emerald-100 dark:border-white/5 font-bold text-sm focus:ring-4 focus:ring-emerald-500/10 outline-none transition-all dark:text-white resize-none"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-2">URL de Media Correctiva (Video o Imagen)</label>
+                                <input
+                                    type="text" value={feedbackMediaUrl} onChange={(e) => setFeedbackMediaUrl(e.target.value)}
+                                    placeholder="https://ejemplo.com/feedback-video.mp4"
+                                    className="w-full px-6 py-4 rounded-3xl bg-white dark:bg-black/20 border border-emerald-100 dark:border-white/5 font-bold text-sm focus:ring-4 focus:ring-emerald-500/10 outline-none transition-all dark:text-white"
+                                />
+                            </div>
+                        </div>
                     </div>
 
                     <div>
