@@ -8,7 +8,7 @@ import { getPublicCollection, getPublicDoc, getUserDoc, fetchAllUsersSubcollecti
 import {
   ChevronRight, Search, X, Loader2, TrendingUp,
   CheckCircle, XCircle, RefreshCw, User, Edit3, Save, Clock, Building2, Play, Video as VideoIcon, MessageCircle,
-  Film, CheckSquare, Activity
+  Mail, Film, CheckSquare, Activity
 } from 'lucide-react';
 import { updateAgentSuggestion } from '../api/sheetService';
 
@@ -28,9 +28,17 @@ const getEmail = (a: Agent) => a.correo ?? a.Correo ?? a.email ?? a.Email ?? '';
 const getName  = (a: Agent) => a.agente ?? a.Agente ?? a.nombre ?? a.name ?? '';
 const initials = (a: Agent) => getName(a).substring(0, 2).toUpperCase() || '??';
 
-const getMessageLink = (a: Agent): string | null => {
+const getWhatsAppUrl = (a: Agent): string | null => {
   const link = a.mensaje_diario ?? a.Mensaje_Diario ?? a.am ?? a.AM;
-  if (typeof link === 'string' && (link.includes('http') || link.includes('wa.me'))) {
+  if (typeof link === 'string' && (link.includes('http') || link.includes('https') || link.includes('wa.me'))) {
+    return link.trim();
+  }
+  return null;
+};
+
+const getEmailUrl = (a: Agent): string | null => {
+  const link = a.enviar_correo ?? a.Enviar_Correo ?? a.an ?? a.AN;
+  if (typeof link === 'string' && link.trim() !== '') {
     return link.trim();
   }
   return null;
@@ -114,10 +122,12 @@ function AgentTable({
   selected: Agent | null; onSelect: (a: Agent) => void;
 }) {
   const metricCols = columns.filter(c => {
-    const cl = c.toLowerCase();
+    const cl = c.toLowerCase().trim().replace(/_/g, ' ').replace(/\s+/g, ' ');
     return !EMAIL_COLS.has(c) && 
            cl !== 'agente' && cl !== 'nombre' && cl !== 'name' &&
-           cl !== 'mensaje_diario' && cl !== 'am';
+           cl !== 'mensaje diario' && cl !== 'mensaje_diario' && cl !== 'am' &&
+           cl !== 'enviar correo' && cl !== 'enviar_correo' && cl !== 'an' &&
+           cl !== 'tl' && cl !== 'tls' && cl !== "tl's";
   });
 
   return (
@@ -131,13 +141,13 @@ function AgentTable({
       <div className="rounded-3xl border border-white/5 bg-[#0A0A0A]/80 backdrop-blur-2xl shadow-lg mt-4 w-full overflow-x-auto custom-scrollbar pb-4 max-h-[420px] p-2">
         <table className="w-full table-fixed text-left border-collapse min-w-[800px]">
           <colgroup>
-            <col className="w-[120px] sm:w-[180px] md:w-[250px]" />
+            <col className="w-[240px] sm:w-[260px]" />
             {metricCols.map(col => <col key={col} className="w-[90px]" />)}
             <col className="w-[40px]" />
           </colgroup>
           <thead className="bg-[#111]/80 sticky top-0 backdrop-blur-md z-10 border-b border-white/10">
             <tr>
-              <th className="px-4 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest text-left sticky left-0 bg-[#111] z-20 min-w-[200px] shadow-[4px_0_10px_rgba(0,0,0,0.3)]">
+              <th className="px-4 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest text-left sticky left-0 bg-[#111] z-20 min-w-[240px] shadow-[4px_0_10px_rgba(0,0,0,0.3)]">
                 Agente / Correo
               </th>
               {metricCols.map(col => (
@@ -155,46 +165,60 @@ function AgentTable({
                   No se encontraron resultados en esta categoría.
                 </td>
               </tr>
-            ) : agents.map((agent, idx) => (
-              <tr
-                key={getEmail(agent) || idx}
-                onClick={() => onSelect(agent)}
-                className={`group hover:bg-white/5 transition-all cursor-pointer
-                  ${selected && getEmail(selected) === getEmail(agent) ? 'bg-white/10' : ''}`}
-              >
-                <td className="px-4 py-4 sticky left-0 bg-[#0A0A0A] z-10 min-w-[200px] shadow-[4px_0_10px_rgba(0,0,0,0.3)] group-hover:bg-[#111] transition-colors">
-                  <div className="flex items-center gap-2 w-full">
-                    <div className="w-8 h-8 rounded-xl bg-blue-900/30 border border-blue-500/20 flex items-center justify-center text-blue-400 font-black text-xs flex-shrink-0 transition-transform group-hover:scale-110">
+            ) : agents.map((agent, idx) => {
+              const wsLink = getWhatsAppUrl(agent);
+              const mailLink = getEmailUrl(agent);
+              return (
+                <tr
+                  key={getEmail(agent) || idx}
+                  onClick={() => onSelect(agent)}
+                  className={`group hover:bg-white/5 transition-all cursor-pointer
+                    ${selected && getEmail(selected) === getEmail(agent) ? 'bg-white/10' : ''}`}
+                >
+                  <td className="flex items-center gap-1.5 min-w-[240px] sticky left-0 bg-[#0A0A0A] z-10 px-4 py-4 shadow-[4px_0_10px_rgba(0,0,0,0.3)] group-hover:bg-[#111] transition-colors">
+                    <div className="w-8 h-8 rounded-xl bg-blue-900/30 border border-blue-500/20 flex items-center justify-center text-blue-400 font-black text-xs shrink-0 transition-transform group-hover:scale-110">
                       {initials(agent)}
                     </div>
                     <div className="min-w-0 overflow-hidden flex-1 flex flex-col justify-center">
-                        <p className="text-xs font-bold text-gray-200 leading-tight truncate block" title={getName(agent)}>{getName(agent)}</p>
-                        <p className="text-[10px] text-gray-500 font-medium truncate block max-w-[150px]" title={getEmail(agent)}>{getEmail(agent)}</p>
+                      <p className="text-xs font-bold text-gray-200 leading-tight truncate block" title={getName(agent)}>{getName(agent)}</p>
+                      <p className="text-[10px] text-gray-500 font-medium max-w-[125px] sm:max-w-[150px] truncate block" title={getEmail(agent)}>{getEmail(agent)}</p>
                     </div>
-                    {getMessageLink(agent) && (
+                    {wsLink && (
                       <button 
                         onClick={(e) => {
                           e.stopPropagation();
-                          window.open(getMessageLink(agent)!, '_blank', 'noopener,noreferrer');
+                          window.open(wsLink, '_blank');
                         }}
-                        className="p-2 shrink-0 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500 hover:text-white rounded-full transition-all border border-emerald-500/20 shadow-[0_0_15px_rgba(16,185,129,0.2)]"
-                        title="Enviar Mensaje Diario (WhatsApp)"
+                        className="shrink-0 p-2 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500 hover:text-white rounded-full transition-all border border-emerald-500/20 shadow-[0_0_12px_rgba(16,185,129,0.2)]"
+                        title="WhatsApp (Mensaje Diario)"
                       >
-                        <MessageCircle size={14} />
+                        <MessageCircle size={13} />
                       </button>
                     )}
-                  </div>
-                </td>
-                {metricCols.map(col => (
-                  <td key={col} className="px-2 py-4 text-right text-xs font-bold text-gray-300 min-w-[80px] whitespace-nowrap">
-                    {formatCellValue(col, agent[col])}
+                    {mailLink && (
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          window.open(mailLink, '_blank');
+                        }}
+                        className="shrink-0 p-2 bg-blue-500/10 text-blue-400 hover:bg-blue-500 hover:text-white rounded-full transition-all border border-blue-500/20 shadow-[0_0_12px_rgba(59,130,246,0.2)]"
+                        title="Enviar Correo"
+                      >
+                        <Mail size={13} />
+                      </button>
+                    )}
                   </td>
-                ))}
-                <td className="px-4 py-4 text-right">
-                  <ChevronRight size={14} className="text-gray-500 group-hover:text-blue-400 transition-colors" />
-                </td>
-              </tr>
-            ))}
+                  {metricCols.map(col => (
+                    <td key={col} className="px-2 py-4 text-right text-xs font-bold text-gray-300 min-w-[80px] whitespace-nowrap">
+                      {formatCellValue(col, agent[col])}
+                    </td>
+                  ))}
+                  <td className="px-4 py-4 text-right">
+                    <ChevronRight size={14} className="text-gray-500 group-hover:text-blue-400 transition-colors" />
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
